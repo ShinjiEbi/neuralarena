@@ -16,7 +16,10 @@
   --warn:#ff3250;--gold:#f0c040;--radius:8px;
 }
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;width:100%;height:100%;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+html,body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;width:100%;height:100%;overflow:hidden;user-select:none;-webkit-user-select:none}
+
+#lab-screen,#community-screen,#menu-screen{touch-action:pan-y;-webkit-overflow-scrolling:touch}
+#game-screen{touch-action:none}
 
 .screen{position:fixed;top:0;left:0;right:0;bottom:0;display:none;flex-direction:column;z-index:10}
 .screen.active{display:flex}
@@ -141,6 +144,8 @@ canvas#game{display:block;width:100%;height:100%;position:absolute;top:0;left:0}
 
 body.in-game #nav{display:none}
 body.in-game #touch-pad{display:flex}
+.hud-quit{width:32px;height:32px;border-radius:50%;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);display:flex;align-items:center;justify-content:center;font-size:14px;color:rgba(255,255,255,0.35);cursor:pointer;-webkit-tap-highlight-color:transparent;flex-shrink:0;transition:all 0.15s}
+.hud-quit:active{background:rgba(255,50,80,0.15);border-color:rgba(255,50,80,0.3);color:var(--warn)}
 
 #toast{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 24px;font-size:11px;color:var(--bright);z-index:200;opacity:0;pointer-events:none;transition:opacity 0.3s;text-align:center;max-width:300px}
 #toast.show{opacity:1}
@@ -172,6 +177,7 @@ body.in-game #touch-pad{display:flex}
 <div id="game-screen" class="screen">
   <canvas id="game"></canvas>
   <div id="game-hud">
+    <button class="hud-quit" onclick="quitGame()" title="Quitter">✕</button>
     <div class="hud-score hud-player">JOU <span class="num" id="h-pscore">0</span></div>
     <div class="hud-center">GEN <span class="gen-val" id="h-gen">1</span><br><span id="h-round">Round 1</span></div>
     <div class="hud-score hud-ai"><span class="num" id="h-ascore">0</span> IA</div>
@@ -197,7 +203,10 @@ body.in-game #touch-pad{display:flex}
   <div id="game-overlay" class="hidden">
     <h2 id="ov-title"></h2>
     <div class="ov-sub" id="ov-sub"></div>
-    <button class="btn small" onclick="nextRound()">CONTINUER</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn small" onclick="quitGame()">✕ Quitter</button>
+      <button class="btn small primary" onclick="nextRound()">▶ CONTINUER</button>
+    </div>
   </div>
 </div>
 
@@ -977,6 +986,15 @@ function showScreen(name){
 }
 
 function startArena(){showScreen('game');resizeGame();sessionScore={player:0,ai:0,round:1};document.getElementById('h-pscore').textContent='0';document.getElementById('h-ascore').textContent='0';document.getElementById('h-gen').textContent=generation;document.getElementById('h-round').textContent='Round 1';initRound();gameActive=true;requestAnimationFrame(gameLoop)}
+
+async function quitGame(){
+  gameActive=false;
+  // Save progress before quitting
+  await saveCurrent();
+  await store.setConfig('totalWins',totalWins);
+  await store.setConfig('totalPlayed',totalPlayed);
+  showScreen('menu');
+}
 window.addEventListener('resize',()=>{if(gameActive)resizeGame()});
 
 // ================================================================
@@ -1039,7 +1057,8 @@ if(dropZone){dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZon
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),2500)}
 
 if(!CanvasRenderingContext2D.prototype.roundRect){CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){if(typeof r==='number')r=[r,r,r,r];this.moveTo(x+r[0],y);this.lineTo(x+w-r[1],y);this.quadraticCurveTo(x+w,y,x+w,y+r[1]);this.lineTo(x+w,y+h-r[2]);this.quadraticCurveTo(x+w,y+h,x+w-r[2],y+h);this.lineTo(x+r[3],y+h);this.quadraticCurveTo(x,y+h,x,y+h-r[3]);this.lineTo(x,y+r[0]);this.quadraticCurveTo(x,y,x+r[0],y);this.closePath()}}
-document.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
+// Block scroll only on game canvas and joysticks
+document.getElementById('game').addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
 
 // ================================================================
 //  INIT
