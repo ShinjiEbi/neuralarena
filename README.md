@@ -3,6 +3,14 @@
 **PWA de combat IA évolutive à entraînement distribué**
 
 > Joue contre une intelligence artificielle neuronale, entraîne-la par neuroévolution à chaque partie, et partage les meilleurs cerveaux avec la communauté via GitHub.
+
+<p align="center">
+  <img src="https://img.shields.io/badge/PWA-installable-3bf0a0?style=flat-square" alt="PWA">
+  <img src="https://img.shields.io/badge/IA-neuroévolution-00b4ff?style=flat-square" alt="AI">
+  <img src="https://img.shields.io/badge/mobile-ready-f0c040?style=flat-square" alt="Mobile">
+  <img src="https://img.shields.io/badge/offline-capable-ff3250?style=flat-square" alt="Offline">
+</p>
+
 ---
 
 ## 🎮 Concept
@@ -16,6 +24,7 @@ Neural Arena est une plateforme de jeu où les humains entraînent collectivemen
 5. **L'espèce IA progresse** collectivement, comme un Folding@home du gaming
 
 Chaque joueur est une "île" d'évolution. Les meilleurs cerveaux migrent entre les îles via GitHub — c'est du **island model** de neuroévolution distribuée.
+
 ---
 
 ## 🕹️ Jeux disponibles
@@ -158,9 +167,9 @@ Les cerveaux sont stockés dans **IndexedDB** sur l'appareil du joueur :
 Joueur A (mobile)          GitHub Repo             Joueur B (mobile)
 ┌──────────────┐        ┌──────────────┐        ┌──────────────┐
 │  Joue contre │        │  /brains/    │        │  Joue contre │
-│  l'IA locale │───────>│  a_gen50.json│<───────│  l'IA locale │
-│              │  PUSH  │  b_gen80.json│  PULL  │              │
-│  Évolue le   │        │  c_gen120.json        │  Évolue le   │
+│  l'IA locale │───────>│   a_gen50.json│<───────│  l'IA locale │
+│              │  PUSH  │   b_gen80.json│  PULL  │              │
+│  Évolue le   │        │   c_gen120.json        │  Évolue le   │
 │  cerveau     │<───────│              │───────>│  cerveau     │
 │              │  PULL  │              │  PUSH  │              │
 └──────────────┘        └──────────────┘        └──────────────┘
