@@ -158,9 +158,9 @@ Les cerveaux sont stockés dans **IndexedDB** sur l'appareil du joueur :
 Joueur A (mobile)          GitHub Repo             Joueur B (mobile)
 ┌──────────────┐        ┌──────────────┐        ┌──────────────┐
 │  Joue contre │        │  /brains/    │        │  Joue contre │
-│  l'IA locale │───────>│   a_gen50.json│<───────│  l'IA locale │
-│              │  PUSH  │   b_gen80.json│  PULL  │              │
-│  Évolue le   │        │   c_gen120.json        │  Évolue le   │
+│  l'IA locale │───────>│  a_gen50.json│<───────│  l'IA locale │
+│              │  PUSH  │  b_gen80.json│  PULL  │              │
+│  Évolue le   │        │  c_gen120.json        │  Évolue le   │
 │  cerveau     │<───────│              │───────>│  cerveau     │
 │              │  PULL  │              │  PUSH  │              │
 └──────────────┘        └──────────────┘        └──────────────┘
