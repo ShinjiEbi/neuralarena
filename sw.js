@@ -1,4 +1,4 @@
-const CACHE_NAME = 'neuralarena-v2';
+const CACHE_NAME = 'neuralarena-v3';
 const ASSETS = [
   '/',
   '/index.html',
