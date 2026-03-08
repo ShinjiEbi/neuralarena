@@ -166,16 +166,17 @@ body.in-game #touch-pad{display:flex}
 .lobby-actions{display:flex;gap:8px;margin-top:16px;padding:0 16px;width:100%;max-width:380px}
 
 /* ── MULTI HUD ───────────────────────────────────── */
-#multi-hud{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:center;gap:8px;padding:6px 10px;z-index:15;background:rgba(6,8,16,0.85);backdrop-filter:blur(6px);border-bottom:1px solid var(--border);flex-wrap:wrap}
-.mhud-player{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:600;letter-spacing:1px;padding:3px 8px;border-radius:4px;border:1px solid transparent}
+#multi-hud{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;gap:4px;padding:4px 8px;z-index:15;background:rgba(6,8,16,0.88);backdrop-filter:blur(6px);border-bottom:1px solid var(--border);flex-wrap:nowrap;height:36px;overflow:hidden}
+#mhud-players{display:flex;gap:4px;flex:1;overflow:hidden}
+.mhud-player{display:flex;align-items:center;gap:3px;font-size:9px;font-weight:600;letter-spacing:0.5px;padding:2px 6px;border-radius:4px;border:1px solid transparent;white-space:nowrap}
 .mhud-player.alive{border-color:rgba(255,255,255,0.1)}
-.mhud-player.dead{opacity:0.3}
-.mhud-num{font-family:'Anybody',sans-serif;font-size:15px;font-weight:900}
-.mhud-label{font-size:8px;color:#555;letter-spacing:1px}
-.mhud-quit{width:28px;height:28px;border-radius:50%;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);display:flex;align-items:center;justify-content:center;font-size:12px;color:rgba(255,255,255,0.3);cursor:pointer;-webkit-tap-highlight-color:transparent;flex-shrink:0}
+.mhud-player.dead{opacity:0.25}
+.mhud-num{font-family:'Anybody',sans-serif;font-size:13px;font-weight:900}
+.mhud-label{font-size:7px;color:#555;letter-spacing:0.5px}
+.mhud-quit{width:24px;height:24px;border-radius:50%;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);display:flex;align-items:center;justify-content:center;font-size:11px;color:rgba(255,255,255,0.3);cursor:pointer;-webkit-tap-highlight-color:transparent;flex-shrink:0}
 .mhud-quit:active{background:rgba(255,50,80,0.15);color:var(--warn)}
-#mhud-center{font-size:8px;color:#333;letter-spacing:2px;text-align:center;margin:0 6px}
-#mhud-center .gen-val{color:var(--accent);font-size:10px}
+#mhud-center{font-size:8px;color:#333;letter-spacing:1px;text-align:center;flex-shrink:0}
+#mhud-center .gen-val{color:var(--accent);font-size:9px}
 
 /* ── FREE CAMERA ─────────────────────────────────── */
 #cam-hint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:8px;color:#2a2d3a;letter-spacing:2px;z-index:15;pointer-events:none;text-align:center}
@@ -1008,7 +1009,16 @@ class Ent {
     if(this.cd>0)this.cd--;if(this.ht>0)this.ht--;
     for(let i=this.arr.length-1;i>=0;i--){const a=this.arr[i];if(a.st){a.life--;if(a.life<=0)this.arr.splice(i,1);continue}a.vy+=AGRAV;a.vx*=ADRAG;a.vy*=ADRAG;a.x+=a.vx;a.y+=a.vy;a.life--;a.tr.push({x:a.x,y:a.y});if(a.tr.length>8)a.tr.shift();if(a.x<-30||a.x>WW+30||a.y<-60||a.y>WH+30||a.life<=0){this.arr.splice(i,1);continue}for(const p of platforms)if(a.x>p.x&&a.x<p.x+p.w&&a.y>p.y&&a.y<p.y+p.h){a.st=true;a.vx=0;a.vy=0;a.life=Math.min(a.life,50);break}}
   }
-  shoot(){if(this.cd>0||this.arr.length>=MAXA)return;const d=this.face;this.arr.push({x:this.x+this.w/2+d*14,y:this.y+10,vx:d*Math.cos(this.aim)*ASPD+this.vx*0.3,vy:Math.sin(this.aim)*ASPD+this.vy*0.2,life:220,st:false,tr:[]});this.cd=COOLDOWN;this.vx-=d*0.9}
+  shoot(){
+    if(this.cd>0||this.arr.length>=MAXA)return;
+    // 360°: direction entièrement pilotée par aim (angle absolu)
+    const ax=Math.cos(this.aim),ay=Math.sin(this.aim);
+    const cx=this.x+this.w/2,cy=this.y+this.h/2;
+    this.arr.push({x:cx+ax*16,y:cy+ay*16,vx:ax*ASPD+this.vx*0.3,vy:ay*ASPD+this.vy*0.2,life:220,st:false,tr:[]});
+    this.cd=COOLDOWN;
+    // Recul
+    this.vx-=ax*0.9;
+  }
   draw(ctx){
     const cx=this.x+this.w/2,cy=this.y+this.h/2,d=this.face;ctx.save();
     if(this.ht>0)ctx.globalAlpha=0.4+Math.sin(this.ht*0.5)*0.3;
@@ -1016,9 +1026,17 @@ class Ent {
     const la=this.gnd?Math.sin(Date.now()*0.012+(this.ai?99:0))*(Math.abs(this.vx)>0.5?5:0):4;ctx.strokeStyle=this.col;ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(cx-4,this.y+this.h-5);ctx.lineTo(cx-6,this.y+this.h+la);ctx.moveTo(cx+4,this.y+this.h-5);ctx.lineTo(cx+6,this.y+this.h-la);ctx.stroke();
     ctx.fillStyle=this.col;ctx.beginPath();ctx.roundRect(this.x+3,this.y+10,this.w-6,this.h-14,4);ctx.fill();
     ctx.beginPath();ctx.arc(cx,this.y+7,8,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(cx+d*3.5,this.y+6,2.2,0,Math.PI*2);ctx.fill();ctx.fillStyle='#111';ctx.beginPath();ctx.arc(cx+d*4,this.y+6,1.1,0,Math.PI*2);ctx.fill();
-    const bx=cx+d*12,by=this.y+12;ctx.save();ctx.translate(bx,by);ctx.rotate(this.aim*d);ctx.strokeStyle='#c8a050';ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(0,0,12,-1.2,1.2);ctx.stroke();ctx.strokeStyle='rgba(255,255,255,0.35)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(Math.cos(-1.2)*12,Math.sin(-1.2)*12);ctx.lineTo(0,0);ctx.lineTo(Math.cos(1.2)*12,Math.sin(1.2)*12);ctx.stroke();ctx.restore();
-    if(!this.ai){ctx.strokeStyle='rgba(0,180,255,0.1)';ctx.lineWidth=1;ctx.setLineDash([5,7]);ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+d*Math.cos(this.aim)*70,by+Math.sin(this.aim)*70);ctx.stroke();ctx.setLineDash([])}
+    // Oeil suit la direction de visée
+    const ex=Math.cos(this.aim)*3.5,ey=Math.sin(this.aim)*1.5;
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(cx+ex,this.y+6+ey,2.2,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#111';ctx.beginPath();ctx.arc(cx+ex*1.1,this.y+6+ey*1.1,1.1,0,Math.PI*2);ctx.fill();
+    // Arc positionné à 360° autour du corps
+    const bx=cx+Math.cos(this.aim)*14,by=cy+Math.sin(this.aim)*10;
+    ctx.save();ctx.translate(bx,by);ctx.rotate(this.aim);
+    ctx.strokeStyle='#c8a050';ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(0,0,12,-1.2,1.2);ctx.stroke();
+    ctx.strokeStyle='rgba(255,255,255,0.35)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(Math.cos(-1.2)*12,Math.sin(-1.2)*12);ctx.lineTo(0,0);ctx.lineTo(Math.cos(1.2)*12,Math.sin(1.2)*12);ctx.stroke();ctx.restore();
+    // Ligne de visée (joueur uniquement)
+    if(!this.ai){ctx.strokeStyle='rgba(0,180,255,0.1)';ctx.lineWidth=1;ctx.setLineDash([5,7]);ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+Math.cos(this.aim)*80,by+Math.sin(this.aim)*80);ctx.stroke();ctx.setLineDash([])}
     ctx.restore();
     for(const a of this.arr){for(let t=0;t<a.tr.length;t++){ctx.fillStyle=this.ai?`rgba(255,50,80,${(t/a.tr.length)*0.25})`:`rgba(0,180,255,${(t/a.tr.length)*0.25})`;ctx.beginPath();ctx.arc(a.tr[t].x,a.tr[t].y,1.5,0,Math.PI*2);ctx.fill()}const ang=Math.atan2(a.vy||0.01,a.vx||0.01);ctx.save();ctx.translate(a.x,a.y);ctx.rotate(ang);ctx.strokeStyle=a.st?'#665533':(this.ai?'#ff5566':'#55aaff');ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-14,0);ctx.lineTo(7,0);ctx.stroke();ctx.fillStyle=a.st?'#998866':'#fff';ctx.beginPath();ctx.moveTo(9,0);ctx.lineTo(5,-3);ctx.lineTo(5,3);ctx.closePath();ctx.fill();ctx.strokeStyle=this.ai?'rgba(255,80,100,0.5)':'rgba(80,150,255,0.5)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(-12,0);ctx.lineTo(-15,-3);ctx.moveTo(-12,0);ctx.lineTo(-15,3);ctx.stroke();ctx.restore()}
   }
@@ -1143,8 +1161,8 @@ function playerInput(){
   if(keys['KeyA']||keys['ArrowLeft']){P.vx-=MSPD*0.4;P.face=-1}
   if(keys['KeyD']||keys['ArrowRight']){P.vx+=MSPD*0.4;P.face=1}
   if((keys['KeyW']||keys['KeyZ'])&&P.gnd)P.vy=JUMP;
-  if(keys['ArrowUp'])P.aim=Math.max(P.aim-0.05,-Math.PI/2.2);
-  if(keys['ArrowDown'])P.aim=Math.min(P.aim+0.05,Math.PI/2.5);
+  if(keys['ArrowUp'])P.aim-=0.05;
+  if(keys['ArrowDown'])P.aim+=0.05;
   if(keys['Space'])P.shoot();
 
   // === Left joystick: horizontal movement ===
@@ -1169,8 +1187,8 @@ function playerInput(){
     const mag = Math.sqrt(rx*rx + ry*ry);
     if(mag > DEADZONE){
       // Calculate aim angle from joystick direction
-      const aimAngle = Math.atan2(ry, Math.abs(rx));
-      P.aim = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.5, aimAngle));
+      const aimAngle = Math.atan2(ry, rx);
+      P.aim = aimAngle;
       // Face direction of aim
       if(Math.abs(rx) > 0.15) P.face = rx > 0 ? 1 : -1;
       // Auto-fire when stick is pushed enough
@@ -1186,7 +1204,8 @@ function aiInputsFor(me, target, allArrows){
   // allArrows: flat array of arrows from all enemies
   const rX=(target.x-me.x)/vW,rY=(target.y-me.y)/vH;
   const mVx=me.vx/8,mVy=me.vy/15,eVx=target.vx/8,eVy=target.vy/15;
-  const aim=me.aim/(Math.PI/2),onG=me.gnd?1:0;
+  const aim=me.aim/Math.PI; // normalisé -1..1 pour 360°
+  const onG=me.gnd?1:0;
   let nAX=0,nAY=0,nVX=0,nVY=0,mD=Infinity;
   for(const a of allArrows){
     if(a.st)continue;
@@ -1196,20 +1215,31 @@ function aiInputsFor(me, target, allArrows){
   return[rX,rY,mVx,mVy,eVx,eVy,aim,onG,nAX,nAY,nVX,nVY,me.x/WW,me.y/WH,Math.min(roundTimer/(60*30),1),Math.random()*0.15-0.075];
 }
 
-function aiProcessFor(out, ent){
+function aiProcessFor(out, ent, target){
   if(out[0]>0.5){ent.vx-=MSPD*0.4;ent.face=-1}
   if(out[1]>0.5){ent.vx+=MSPD*0.4;ent.face=1}
   if(out[2]>0.5&&ent.gnd)ent.vy=JUMP;
-  if(out[3]>0.5)ent.aim=Math.max(ent.aim-0.05,-Math.PI/2.2);
-  if(out[4]>0.5)ent.aim=Math.min(ent.aim+0.05,Math.PI/2.5);
+  // Visée : tourner vers la cible si on a une cible, sinon utiliser outputs
+  if(target){
+    const dx=target.x+target.w/2-(ent.x+ent.w/2);
+    const dy=target.y+target.h/2-(ent.y+ent.h/2);
+    const targetAim=Math.atan2(dy,dx);
+    // Interpolation vers l'angle cible
+    let diff=targetAim-ent.aim;
+    while(diff>Math.PI)diff-=Math.PI*2;
+    while(diff<-Math.PI)diff+=Math.PI*2;
+    ent.aim+=diff*0.12;
+    ent.face=dx>0?1:-1;
+  } else {
+    if(out[3]>0.5)ent.aim-=0.08;
+    if(out[4]>0.5)ent.aim+=0.08;
+  }
   if(out[5]>0.6)ent.shoot();
-  // Always face the nearest alive enemy
-  ent.face=ent.x<800?1:-1; // default, will be overridden below if target known
 }
 
 // Legacy wrappers for classic 1v1 mode
 function aiInputs(){return aiInputsFor(A,P,P.arr)}
-function aiProcess(out){aiProcessFor(out,A);A.face=P.x<A.x?-1:1}
+function aiProcess(out){aiProcessFor(out,A,P)}
 
 // ================================================================
 //  GAME LOGIC
@@ -1558,8 +1588,7 @@ function gameLoop(){
             const enemyArrows=players.filter((_,j)=>j!==i).flatMap(p=>p.arr);
             const inp=aiInputsFor(me,target,enemyArrows);
             const out=playerBrains[i].forward(inp);
-            aiProcessFor(out,me);
-            me.face=target.x<me.x?-1:1;
+            aiProcessFor(out,me,target);
           }
         } else {
           // Human: use existing playerInput but bound to first human slot
