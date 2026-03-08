@@ -151,7 +151,7 @@ body.in-game #touch-pad{display:flex}
 #toast.show{opacity:1}
 
 /* ── LOBBY ───────────────────────────────────────── */
-#lobby-screen{background:var(--bg);overflow-y:auto;align-items:center;justify-content:flex-start;padding-bottom:60px}
+#lobby-screen{background:var(--bg);overflow-y:auto;flex-direction:column;align-items:center;justify-content:flex-start;padding-bottom:60px}
 .lobby-title{font-family:'Anybody',sans-serif;font-weight:900;font-size:18px;color:var(--accent);letter-spacing:3px;padding:18px 0 6px;text-align:center}
 .lobby-sub{font-size:9px;color:#3a3d50;letter-spacing:3px;text-transform:uppercase;margin-bottom:20px}
 .lobby-slots{display:flex;flex-direction:column;gap:10px;width:100%;max-width:380px;padding:0 16px}
@@ -254,7 +254,7 @@ body:not(.observe-mode) #cam-hint{display:none}
   <div id="game-overlay" class="hidden">
     <h2 id="ov-title"></h2>
     <div class="ov-sub" id="ov-sub"></div>
-    <div style="display:flex;gap:8px">
+    <div id="ov-btns" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
       <button class="btn small" onclick="quitGame()">✕ Quitter</button>
       <button class="btn small primary" onclick="multiMode?nextRoundMulti():nextRound()">▶ CONTINUER</button>
     </div>
@@ -377,6 +377,13 @@ body:not(.observe-mode) #cam-hint{display:none}
 // ================================================================
 //  NEURAL NETWORK
 // ================================================================
+// ================================================================
+//  UTILS
+// ================================================================
+function sanitize(str){
+  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 class Brain {
   constructor(topo=[16,20,14,6]) {
     this.topo=topo; this.w=[]; this.b=[]; this.acts=[]; this.fitness=0;
@@ -757,6 +764,7 @@ let playerBrains=[];       // array of Brain|null (null = human)
 let playerAlive=[];        // array of bool
 let playerWins=[];         // array of int (session)
 let multiRoundOver=false;
+let humanDeadShown=false;  // prevent repeated dead overlay
 
 // Free camera state
 let freeCam=false;
@@ -810,35 +818,54 @@ function resizeGame(){dpr=window.devicePixelRatio||1;const r=cv.getBoundingClien
 //  LOBBY
 // ================================================================
 async function renderLobby(){
-  const all=await store.getAll('brains');
   const container=document.getElementById('lobby-slots');
+  if(!container)return;
+  let all=[];
+  try{ all=await store.getAll('brains'); }catch(e){ all=[]; }
+  if(all.length===0) all=[{id:'default',name:'Cerveau principal'}];
+
+  // Ensure each AI slot has a valid brainId (default to first available)
+  for(let i=0;i<4;i++){
+    if(lobbySlots[i].type==='ai' && !all.find(b=>b.id===lobbySlots[i].brainId)){
+      lobbySlots[i].brainId=all[0].id;
+    }
+  }
+
   let html='';
   for(let i=0;i<4;i++){
     const s=lobbySlots[i];
     const col=SLOT_COLORS[i];
-    const brainOpts=all.map(b=>`<option value="${sanitize(b.id)}" ${b.id===s.brainId?'selected':''}>${sanitize(b.name||b.id).substring(0,18)}</option>`).join('');
-    html+=`<div class="slot-card">
-      <div class="slot-num" style="color:${col}">${i+1}</div>
-      <div class="slot-type">
-        <button class="slot-type-btn ${s.type==='human'?'active-human':''}" onclick="setSlotType(${i},'human')">HUMAIN</button>
-        <button class="slot-type-btn ${s.type==='ai'?'active-ai':''}" onclick="setSlotType(${i},'ai')">IA</button>
-        <button class="slot-type-btn ${s.type==='off'?'active-off':''}" onclick="setSlotType(${i},'off')">—</button>
-      </div>
-      ${s.type==='ai'?`<select class="slot-brain-sel" onchange="setSlotBrain(${i},this.value)">${brainOpts}</select>`:''}
-    </div>`;
+    // Build brain selector with explicit selected attribute
+    let brainSel='';
+    if(s.type==='ai'){
+      const opts=all.map(b=>{
+        const id=b.id.replace(/'/g,"\\'");
+        const sel=b.id===s.brainId?'selected':'';
+        const name=sanitize(b.name||b.id).substring(0,20);
+        return `<option value="${id}" ${sel}>${name}</option>`;
+      }).join('');
+      brainSel=`<select class="slot-brain-sel" oninput="setSlotBrain(${i},this.value)" onchange="setSlotBrain(${i},this.value)">${opts}</select>`;
+    }
+    const hClass=s.type==='human'?'active-human':'';
+    const aClass=s.type==='ai'?'active-ai':'';
+    const oClass=s.type==='off'?'active-off':'';
+    html+=`<div class="slot-card"><div class="slot-num" style="color:${col}">${i+1}</div><div class="slot-type"><button class="slot-type-btn ${hClass}" onclick="setSlotType(${i},'human')">HUMAIN</button><button class="slot-type-btn ${aClass}" onclick="setSlotType(${i},'ai')">IA</button><button class="slot-type-btn ${oClass}" onclick="setSlotType(${i},'off')">—</button></div>${brainSel}</div>`;
   }
   container.innerHTML=html;
-  // Disable start if fewer than 2 active slots
+
   const active=lobbySlots.filter(s=>s.type!=='off').length;
-  document.getElementById('lobby-start-btn').disabled=active<2;
+  const btn=document.getElementById('lobby-start-btn');
+  if(btn)btn.disabled=active<2;
 }
 
 function setSlotType(i,type){
   lobbySlots[i].type=type;
   renderLobby();
 }
+
 function setSlotBrain(i,brainId){
   lobbySlots[i].brainId=brainId;
+  // No re-render needed — just update state silently
 }
 
 // Spawn positions for 4 corners (keeping away from walls)
@@ -868,6 +895,7 @@ async function startMulti(){
     ent.face=sp.face;
     ent._slotIndex=s.index;
     ent._label=SLOT_NAMES[s.index]+(s.type==='ai'?' IA':' JOU');
+    ent._brainId=s.type==='ai'?s.brainId:null;  // store for evolution save
     players.push(ent);
     playerAlive.push(true);
     playerWins.push(0);
@@ -881,8 +909,10 @@ async function startMulti(){
     }
   }
 
+  // Show game screen first so canvas has dimensions
   showScreen('game');
   resizeGame();
+  // showScreen sets gameActive=false for non-game screens, but we're going to game — reset properly
   document.getElementById('game-hud').style.display='none';
   document.getElementById('multi-hud').style.display='flex';
   if(isObserve){
@@ -893,6 +923,7 @@ async function startMulti(){
   sessionScore={player:0,ai:0,round:1};
   updateMultiHUD();
   multiRoundOver=false;
+  humanDeadShown=false;
   roundTimer=0;
   particles=[];
   document.getElementById('game-overlay').classList.add('hidden');
@@ -1162,7 +1193,7 @@ function aiInputsFor(me, target, allArrows){
     const dx=a.x-me.x,dy=a.y-me.y,d=dx*dx+dy*dy;
     if(d<mD){mD=d;nAX=dx/vW;nAY=dy/vH;nVX=a.vx/ASPD;nVY=a.vy/ASPD}
   }
-  return[rX,rY,mVx,mVy,eVx,eVy,aim,onG,nAX,nAY,nVX,nVY,me.x/WW,(WW-me.x)/WW,Math.min(roundTimer/(60*30),1),Math.random()*0.15-0.075];
+  return[rX,rY,mVx,mVy,eVx,eVy,aim,onG,nAX,nAY,nVX,nVY,me.x/WW,me.y/WH,Math.min(roundTimer/(60*30),1),Math.random()*0.15-0.075];
 }
 
 function aiProcessFor(out, ent){
@@ -1211,13 +1242,14 @@ async function endRound(winner){
   roundOver=true;totalPlayed++;
   if(winner!=='ai')totalWins++;
   evolveBrain(winner==='ai');
-  await saveCurrent(); // wins/played saved inside brain entry
+  await saveCurrent();
   if(winner==='player')sessionScore.player++;else if(winner==='ai')sessionScore.ai++;
   document.getElementById('h-pscore').textContent=sessionScore.player;
   document.getElementById('h-ascore').textContent=sessionScore.ai;
-  const ov=document.getElementById('game-overlay'),title=document.getElementById('ov-title'),sub=document.getElementById('ov-sub');
-  if(winner==='player'){title.textContent='TOUCHÉ !';title.className='winner-p'}else if(winner==='ai'){title.textContent='IA GAGNE';title.className='winner-a'}else{title.textContent='TEMPS ÉCOULÉ';title.className=''}
+  const ov=document.getElementById('game-overlay'),title=document.getElementById('ov-title'),sub=document.getElementById('ov-sub'),btns=document.getElementById('ov-btns');
+  if(winner==='player'){title.textContent='TOUCHÉ !';title.style.color='var(--accent2)'}else if(winner==='ai'){title.textContent='IA GAGNE';title.style.color='var(--warn)'}else{title.textContent='TEMPS ÉCOULÉ';title.style.color=''}
   sub.textContent=`Gen ${generation} · Round ${sessionScore.round} · ${sessionScore.player}-${sessionScore.ai}`;
+  btns.innerHTML=`<button class="btn small" onclick="quitGame()">✕ Quitter</button><button class="btn small primary" onclick="nextRound()">▶ CONTINUER</button>`;
   ov.classList.remove('hidden');
 }
 
@@ -1317,21 +1349,19 @@ function drawGame(){
 
 // ── Multi-player draw ─────────────────────────────────────────────
 function drawGameMulti(){
+  if(!vW||!vH)return;
   c.fillStyle='#080a12';c.fillRect(0,0,vW,vH);
   c.save();
-  // Apply zoom for free camera
-  if(camZoom!==1){
-    c.translate(vW/2,vH/2);
-    c.scale(camZoom,camZoom);
-    c.translate(-vW/2,-vH/2);
-  }
+  c.translate(vW/2,vH/2);
+  c.scale(camZoom,camZoom);
+  c.translate(-vW/2,-vH/2);
   c.translate(-camX,-camY);
 
   // Grid
   c.strokeStyle='rgba(255,255,255,0.012)';c.lineWidth=1;
-  const gs=50,sx=Math.floor(camX/gs)*gs,sy=Math.floor(camY/gs)*gs;
-  for(let x=sx;x<camX+vW+gs;x+=gs){c.beginPath();c.moveTo(x,camY);c.lineTo(x,camY+vH);c.stroke()}
-  for(let y=sy;y<camY+vH+gs;y+=gs){c.beginPath();c.moveTo(camX,y);c.lineTo(camX+vH,y);c.stroke()}
+  const gs=50,sx0=Math.floor(camX/gs)*gs,sy0=Math.floor(camY/gs)*gs;
+  for(let x=sx0;x<camX+vW+gs;x+=gs){c.beginPath();c.moveTo(x,camY);c.lineTo(x,camY+vH);c.stroke()}
+  for(let y=sy0;y<camY+vH+gs;y+=gs){c.beginPath();c.moveTo(camX,y);c.lineTo(camX+vW,y);c.stroke()}
 
   // Platforms
   for(const p of platforms){
@@ -1340,7 +1370,7 @@ function drawGameMulti(){
     const gr=c.createLinearGradient(p.x,p.y,p.x,p.y+p.h);gr.addColorStop(0,'#2a2a38');gr.addColorStop(1,'#1a1a24');c.fillStyle=gr;c.beginPath();c.roundRect(p.x,p.y,p.w,p.h,3);c.fill();c.fillStyle='rgba(255,255,255,0.08)';c.fillRect(p.x+2,p.y,p.w-4,1);
   }
 
-  // Players
+  // Players + arrows (in world space)
   for(let i=0;i<players.length;i++){
     if(playerAlive[i])players[i].draw(c);
   }
@@ -1349,25 +1379,30 @@ function drawGameMulti(){
   for(const p of particles){c.globalAlpha=p.life/60;c.fillStyle=p.col;c.beginPath();c.arc(p.x,p.y,p.sz,0,Math.PI*2);c.fill()}
   c.globalAlpha=1;
 
-  // Off-screen arrows for dead players — skip; draw name labels above each alive player
-  for(let i=0;i<players.length;i++){
-    if(!playerAlive[i])continue;
-    const pl=players[i];
-    const sx2=pl.x+pl.w/2-camX,sy2=pl.y-camY-14;
-    c.font='bold 8px JetBrains Mono';c.textAlign='center';
-    c.fillStyle=SLOT_COLORS[pl._slotIndex];
-    c.globalAlpha=0.7;
-    c.fillText(pl._label,sx2,sy2);
-    c.globalAlpha=1;
-  }
+  c.restore(); // back to screen space
 
-  // Off-screen indicators (arrows pointing to out-of-view players)
+  // Name labels (screen space — convert world → screen)
+  c.font='bold 8px JetBrains Mono';c.textAlign='center';
   for(let i=0;i<players.length;i++){
     if(!playerAlive[i])continue;
     const pl=players[i];
-    const sx2=pl.x+pl.w/2-camX,sy2=pl.y+pl.h/2-camY;
-    if(sx2>-30&&sx2<vW+30&&sy2>-30&&sy2<vH+30)continue;
-    const cx2=vW/2,cy2=vH/2,ang=Math.atan2(sy2-cy2,sx2-cx2),mg=32;
+    // world → screen: multiply by zoom, offset by cam
+    const sx=(pl.x+pl.w/2-camX)*camZoom+(vW/2)*(1-camZoom);
+    const sy=(pl.y-camY)*camZoom+(vH/2)*(1-camZoom)-6;
+    c.fillStyle=SLOT_COLORS[pl._slotIndex];
+    c.globalAlpha=0.8;
+    c.fillText(pl._label,sx,sy);
+  }
+  c.globalAlpha=1;
+
+  // Off-screen indicators (screen space)
+  for(let i=0;i<players.length;i++){
+    if(!playerAlive[i])continue;
+    const pl=players[i];
+    const sx=(pl.x+pl.w/2-camX)*camZoom+(vW/2)*(1-camZoom);
+    const sy=(pl.y+pl.h/2-camY)*camZoom+(vH/2)*(1-camZoom);
+    if(sx>-30&&sx<vW+30&&sy>-30&&sy<vH+30)continue;
+    const cx2=vW/2,cy2=vH/2,ang=Math.atan2(sy-cy2,sx-cx2),mg=32;
     let ix=cx2+Math.cos(ang)*(vW/2-mg),iy=cy2+Math.sin(ang)*(vH/2-mg);
     ix=Math.max(mg,Math.min(vW-mg,ix));iy=Math.max(mg,Math.min(vH-mg,iy));
     c.save();c.translate(ix,iy);c.rotate(ang);
@@ -1375,8 +1410,6 @@ function drawGameMulti(){
     c.beginPath();c.moveTo(10,0);c.lineTo(-5,-5);c.lineTo(-5,5);c.closePath();c.fill();
     c.restore();
   }
-
-  c.restore();
 }
 function checkHitsMulti(){
   const alive=players.filter((_,i)=>playerAlive[i]);
@@ -1400,18 +1433,55 @@ function checkHitsMulti(){
   return -1;
 }
 
+function evolveBrainMulti(brain, won){
+  // Simplified evolution for multi — no roundStats (would need per-brain stats)
+  const prevFitness=brain.fitness||0;
+  const survivalBonus=Math.min(roundTimer/(60*35)*3,3);
+
+  if(won){
+    brain.fitness=prevFitness+12+survivalBonus;
+    const rate=0.05*(1-Math.min(brain.fitness/150,0.85)*0.6);
+    const power=0.08*(1-Math.min(brain.fitness/150,0.85)*0.5);
+    brain.mutate(rate,power);
+  } else {
+    brain.fitness=Math.max(0,prevFitness-2+survivalBonus*0.5);
+    brain.mutate(0.15,0.28);
+  }
+}
+
 async function endRoundMulti(eliminatedIdx){
   if(multiRoundOver)return;
   multiRoundOver=true;
   const alivePlayers=players.filter((_,i)=>playerAlive[i]);
-  // If only one (or zero) left, they win
   const winnerIdx=alivePlayers.length===1?players.indexOf(alivePlayers[0]):-1;
   if(winnerIdx>=0)playerWins[winnerIdx]++;
-  updateMultiHUD();
 
+  // Evolve each AI brain based on win/loss
+  for(let i=0;i<players.length;i++){
+    if(playerBrains[i]===null)continue; // skip humans
+    const won=(i===winnerIdx);
+    evolveBrainMulti(playerBrains[i],won);
+    // Save evolved brain back to store
+    const slotBrainId=players[i]._brainId;
+    if(slotBrainId){
+      const entry=await store.get('brains',slotBrainId);
+      if(entry){
+        entry.brain=playerBrains[i].serialize();
+        entry.fitness=playerBrains[i].fitness;
+        entry.generation=(entry.generation||1)+1;
+        entry.wins=(entry.wins||0)+(won?1:0);
+        entry.played=(entry.played||0)+1;
+        entry.timestamp=Date.now();
+        await store.put('brains',entry);
+      }
+    }
+  }
+
+  updateMultiHUD();
   const ov=document.getElementById('game-overlay');
   const title=document.getElementById('ov-title');
   const sub=document.getElementById('ov-sub');
+  const btns=document.getElementById('ov-btns');
   if(winnerIdx>=0){
     title.textContent=`${sanitize(players[winnerIdx]._label)} GAGNE !`;
     title.style.color=SLOT_COLORS[players[winnerIdx]._slotIndex];
@@ -1420,12 +1490,32 @@ async function endRoundMulti(eliminatedIdx){
   }
   const scores=players.map((p,i)=>`${sanitize(p._label)} ${playerWins[i]}`).join('  ·  ');
   sub.textContent=scores;
+  btns.innerHTML=`<button class="btn small" onclick="quitGame()">✕ Quitter</button><button class="btn small primary" onclick="nextRoundMulti()">▶ Round suivant</button>`;
+  ov.classList.remove('hidden');
+}
+
+function showHumanDeadOverlay(){
+  // Don't trigger if round already over
+  if(multiRoundOver)return;
+  const ov=document.getElementById('game-overlay');
+  const title=document.getElementById('ov-title');
+  const sub=document.getElementById('ov-sub');
+  const btns=document.getElementById('ov-btns');
+  title.textContent='ÉLIMINÉ';
+  title.style.color='var(--warn)';
+  sub.textContent='Tu peux observer ou passer au round suivant';
+  btns.innerHTML=`
+    <button class="btn small" onclick="quitGame()">✕ Quitter</button>
+    <button class="btn small" onclick="document.getElementById('game-overlay').classList.add('hidden')">👁 Observer</button>
+    <button class="btn small primary" onclick="endRoundMulti(-1)">⏭ Round suivant</button>
+  `;
   ov.classList.remove('hidden');
 }
 
 function nextRoundMulti(){
   sessionScore.round++;
   multiRoundOver=false;
+  humanDeadShown=false;
   roundTimer=0;
   particles=[];
   // Re-spawn all players at corners
@@ -1483,6 +1573,14 @@ function gameLoop(){
       // Hit detection
       const eliminated=checkHitsMulti();
       const aliveCount=playerAlive.filter(Boolean).length;
+
+      // Check if human player just died → show observer overlay
+      const humanIdx=playerBrains.findIndex(b=>b===null);
+      if(humanIdx>=0 && !playerAlive[humanIdx] && !multiRoundOver && !humanDeadShown){
+        humanDeadShown=true;
+        showHumanDeadOverlay();
+      }
+
       if(aliveCount<=1)endRoundMulti(-1);
 
       roundTimer++;
@@ -1491,8 +1589,16 @@ function gameLoop(){
 
     if(freeCam){freeCamKeyboard();}
     else{
-      // Auto-camera: center on all alive players
-      if(players.length>0){
+      // Camera: follow human player if alive, otherwise center on all alive
+      const humanIdx=playerBrains.findIndex(b=>b===null);
+      const humanAlive=humanIdx>=0&&playerAlive[humanIdx];
+      if(humanAlive){
+        const me=players[humanIdx];
+        const tx=me.x+me.w/2-vW/2+me.vx*18;
+        const ty=me.y+me.h/2-vH/2+me.vy*6;
+        camX+=(Math.max(0,Math.min(WW-vW,tx))-camX)*0.08;
+        camY+=(Math.max(0,Math.min(WH-vH,ty))-camY)*0.1;
+      } else {
         const alive=players.filter((_,i)=>playerAlive[i]);
         if(alive.length>0){
           const cx=alive.reduce((s,p)=>s+p.x+p.w/2,0)/alive.length;
@@ -1582,10 +1688,12 @@ window.addEventListener('resize',()=>{if(gameActive)resizeGame()});
 //  PERSISTENCE
 // ================================================================
 async function saveCurrent(){
-  // Preserve existing name if already stored
   const existing=await store.get('brains',currentBrainId);
-  const name=existing?.name||(currentBrainId==='default'?'Cerveau principal':currentBrainId);
-  const entry={id:currentBrainId,name,brain:activeBrain.serialize(),generation,fitness:activeBrain.fitness||0,wins:totalWins,played:totalPlayed,timestamp:Date.now(),game:'arena-archer',topology:activeBrain.topo.join('-'),params:activeBrain.paramCount()};
+  // Use existing name, or generate one if first save of default brain
+  let name=existing?.name;
+  if(!name) name = currentBrainId==='default' ? makeBrainName() : makeBrainName();
+  const creator=existing?.creator||localCreator;
+  const entry={id:currentBrainId,name,creator,brain:activeBrain.serialize(),generation,fitness:activeBrain.fitness||0,wins:totalWins,played:totalPlayed,timestamp:Date.now(),game:'arena-archer',topology:activeBrain.topo.join('-'),params:activeBrain.paramCount()};
   if(bestBrain){entry.bestBrain=bestBrain.serialize();entry.bestFitness=bestBrain.fitness||0}
   await store.put('brains',entry);
 }
@@ -1623,10 +1731,11 @@ function updateMenuUI(){
 
 async function updateLabUI(){
   const all=await store.getAll('brains');
-  let html=`<div style="margin-bottom:12px;font-size:10px;color:#444">${all.length} cerveau(x) stocké(s)</div>`;
+  let html=`<div style="margin-bottom:12px;font-size:10px;color:#444;display:flex;justify-content:space-between;align-items:center"><span>${all.length} cerveau(x)</span><span style="color:var(--accent);font-size:9px;letter-spacing:1px">👤 ${sanitize(localCreator)}</span></div>`;
   for(const e of all.sort((a,b)=>(b.fitness||0)-(a.fitness||0))){
     const cur=e.id===currentBrainId;const d=new Date(e.timestamp).toLocaleDateString('fr-FR');
-    html+=`<div class="brain-card ${cur?'active-brain':''}" onclick="selectBrain('${e.id}')"><div class="bc-header"><span class="bc-name">${e.name||e.id} ${cur?'● ACTIF':''}</span><span class="bc-gen">Gen ${e.generation||'?'}</span></div><div class="bc-stats"><span>⚡${Math.round(e.fitness||0)}</span><span>🎯 ${e.wins||0}W/${e.played||0}P</span><span>🧠 ${e.params||'?'}p</span><span>📅 ${d}</span>${e.imported?'<span>📥 importé</span>':''}</div></div>`;
+    const creatorTag=e.creator&&e.creator!==localCreator?`<span style="color:#3a5a6a">📡 ${sanitize(e.creator)}</span>`:'';
+    html+=`<div class="brain-card ${cur?'active-brain':''}" onclick="selectBrain('${e.id}')"><div class="bc-header"><span class="bc-name">${sanitize(e.name||e.id)} ${cur?'● ACTIF':''}</span><span class="bc-gen">Gen ${e.generation||'?'}</span></div><div class="bc-stats"><span>⚡${Math.round(e.fitness||0)}</span><span>🎯 ${e.wins||0}W/${e.played||0}P</span><span>🧠 ${e.params||'?'}p</span><span>📅 ${d}</span>${creatorTag}${e.imported?'<span>📥 importé</span>':''}</div></div>`;
   }
   html+=`<div class="lab-actions"><button class="btn small primary" onclick="newBrain()">+ Nouveau</button><button class="btn small" onclick="duplicateCurrent()">📋 Dupliquer</button><button class="btn small warn" onclick="resetCurrent()">🗑 Reset</button></div>`;
   document.getElementById('lab-content').innerHTML=html;
@@ -1651,8 +1760,22 @@ async function selectBrain(id){
   updateMenuUI();
   updateLabUI();
 }
-async function newBrain(){const id='brain_'+Date.now();await store.put('brains',{id,name:'Cerveau '+id.slice(-6),brain:new Brain().serialize(),generation:1,fitness:0,wins:0,played:0,timestamp:Date.now(),game:'arena-archer',topology:'16-20-14-6',params:new Brain().paramCount()});currentBrainId=id;activeBrain=new Brain();generation=1;bestBrain=null;toast('Nouveau cerveau créé');updateLabUI()}
-async function duplicateCurrent(){const id='brain_'+Date.now();const e={id,name:'Clone '+id.slice(-6),brain:activeBrain.serialize(),generation,fitness:activeBrain.fitness||0,wins:0,played:0,timestamp:Date.now(),game:'arena-archer',topology:activeBrain.topo.join('-'),params:activeBrain.paramCount()};if(bestBrain)e.bestBrain=bestBrain.serialize();await store.put('brains',e);toast('Dupliqué');updateLabUI()}
+async function newBrain(){
+  const id='brain_'+Date.now();
+  const name=makeBrainName();
+  await store.put('brains',{id,name,creator:localCreator,brain:new Brain().serialize(),generation:1,fitness:0,wins:0,played:0,timestamp:Date.now(),game:'arena-archer',topology:'16-20-14-6',params:new Brain().paramCount()});
+  currentBrainId=id;activeBrain=new Brain();generation=1;bestBrain=null;
+  toast(`Nouveau cerveau : ${name}`);updateLabUI();
+}
+
+async function duplicateCurrent(){
+  const id='brain_'+Date.now();
+  const name=makeBrainName();
+  const e={id,name,creator:localCreator,brain:activeBrain.serialize(),generation,fitness:activeBrain.fitness||0,wins:0,played:0,timestamp:Date.now(),game:'arena-archer',topology:activeBrain.topo.join('-'),params:activeBrain.paramCount()};
+  if(bestBrain)e.bestBrain=bestBrain.serialize();
+  await store.put('brains',e);
+  toast(`Dupliqué : ${name}`);updateLabUI();
+}
 async function resetCurrent(){activeBrain=new Brain();generation=1;bestBrain=null;hallOfFame=[];await saveCurrent();toast('Reset');updateLabUI()}
 
 // ================================================================
@@ -1680,7 +1803,35 @@ document.getElementById('game').addEventListener('touchmove',e=>e.preventDefault
 // ================================================================
 //  INIT
 // ================================================================
+// ================================================================
+//  LOCAL CREATOR IDENTITY
+// ================================================================
+const PSEUDO_ADJ=['swift','dark','neo','iron','ghost','void','storm','neon','arc','hyper','flux','echo','apex','zero','nova'];
+const PSEUDO_NOUN=['archer','mind','core','agent','pulse','forge','byte','node','grid','wave','link','base','unit','mesh','drift'];
+
+function generatePseudo(){
+  const adj=PSEUDO_ADJ[Math.floor(Math.random()*PSEUDO_ADJ.length)];
+  const noun=PSEUDO_NOUN[Math.floor(Math.random()*PSEUDO_NOUN.length)];
+  const num=String(Math.floor(Math.random()*9000)+1000);
+  return adj+noun+num;
+}
+
+let localCreator='';
+
+async function loadCreator(){
+  let saved=await store.getConfig('localCreator',null);
+  if(!saved){saved=generatePseudo();await store.setConfig('localCreator',saved);}
+  localCreator=saved;
+}
+
+function makeBrainName(){
+  const num=String(Math.floor(Math.random()*9000)+1000);
+  return `${localCreator}-${num}`;
+}
+
+// ================================================================
 async function init(){
+  await loadCreator();
   await loadBrains();
   await githubSync.loadConfig();
   updateMenuUI();
