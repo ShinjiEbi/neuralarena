@@ -342,7 +342,7 @@ async function loadGamesFromGitHub() {
 
 <!-- ===== APP WIRING ===== -->
 <script>
-const { Brain, Evolver, Store, GitHubSync, GameRegistry, Engine } = window.NeuralArena;
+  window.NeuralArena = { Brain, Evolver, Store, GitHubSync, GameRegistry, Engine };
 const NA = window.NeuralArena;
 
 // === Shared state ===
