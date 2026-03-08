@@ -1,11 +1,8 @@
-const CACHE_NAME = 'neuralarena-v2';
+const CACHE_NAME = 'neuralarena-v3';
 const ASSETS = [
   '/',
   '/index.html',
-  '/manifest.json',
-  '/core/brain.js',
-  '/core/engine.js',
-  '/games/arena-archer.js'
+  '/manifest.json'
 ];
 
 self.addEventListener('install', e => {
