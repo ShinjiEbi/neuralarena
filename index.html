@@ -149,6 +149,38 @@ body.in-game #touch-pad{display:flex}
 
 #toast{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 24px;font-size:11px;color:var(--bright);z-index:200;opacity:0;pointer-events:none;transition:opacity 0.3s;text-align:center;max-width:300px}
 #toast.show{opacity:1}
+
+/* ── LOBBY ───────────────────────────────────────── */
+#lobby-screen{background:var(--bg);overflow-y:auto;align-items:center;justify-content:flex-start;padding-bottom:60px}
+.lobby-title{font-family:'Anybody',sans-serif;font-weight:900;font-size:18px;color:var(--accent);letter-spacing:3px;padding:18px 0 6px;text-align:center}
+.lobby-sub{font-size:9px;color:#3a3d50;letter-spacing:3px;text-transform:uppercase;margin-bottom:20px}
+.lobby-slots{display:flex;flex-direction:column;gap:10px;width:100%;max-width:380px;padding:0 16px}
+.slot-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;display:flex;align-items:center;gap:10px}
+.slot-num{font-family:'Anybody',sans-serif;font-size:18px;font-weight:900;width:22px;text-align:center;flex-shrink:0}
+.slot-type{display:flex;gap:4px;flex:1}
+.slot-type-btn{font-family:'JetBrains Mono',monospace;font-size:9px;padding:5px 8px;border-radius:4px;border:1px solid var(--border);background:none;color:#444;cursor:pointer;letter-spacing:1px;transition:all 0.15s;-webkit-tap-highlight-color:transparent}
+.slot-type-btn.active-human{border-color:rgba(0,180,255,0.5);background:rgba(0,180,255,0.1);color:var(--accent2)}
+.slot-type-btn.active-ai{border-color:rgba(255,50,80,0.5);background:rgba(255,50,80,0.1);color:var(--warn)}
+.slot-type-btn.active-off{border-color:rgba(255,255,255,0.05);background:none;color:#333}
+.slot-brain-sel{font-family:'JetBrains Mono',monospace;font-size:9px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--accent);padding:4px 6px;max-width:120px;cursor:pointer}
+.lobby-actions{display:flex;gap:8px;margin-top:16px;padding:0 16px;width:100%;max-width:380px}
+
+/* ── MULTI HUD ───────────────────────────────────── */
+#multi-hud{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:center;gap:8px;padding:6px 10px;z-index:15;background:rgba(6,8,16,0.85);backdrop-filter:blur(6px);border-bottom:1px solid var(--border);flex-wrap:wrap}
+.mhud-player{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:600;letter-spacing:1px;padding:3px 8px;border-radius:4px;border:1px solid transparent}
+.mhud-player.alive{border-color:rgba(255,255,255,0.1)}
+.mhud-player.dead{opacity:0.3}
+.mhud-num{font-family:'Anybody',sans-serif;font-size:15px;font-weight:900}
+.mhud-label{font-size:8px;color:#555;letter-spacing:1px}
+.mhud-quit{width:28px;height:28px;border-radius:50%;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);display:flex;align-items:center;justify-content:center;font-size:12px;color:rgba(255,255,255,0.3);cursor:pointer;-webkit-tap-highlight-color:transparent;flex-shrink:0}
+.mhud-quit:active{background:rgba(255,50,80,0.15);color:var(--warn)}
+#mhud-center{font-size:8px;color:#333;letter-spacing:2px;text-align:center;margin:0 6px}
+#mhud-center .gen-val{color:var(--accent);font-size:10px}
+
+/* ── FREE CAMERA ─────────────────────────────────── */
+#cam-hint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:8px;color:#2a2d3a;letter-spacing:2px;z-index:15;pointer-events:none;text-align:center}
+body.observe-mode #cam-hint{display:block}
+body:not(.observe-mode) #cam-hint{display:none}
 </style>
 </head>
 <body>
@@ -168,8 +200,20 @@ body.in-game #touch-pad{display:flex}
   </div>
   <div class="menu-btns">
     <button class="btn primary" onclick="startArena()">⚔ JOUER ARENA ARCHER</button>
+    <button class="btn" onclick="showScreen('lobby')">👥 PARTIE MULTI (2-4)</button>
     <button class="btn" onclick="showScreen('lab')">🧠 Laboratoire IA</button>
     <button class="btn" onclick="showScreen('community')">🌐 Communauté</button>
+  </div>
+</div>
+
+<!-- =============== LOBBY =============== -->
+<div id="lobby-screen" class="screen">
+  <div class="lobby-title">PARTIE MULTI</div>
+  <div class="lobby-sub">Configure les joueurs</div>
+  <div class="lobby-slots" id="lobby-slots"></div>
+  <div class="lobby-actions">
+    <button class="btn small" onclick="showScreen('menu')">✕ Retour</button>
+    <button class="btn small primary" id="lobby-start-btn" onclick="startMulti()">▶ LANCER</button>
   </div>
 </div>
 
@@ -182,7 +226,14 @@ body.in-game #touch-pad{display:flex}
     <div class="hud-center">GEN <span class="gen-val" id="h-gen">1</span><br><span id="h-round">Round 1</span></div>
     <div class="hud-score hud-ai"><span class="num" id="h-ascore">0</span> IA</div>
   </div>
+  <!-- Multi HUD (hidden in classic mode) -->
+  <div id="multi-hud" style="display:none">
+    <button class="mhud-quit" onclick="quitGame()">✕</button>
+    <div id="mhud-players"></div>
+    <div id="mhud-center"><span class="gen-val" id="mh-round">Round 1</span></div>
+  </div>
   <canvas id="game-nn" width="130" height="65"></canvas>
+  <div id="cam-hint">ZQSD · DRAG · SCROLL = zoom · ESPACE = reset caméra</div>
   <div id="touch-pad">
     <!-- Left joystick: movement -->
     <div class="joy-zone left" id="joy-left">
@@ -205,7 +256,7 @@ body.in-game #touch-pad{display:flex}
     <div class="ov-sub" id="ov-sub"></div>
     <div style="display:flex;gap:8px">
       <button class="btn small" onclick="quitGame()">✕ Quitter</button>
-      <button class="btn small primary" onclick="nextRound()">▶ CONTINUER</button>
+      <button class="btn small primary" onclick="multiMode?nextRoundMulti():nextRound()">▶ CONTINUER</button>
     </div>
   </div>
 </div>
@@ -687,7 +738,31 @@ let totalWins=0,totalPlayed=0;
 let sessionScore={player:0,ai:0,round:1};
 let gameActive=false,roundOver=false,roundTimer=0;
 
-// ── Multi-criteria fitness tracking (reset each round) ──────────
+// ── Multi / Lobby state ─────────────────────────────────────────
+const SLOT_COLORS=['#00b4ff','#ff3250','#3bf0a0','#f0c040'];
+const SLOT_NAMES=['P1','P2','P3','P4'];
+
+// lobbySlots: array of 4 {type:'human'|'ai'|'off', brainId:string}
+let lobbySlots=[
+  {type:'human', brainId:'default'},
+  {type:'ai',    brainId:'default'},
+  {type:'off',   brainId:'default'},
+  {type:'off',   brainId:'default'},
+];
+
+// Multi-game state
+let multiMode=false;       // true when a multi-game is running
+let players=[];            // array of Ent
+let playerBrains=[];       // array of Brain|null (null = human)
+let playerAlive=[];        // array of bool
+let playerWins=[];         // array of int (session)
+let multiRoundOver=false;
+
+// Free camera state
+let freeCam=false;
+let freeCamVx=0,freeCamVy=0;
+let camZoom=1;
+let dragCam={active:false,startX:0,startY:0,startCamX:0,startCamY:0};
 let roundStats={
   arrowsDodged:0,      // flèches joueur passées près de l'IA sans toucher
   shotsFired:0,        // tirs de l'IA
@@ -730,6 +805,164 @@ const nnC=nnCv.getContext('2d');
 let vW,vH,dpr;
 
 function resizeGame(){dpr=window.devicePixelRatio||1;const r=cv.getBoundingClientRect();vW=r.width;vH=r.height;cv.width=vW*dpr;cv.height=vH*dpr;c.setTransform(dpr,0,0,dpr,0,0)}
+
+// ================================================================
+//  LOBBY
+// ================================================================
+async function renderLobby(){
+  const all=await store.getAll('brains');
+  const container=document.getElementById('lobby-slots');
+  let html='';
+  for(let i=0;i<4;i++){
+    const s=lobbySlots[i];
+    const col=SLOT_COLORS[i];
+    const brainOpts=all.map(b=>`<option value="${sanitize(b.id)}" ${b.id===s.brainId?'selected':''}>${sanitize(b.name||b.id).substring(0,18)}</option>`).join('');
+    html+=`<div class="slot-card">
+      <div class="slot-num" style="color:${col}">${i+1}</div>
+      <div class="slot-type">
+        <button class="slot-type-btn ${s.type==='human'?'active-human':''}" onclick="setSlotType(${i},'human')">HUMAIN</button>
+        <button class="slot-type-btn ${s.type==='ai'?'active-ai':''}" onclick="setSlotType(${i},'ai')">IA</button>
+        <button class="slot-type-btn ${s.type==='off'?'active-off':''}" onclick="setSlotType(${i},'off')">—</button>
+      </div>
+      ${s.type==='ai'?`<select class="slot-brain-sel" onchange="setSlotBrain(${i},this.value)">${brainOpts}</select>`:''}
+    </div>`;
+  }
+  container.innerHTML=html;
+  // Disable start if fewer than 2 active slots
+  const active=lobbySlots.filter(s=>s.type!=='off').length;
+  document.getElementById('lobby-start-btn').disabled=active<2;
+}
+
+function setSlotType(i,type){
+  lobbySlots[i].type=type;
+  renderLobby();
+}
+function setSlotBrain(i,brainId){
+  lobbySlots[i].brainId=brainId;
+}
+
+// Spawn positions for 4 corners (keeping away from walls)
+const SPAWN_POS=[
+  {x:160, y:WH-100, face:1},
+  {x:WW-180, y:WH-100, face:-1},
+  {x:160, y:200, face:1},
+  {x:WW-180, y:200, face:-1},
+];
+
+async function startMulti(){
+  const activeSlots=lobbySlots.map((s,i)=>({...s,index:i})).filter(s=>s.type!=='off');
+  if(activeSlots.length<2){toast('Il faut au moins 2 joueurs');return;}
+
+  multiMode=true;
+  freeCam=false;
+  camZoom=1;
+  const isObserve=activeSlots.every(s=>s.type==='ai');
+
+  // Load brains for AI slots
+  players=[];playerBrains=[];playerAlive=[];playerWins=[];
+  for(let si=0;si<activeSlots.length;si++){
+    const s=activeSlots[si];
+    const spawnIdx=si%4;
+    const sp=SPAWN_POS[spawnIdx];
+    const ent=new Ent(sp.x, sp.y, SLOT_COLORS[s.index], s.type==='ai');
+    ent.face=sp.face;
+    ent._slotIndex=s.index;
+    ent._label=SLOT_NAMES[s.index]+(s.type==='ai'?' IA':' JOU');
+    players.push(ent);
+    playerAlive.push(true);
+    playerWins.push(0);
+    if(s.type==='ai'){
+      const entry=await store.get('brains',s.brainId);
+      const brain=entry?Brain.deserialize(entry.brain):new Brain();
+      brain.fitness=entry?.fitness||0;
+      playerBrains.push(brain);
+    }else{
+      playerBrains.push(null); // human
+    }
+  }
+
+  showScreen('game');
+  resizeGame();
+  document.getElementById('game-hud').style.display='none';
+  document.getElementById('multi-hud').style.display='flex';
+  if(isObserve){
+    freeCam=true;
+    document.body.classList.add('observe-mode');
+  }
+  setupFreeCam();
+  sessionScore={player:0,ai:0,round:1};
+  updateMultiHUD();
+  multiRoundOver=false;
+  roundTimer=0;
+  particles=[];
+  document.getElementById('game-overlay').classList.add('hidden');
+  gameActive=true;
+  requestAnimationFrame(gameLoop);
+}
+
+function updateMultiHUD(){
+  let html='';
+  for(let i=0;i<players.length;i++){
+    const p=players[i];
+    const col=SLOT_COLORS[p._slotIndex];
+    html+=`<div class="mhud-player ${playerAlive[i]?'alive':'dead'}" style="color:${col}">
+      <span class="mhud-num">${playerWins[i]}</span>
+      <span class="mhud-label">${sanitize(p._label)}</span>
+    </div>`;
+  }
+  document.getElementById('mhud-players').innerHTML=html;
+  document.getElementById('mh-round').textContent=`Round ${sessionScore.round}`;
+}
+
+// ================================================================
+//  FREE CAMERA
+// ================================================================
+function setupFreeCam(){
+  const canvas=document.getElementById('game');
+
+  // Mouse drag
+  canvas.addEventListener('mousedown',e=>{
+    if(!freeCam)return;
+    dragCam={active:true,startX:e.clientX,startY:e.clientY,startCamX:camX,startCamY:camY};
+  });
+  window.addEventListener('mousemove',e=>{
+    if(!freeCam||!dragCam.active)return;
+    camX=dragCam.startCamX-(e.clientX-dragCam.startX)/camZoom;
+    camY=dragCam.startCamY-(e.clientY-dragCam.startY)/camZoom;
+  });
+  window.addEventListener('mouseup',()=>{dragCam.active=false;});
+
+  // Touch drag
+  canvas.addEventListener('touchstart',e=>{
+    if(!freeCam||e.touches.length!==1)return;
+    const t=e.touches[0];
+    dragCam={active:true,startX:t.clientX,startY:t.clientY,startCamX:camX,startCamY:camY};
+  },{passive:true});
+  canvas.addEventListener('touchmove',e=>{
+    if(!freeCam||!dragCam.active||e.touches.length!==1)return;
+    const t=e.touches[0];
+    camX=dragCam.startCamX-(t.clientX-dragCam.startX)/camZoom;
+    camY=dragCam.startCamY-(t.clientY-dragCam.startY)/camZoom;
+  },{passive:true});
+  canvas.addEventListener('touchend',()=>{dragCam.active=false;},{passive:true});
+
+  // Scroll to zoom
+  canvas.addEventListener('wheel',e=>{
+    if(!freeCam)return;
+    e.preventDefault();
+    camZoom=Math.max(0.4,Math.min(2.5,camZoom-e.deltaY*0.001));
+  },{passive:false});
+}
+
+function freeCamKeyboard(){
+  if(!freeCam)return;
+  const spd=8/camZoom;
+  if(keys['KeyA']||keys['ArrowLeft'])camX-=spd;
+  if(keys['KeyD']||keys['ArrowRight'])camX+=spd;
+  if(keys['KeyW']||keys['KeyZ']||keys['ArrowUp'])camY-=spd;
+  if(keys['KeyS']||keys['ArrowDown'])camY+=spd;
+  if(keys['Space']){camZoom=1;camX=WW/2-vW/2;camY=WH/2-vH/2;}
+}
 
 // ================================================================
 //  ENTITIES
@@ -916,11 +1149,36 @@ function playerInput(){
 }
 
 // ================================================================
-//  AI
+//  AI — generalized for N players
 // ================================================================
-function aiInputs(){const rX=(P.x-A.x)/vW,rY=(P.y-A.y)/vH,mVx=A.vx/8,mVy=A.vy/15,eVx=P.vx/8,eVy=P.vy/15,aim=A.aim/(Math.PI/2),onG=A.gnd?1:0;let nAX=0,nAY=0,nVX=0,nVY=0,mD=Infinity;for(const a of P.arr){if(a.st)continue;const dx=a.x-A.x,dy=a.y-A.y,d=dx*dx+dy*dy;if(d<mD){mD=d;nAX=dx/vW;nAY=dy/vH;nVX=a.vx/ASPD;nVY=a.vy/ASPD}}return[rX,rY,mVx,mVy,eVx,eVy,aim,onG,nAX,nAY,nVX,nVY,A.x/WW,(WW-A.x)/WW,Math.min(roundTimer/(60*30),1),Math.random()*0.15-0.075]}
+function aiInputsFor(me, target, allArrows){
+  // allArrows: flat array of arrows from all enemies
+  const rX=(target.x-me.x)/vW,rY=(target.y-me.y)/vH;
+  const mVx=me.vx/8,mVy=me.vy/15,eVx=target.vx/8,eVy=target.vy/15;
+  const aim=me.aim/(Math.PI/2),onG=me.gnd?1:0;
+  let nAX=0,nAY=0,nVX=0,nVY=0,mD=Infinity;
+  for(const a of allArrows){
+    if(a.st)continue;
+    const dx=a.x-me.x,dy=a.y-me.y,d=dx*dx+dy*dy;
+    if(d<mD){mD=d;nAX=dx/vW;nAY=dy/vH;nVX=a.vx/ASPD;nVY=a.vy/ASPD}
+  }
+  return[rX,rY,mVx,mVy,eVx,eVy,aim,onG,nAX,nAY,nVX,nVY,me.x/WW,(WW-me.x)/WW,Math.min(roundTimer/(60*30),1),Math.random()*0.15-0.075];
+}
 
-function aiProcess(out){if(out[0]>0.5){A.vx-=MSPD*0.4;A.face=-1}if(out[1]>0.5){A.vx+=MSPD*0.4;A.face=1}if(out[2]>0.5&&A.gnd)A.vy=JUMP;if(out[3]>0.5)A.aim=Math.max(A.aim-0.05,-Math.PI/2.2);if(out[4]>0.5)A.aim=Math.min(A.aim+0.05,Math.PI/2.5);if(out[5]>0.6)A.shoot();A.face=P.x<A.x?-1:1}
+function aiProcessFor(out, ent){
+  if(out[0]>0.5){ent.vx-=MSPD*0.4;ent.face=-1}
+  if(out[1]>0.5){ent.vx+=MSPD*0.4;ent.face=1}
+  if(out[2]>0.5&&ent.gnd)ent.vy=JUMP;
+  if(out[3]>0.5)ent.aim=Math.max(ent.aim-0.05,-Math.PI/2.2);
+  if(out[4]>0.5)ent.aim=Math.min(ent.aim+0.05,Math.PI/2.5);
+  if(out[5]>0.6)ent.shoot();
+  // Always face the nearest alive enemy
+  ent.face=ent.x<800?1:-1; // default, will be overridden below if target known
+}
+
+// Legacy wrappers for classic 1v1 mode
+function aiInputs(){return aiInputsFor(A,P,P.arr)}
+function aiProcess(out){aiProcessFor(out,A);A.face=P.x<A.x?-1:1}
 
 // ================================================================
 //  GAME LOGIC
@@ -953,9 +1211,7 @@ async function endRound(winner){
   roundOver=true;totalPlayed++;
   if(winner!=='ai')totalWins++;
   evolveBrain(winner==='ai');
-  await saveCurrent();
-  await store.setConfig('totalWins',totalWins);
-  await store.setConfig('totalPlayed',totalPlayed);
+  await saveCurrent(); // wins/played saved inside brain entry
   if(winner==='player')sessionScore.player++;else if(winner==='ai')sessionScore.ai++;
   document.getElementById('h-pscore').textContent=sessionScore.player;
   document.getElementById('h-ascore').textContent=sessionScore.ai;
@@ -1059,36 +1315,223 @@ function drawGame(){
   if(activeBrain.acts&&activeBrain.acts.length){const w=nnCv.width,h=nnCv.height;nnC.clearRect(0,0,w,h);const ls=activeBrain.acts,mx=8;for(let l=0;l<ls.length;l++){const ns=ls[l],dc=Math.min(ns.length,mx),lx=12+(l/(ls.length-1))*(w-24);for(let n=0;n<dc;n++){const ny=6+(dc>1?(n/(dc-1))*(h-12):h/2-6),v=ns[n];if(l<ls.length-1){const nc=Math.min(ls[l+1].length,mx),nlx=12+((l+1)/(ls.length-1))*(w-24);for(let nn=0;nn<nc;nn++){const nny=6+(nc>1?(nn/(nc-1))*(h-12):h/2-6),wt=activeBrain.w[l]?.[nn]?.[n]||0,a=Math.min(Math.abs(wt)*0.25,0.3);nnC.strokeStyle=wt>0?`rgba(59,240,160,${a})`:`rgba(255,68,102,${a})`;nnC.lineWidth=0.5;nnC.beginPath();nnC.moveTo(lx,ny);nnC.lineTo(nlx,nny);nnC.stroke()}}const abs=Math.min(Math.abs(v),2)/2;nnC.fillStyle=v>0?`rgba(59,240,160,${0.2+abs*0.8})`:`rgba(255,68,102,${0.2+abs*0.8})`;nnC.beginPath();nnC.arc(lx,ny,2+abs*2,0,Math.PI*2);nnC.fill()}}}
 }
 
+// ── Multi-player draw ─────────────────────────────────────────────
+function drawGameMulti(){
+  c.fillStyle='#080a12';c.fillRect(0,0,vW,vH);
+  c.save();
+  // Apply zoom for free camera
+  if(camZoom!==1){
+    c.translate(vW/2,vH/2);
+    c.scale(camZoom,camZoom);
+    c.translate(-vW/2,-vH/2);
+  }
+  c.translate(-camX,-camY);
+
+  // Grid
+  c.strokeStyle='rgba(255,255,255,0.012)';c.lineWidth=1;
+  const gs=50,sx=Math.floor(camX/gs)*gs,sy=Math.floor(camY/gs)*gs;
+  for(let x=sx;x<camX+vW+gs;x+=gs){c.beginPath();c.moveTo(x,camY);c.lineTo(x,camY+vH);c.stroke()}
+  for(let y=sy;y<camY+vH+gs;y+=gs){c.beginPath();c.moveTo(camX,y);c.lineTo(camX+vH,y);c.stroke()}
+
+  // Platforms
+  for(const p of platforms){
+    if(p.x+p.w<camX-20||p.x>camX+vW+20||p.y+p.h<camY-20||p.y>camY+vH+20)continue;
+    if(p.w<=12||p.h>=WH-40){c.fillStyle='#14141c';c.fillRect(p.x,p.y,p.w,p.h);if(p.h>=WH-40){c.fillStyle='rgba(255,255,255,0.05)';c.fillRect(p.x,p.y,p.w,1)}continue}
+    const gr=c.createLinearGradient(p.x,p.y,p.x,p.y+p.h);gr.addColorStop(0,'#2a2a38');gr.addColorStop(1,'#1a1a24');c.fillStyle=gr;c.beginPath();c.roundRect(p.x,p.y,p.w,p.h,3);c.fill();c.fillStyle='rgba(255,255,255,0.08)';c.fillRect(p.x+2,p.y,p.w-4,1);
+  }
+
+  // Players
+  for(let i=0;i<players.length;i++){
+    if(playerAlive[i])players[i].draw(c);
+  }
+
+  // Particles
+  for(const p of particles){c.globalAlpha=p.life/60;c.fillStyle=p.col;c.beginPath();c.arc(p.x,p.y,p.sz,0,Math.PI*2);c.fill()}
+  c.globalAlpha=1;
+
+  // Off-screen arrows for dead players — skip; draw name labels above each alive player
+  for(let i=0;i<players.length;i++){
+    if(!playerAlive[i])continue;
+    const pl=players[i];
+    const sx2=pl.x+pl.w/2-camX,sy2=pl.y-camY-14;
+    c.font='bold 8px JetBrains Mono';c.textAlign='center';
+    c.fillStyle=SLOT_COLORS[pl._slotIndex];
+    c.globalAlpha=0.7;
+    c.fillText(pl._label,sx2,sy2);
+    c.globalAlpha=1;
+  }
+
+  // Off-screen indicators (arrows pointing to out-of-view players)
+  for(let i=0;i<players.length;i++){
+    if(!playerAlive[i])continue;
+    const pl=players[i];
+    const sx2=pl.x+pl.w/2-camX,sy2=pl.y+pl.h/2-camY;
+    if(sx2>-30&&sx2<vW+30&&sy2>-30&&sy2<vH+30)continue;
+    const cx2=vW/2,cy2=vH/2,ang=Math.atan2(sy2-cy2,sx2-cx2),mg=32;
+    let ix=cx2+Math.cos(ang)*(vW/2-mg),iy=cy2+Math.sin(ang)*(vH/2-mg);
+    ix=Math.max(mg,Math.min(vW-mg,ix));iy=Math.max(mg,Math.min(vH-mg,iy));
+    c.save();c.translate(ix,iy);c.rotate(ang);
+    c.fillStyle=SLOT_COLORS[pl._slotIndex]+'bb';
+    c.beginPath();c.moveTo(10,0);c.lineTo(-5,-5);c.lineTo(-5,5);c.closePath();c.fill();
+    c.restore();
+  }
+
+  c.restore();
+}
+function checkHitsMulti(){
+  const alive=players.filter((_,i)=>playerAlive[i]);
+  for(let attI=0;attI<players.length;attI++){
+    if(!playerAlive[attI])continue;
+    const att=players[attI];
+    for(let arI=att.arr.length-1;arI>=0;arI--){
+      const ar=att.arr[arI];if(ar.st)continue;
+      for(let defI=0;defI<players.length;defI++){
+        if(defI===attI||!playerAlive[defI])continue;
+        const def=players[defI];
+        if(ar.x>def.x&&ar.x<def.x+def.w&&ar.y>def.y&&ar.y<def.y+def.h){
+          boom(ar.x,ar.y,def.col);
+          att.arr.splice(arI,1);
+          playerAlive[defI]=false;
+          return defI; // index of eliminated player
+        }
+      }
+    }
+  }
+  return -1;
+}
+
+async function endRoundMulti(eliminatedIdx){
+  if(multiRoundOver)return;
+  multiRoundOver=true;
+  const alivePlayers=players.filter((_,i)=>playerAlive[i]);
+  // If only one (or zero) left, they win
+  const winnerIdx=alivePlayers.length===1?players.indexOf(alivePlayers[0]):-1;
+  if(winnerIdx>=0)playerWins[winnerIdx]++;
+  updateMultiHUD();
+
+  const ov=document.getElementById('game-overlay');
+  const title=document.getElementById('ov-title');
+  const sub=document.getElementById('ov-sub');
+  if(winnerIdx>=0){
+    title.textContent=`${sanitize(players[winnerIdx]._label)} GAGNE !`;
+    title.style.color=SLOT_COLORS[players[winnerIdx]._slotIndex];
+  } else {
+    title.textContent='TEMPS ÉCOULÉ';title.style.color='';
+  }
+  const scores=players.map((p,i)=>`${sanitize(p._label)} ${playerWins[i]}`).join('  ·  ');
+  sub.textContent=scores;
+  ov.classList.remove('hidden');
+}
+
+function nextRoundMulti(){
+  sessionScore.round++;
+  multiRoundOver=false;
+  roundTimer=0;
+  particles=[];
+  // Re-spawn all players at corners
+  const activeSlots=lobbySlots.map((s,i)=>({...s,index:i})).filter(s=>s.type!=='off');
+  for(let i=0;i<players.length;i++){
+    const sp=SPAWN_POS[i%4];
+    players[i].x=sp.x;players[i].y=sp.y;
+    players[i].vx=0;players[i].vy=0;
+    players[i].arr=[];players[i].cd=0;players[i].aim=0;
+    players[i].face=sp.face;
+    playerAlive[i]=true;
+  }
+  updateMultiHUD();
+  document.getElementById('game-overlay').classList.add('hidden');
+  document.getElementById('mh-round').textContent=`Round ${sessionScore.round}`;
+}
+
 function gameLoop(){
   if(!gameActive)return;
   requestAnimationFrame(gameLoop);
-  if(!roundOver){
-    playerInput();
-    const inp=aiInputs(),out=activeBrain.forward(inp);
-    aiProcess(out);
-    P.update();A.update();
 
-    // ── Collect per-frame stats for fitness ──────────────────────
-    // Platform mobility: detect when AI lands on a new platform height
-    if(A.gnd){
-      const py=Math.round(A.y/10)*10;
-      if(py!==roundStats.lastPlatformY&&roundStats.lastPlatformY!==-1){
-        roundStats.platformChanges++;
+  if(multiMode){
+    // ── MULTI GAME LOOP ────────────────────────────────────────
+    if(!multiRoundOver){
+      // Collect all enemy arrows for each AI (for dodge detection)
+      for(let i=0;i<players.length;i++){
+        if(!playerAlive[i])continue;
+        const me=players[i];
+        if(playerBrains[i]!==null){
+          // AI: pick nearest alive enemy as target
+          let target=null,bestDist=Infinity;
+          for(let j=0;j<players.length;j++){
+            if(j===i||!playerAlive[j])continue;
+            const dx=players[j].x-me.x,dy=players[j].y-me.y;
+            const d=dx*dx+dy*dy;
+            if(d<bestDist){bestDist=d;target=players[j];}
+          }
+          if(target){
+            // Collect enemy arrows (all except own)
+            const enemyArrows=players.filter((_,j)=>j!==i).flatMap(p=>p.arr);
+            const inp=aiInputsFor(me,target,enemyArrows);
+            const out=playerBrains[i].forward(inp);
+            aiProcessFor(out,me);
+            me.face=target.x<me.x?-1:1;
+          }
+        } else {
+          // Human: use existing playerInput but bound to first human slot
+          if(players.filter((_,j)=>j<i&&playerBrains[j]===null).length===0){
+            P=me; playerInput();
+          }
+        }
+        me.update();
       }
-      roundStats.lastPlatformY=py;
-    }
-    // Stagnation: penalise IA immobile (camp en coin)
-    if(Math.abs(A.x-roundStats.lastX)<2)roundStats.stagnationFrames++;
-    else roundStats.stagnationFrames=Math.max(0,roundStats.stagnationFrames-3);
-    roundStats.lastX=A.x;
-    // ─────────────────────────────────────────────────────────────
 
-    const hit=checkHits();
-    if(hit)endRound(hit);
-    roundTimer++;
-    if(roundTimer>60*35)endRound(null);
+      // Hit detection
+      const eliminated=checkHitsMulti();
+      const aliveCount=playerAlive.filter(Boolean).length;
+      if(aliveCount<=1)endRoundMulti(-1);
+
+      roundTimer++;
+      if(roundTimer>60*40)endRoundMulti(-1);
+    }
+
+    if(freeCam){freeCamKeyboard();}
+    else{
+      // Auto-camera: center on all alive players
+      if(players.length>0){
+        const alive=players.filter((_,i)=>playerAlive[i]);
+        if(alive.length>0){
+          const cx=alive.reduce((s,p)=>s+p.x+p.w/2,0)/alive.length;
+          const cy=alive.reduce((s,p)=>s+p.y+p.h/2,0)/alive.length;
+          camX+=(cx-vW/2-camX)*0.06;
+          camY+=(cy-vH/2-camY)*0.06;
+        }
+      }
+    }
+    updateParticles();
+    drawGameMulti();
+
+  } else {
+    // ── CLASSIC GAME LOOP ──────────────────────────────────────
+    if(!roundOver){
+      playerInput();
+      const inp=aiInputs(),out=activeBrain.forward(inp);
+      aiProcess(out);
+      P.update();A.update();
+
+      // Collect per-frame stats for fitness
+      if(A.gnd){
+        const py=Math.round(A.y/10)*10;
+        if(py!==roundStats.lastPlatformY&&roundStats.lastPlatformY!==-1){
+          roundStats.platformChanges++;
+        }
+        roundStats.lastPlatformY=py;
+      }
+      if(Math.abs(A.x-roundStats.lastX)<2)roundStats.stagnationFrames++;
+      else roundStats.stagnationFrames=Math.max(0,roundStats.stagnationFrames-3);
+      roundStats.lastX=A.x;
+
+      const hit=checkHits();
+      if(hit)endRound(hit);
+      roundTimer++;
+      if(roundTimer>60*35)endRound(null);
+    }
+    updateCamera();updateParticles();drawGame();
   }
-  updateCamera();updateParticles();drawGame();
 }
 
 // ================================================================
@@ -1098,12 +1541,22 @@ function showScreen(name){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(name+'-screen').classList.add('active');
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.screen===name));
-  if(name==='game'){document.body.classList.add('in-game');const isTouch=('ontouchstart' in window)||navigator.maxTouchPoints>0;if(isTouch)document.getElementById('touch-pad').classList.add('on')}
-  else{document.body.classList.remove('in-game');document.getElementById('touch-pad').classList.remove('on');gameActive=false}
-  if(name==='menu')updateMenuUI();
+  if(name==='game'){
+    document.body.classList.add('in-game');
+    const isTouch=('ontouchstart' in window)||navigator.maxTouchPoints>0;
+    if(isTouch&&!multiMode)document.getElementById('touch-pad').classList.add('on');
+  } else {
+    document.body.classList.remove('in-game','observe-mode');
+    document.getElementById('touch-pad').classList.remove('on');
+    gameActive=false;
+    // Reset HUD visibility when leaving game
+    document.getElementById('game-hud').style.display='';
+    document.getElementById('multi-hud').style.display='none';
+  }
+  if(name==='menu'){multiMode=false;freeCam=false;camZoom=1;updateMenuUI();}
   if(name==='lab')updateLabUI();
+  if(name==='lobby')renderLobby();
   if(name==='community'){
-    // Load config into fields
     document.getElementById('cfg-repo').value=githubSync.repo;
     document.getElementById('cfg-token').value=githubSync.token;
     document.getElementById('cfg-pseudo').value=githubSync.pseudo;
@@ -1114,11 +1567,14 @@ function startArena(){showScreen('game');resizeGame();sessionScore={player:0,ai:
 
 async function quitGame(){
   gameActive=false;
-  // Save progress before quitting
-  await saveCurrent();
-  await store.setConfig('totalWins',totalWins);
-  await store.setConfig('totalPlayed',totalPlayed);
-  showScreen('menu');
+  if(multiMode){
+    multiMode=false;freeCam=false;camZoom=1;
+    document.body.classList.remove('observe-mode');
+    showScreen('menu');
+  } else {
+    await saveCurrent();
+    showScreen('menu');
+  }
 }
 window.addEventListener('resize',()=>{if(gameActive)resizeGame()});
 
@@ -1126,7 +1582,10 @@ window.addEventListener('resize',()=>{if(gameActive)resizeGame()});
 //  PERSISTENCE
 // ================================================================
 async function saveCurrent(){
-  const entry={id:currentBrainId,name:currentBrainId==='default'?'Cerveau principal':currentBrainId,brain:activeBrain.serialize(),generation,fitness:activeBrain.fitness||0,wins:totalWins,played:totalPlayed,timestamp:Date.now(),game:'arena-archer',topology:activeBrain.topo.join('-'),params:activeBrain.paramCount()};
+  // Preserve existing name if already stored
+  const existing=await store.get('brains',currentBrainId);
+  const name=existing?.name||(currentBrainId==='default'?'Cerveau principal':currentBrainId);
+  const entry={id:currentBrainId,name,brain:activeBrain.serialize(),generation,fitness:activeBrain.fitness||0,wins:totalWins,played:totalPlayed,timestamp:Date.now(),game:'arena-archer',topology:activeBrain.topo.join('-'),params:activeBrain.paramCount()};
   if(bestBrain){entry.bestBrain=bestBrain.serialize();entry.bestFitness=bestBrain.fitness||0}
   await store.put('brains',entry);
 }
@@ -1134,9 +1593,24 @@ async function saveCurrent(){
 async function loadBrains(){
   const all=await store.getAll('brains');
   const entry=all.find(b=>b.id==='default');
-  if(entry){activeBrain=Brain.deserialize(entry.brain);activeBrain.fitness=entry.fitness||0;generation=entry.generation||1;totalWins=entry.wins||0;totalPlayed=entry.played||0;if(entry.bestBrain){bestBrain=Brain.deserialize(entry.bestBrain);bestBrain.fitness=entry.bestFitness||0}}
-  totalWins=await store.getConfig('totalWins',totalWins);
-  totalPlayed=await store.getConfig('totalPlayed',totalPlayed);
+  if(entry){
+    activeBrain=Brain.deserialize(entry.brain);
+    activeBrain.fitness=entry.fitness||0;
+    generation=entry.generation||1;
+    // wins/played are per-brain — load from brain entry only
+    totalWins=entry.wins||0;
+    totalPlayed=entry.played||0;
+    if(entry.bestBrain){bestBrain=Brain.deserialize(entry.bestBrain);bestBrain.fitness=entry.bestFitness||0}
+  }
+  // Legacy migration: if global config had values and brain entry has 0, migrate once
+  const cfgWins=await store.getConfig('totalWins',null);
+  const cfgPlayed=await store.getConfig('totalPlayed',null);
+  if(cfgWins!==null&&totalWins===0&&totalPlayed===0){
+    totalWins=cfgWins;totalPlayed=cfgPlayed||0;
+    // Clear global config to avoid future contamination
+    await store.setConfig('totalWins',null);
+    await store.setConfig('totalPlayed',null);
+  }
 }
 
 function updateMenuUI(){
@@ -1158,7 +1632,25 @@ async function updateLabUI(){
   document.getElementById('lab-content').innerHTML=html;
 }
 
-async function selectBrain(id){const e=await store.get('brains',id);if(!e)return;currentBrainId=id;activeBrain=Brain.deserialize(e.brain);activeBrain.fitness=e.fitness||0;generation=e.generation||1;if(e.bestBrain)bestBrain=Brain.deserialize(e.bestBrain);toast(`"${e.name||id}" activé`);updateLabUI()}
+async function selectBrain(id){
+  const e=await store.get('brains',id);
+  if(!e)return;
+  currentBrainId=id;
+  activeBrain=Brain.deserialize(e.brain);
+  activeBrain.fitness=e.fitness||0;
+  generation=e.generation||1;
+  // Load per-brain stats — critical fix
+  totalWins=e.wins||0;
+  totalPlayed=e.played||0;
+  // Reset hallOfFame for this brain context
+  hallOfFame=[];
+  stagnationCounter=0;
+  if(e.bestBrain){bestBrain=Brain.deserialize(e.bestBrain);bestBrain.fitness=e.bestFitness||0}
+  else bestBrain=null;
+  toast(`"${e.name||id}" activé`);
+  updateMenuUI();
+  updateLabUI();
+}
 async function newBrain(){const id='brain_'+Date.now();await store.put('brains',{id,name:'Cerveau '+id.slice(-6),brain:new Brain().serialize(),generation:1,fitness:0,wins:0,played:0,timestamp:Date.now(),game:'arena-archer',topology:'16-20-14-6',params:new Brain().paramCount()});currentBrainId=id;activeBrain=new Brain();generation=1;bestBrain=null;toast('Nouveau cerveau créé');updateLabUI()}
 async function duplicateCurrent(){const id='brain_'+Date.now();const e={id,name:'Clone '+id.slice(-6),brain:activeBrain.serialize(),generation,fitness:activeBrain.fitness||0,wins:0,played:0,timestamp:Date.now(),game:'arena-archer',topology:activeBrain.topo.join('-'),params:activeBrain.paramCount()};if(bestBrain)e.bestBrain=bestBrain.serialize();await store.put('brains',e);toast('Dupliqué');updateLabUI()}
 async function resetCurrent(){activeBrain=new Brain();generation=1;bestBrain=null;hallOfFame=[];await saveCurrent();toast('Reset');updateLabUI()}
