@@ -687,6 +687,19 @@ let totalWins=0,totalPlayed=0;
 let sessionScore={player:0,ai:0,round:1};
 let gameActive=false,roundOver=false,roundTimer=0;
 
+// ── Multi-criteria fitness tracking (reset each round) ──────────
+let roundStats={
+  arrowsDodged:0,      // flèches joueur passées près de l'IA sans toucher
+  shotsFired:0,        // tirs de l'IA
+  shotsNearMiss:0,     // tirs IA proches du joueur (< 60px)
+  platformChanges:0,   // changements de plateforme (mobilité verticale)
+  lastPlatformY:-1,    // dernière plateforme touchée
+  stagnationFrames:0,  // frames sans bouger
+  lastX:-1,
+};
+// ── Stagnation detection across rounds ──────────────────────────
+let stagnationCounter=0;  // rounds consécutifs sans amélioration de fitness
+
 const WW=1400,WH=700;
 const GRAV=0.38,FRIC=0.82,JUMP=-10,MSPD=3.5;
 const ASPD=13,AGRAV=0.18,ADRAG=0.998,MAXA=5,COOLDOWN=26;
@@ -748,7 +761,10 @@ class Ent {
 }
 
 let P,A;
-function initRound(){P=new Ent(200,WH-100,'#00b4ff',false);P.face=1;A=new Ent(WW-220,WH-100,'#ff3250',true);A.face=-1;roundOver=false;roundTimer=0;particles=[];camX=P.x-vW/2;camY=P.y-vH/2;document.getElementById('game-overlay').classList.add('hidden')}
+function initRound(){P=new Ent(200,WH-100,'#00b4ff',false);P.face=1;A=new Ent(WW-220,WH-100,'#ff3250',true);A.face=-1;roundOver=false;roundTimer=0;particles=[];camX=P.x-vW/2;camY=P.y-vH/2;document.getElementById('game-overlay').classList.add('hidden');
+  // Reset per-round stats
+  roundStats={arrowsDodged:0,shotsFired:0,shotsNearMiss:0,platformChanges:0,lastPlatformY:WH-30,stagnationFrames:0,lastX:A.x};
+}
 
 // ================================================================
 //  INPUT — Dual Joystick + Keyboard
@@ -909,7 +925,25 @@ function aiProcess(out){if(out[0]>0.5){A.vx-=MSPD*0.4;A.face=-1}if(out[1]>0.5){A
 // ================================================================
 //  GAME LOGIC
 // ================================================================
-function checkHits(){for(let i=P.arr.length-1;i>=0;i--){const a=P.arr[i];if(a.st)continue;if(a.x>A.x&&a.x<A.x+A.w&&a.y>A.y&&a.y<A.y+A.h){boom(a.x,a.y,A.col);P.arr.splice(i,1);return'player'}}for(let i=A.arr.length-1;i>=0;i--){const a=A.arr[i];if(a.st)continue;if(a.x>P.x&&a.x<P.x+P.w&&a.y>P.y&&a.y<P.y+P.h){boom(a.x,a.y,P.col);A.arr.splice(i,1);return'ai'}}return null}
+function checkHits(){
+  // Check player arrows hitting AI
+  for(let i=P.arr.length-1;i>=0;i--){
+    const a=P.arr[i];if(a.st)continue;
+    if(a.x>A.x&&a.x<A.x+A.w&&a.y>A.y&&a.y<A.y+A.h){boom(a.x,a.y,A.col);P.arr.splice(i,1);return'player'}
+    // Near-miss dodge detection: arrow passed close but didn't hit
+    const dx=a.x-(A.x+A.w/2),dy=a.y-(A.y+A.h/2);
+    if(Math.sqrt(dx*dx+dy*dy)<80)roundStats.arrowsDodged+=0.1; // incremental reward
+  }
+  // Check AI arrows hitting player
+  for(let i=A.arr.length-1;i>=0;i--){
+    const a=A.arr[i];if(a.st)continue;
+    if(a.x>P.x&&a.x<P.x+P.w&&a.y>P.y&&a.y<P.y+P.h){boom(a.x,a.y,P.col);A.arr.splice(i,1);return'ai'}
+    // Near-miss shot: AI arrow passed close to player (aiming quality)
+    const dx=a.x-(P.x+P.w/2),dy=a.y-(P.y+P.h/2);
+    if(Math.sqrt(dx*dx+dy*dy)<60)roundStats.shotsNearMiss+=0.15;
+  }
+  return null;
+}
 
 function boom(x,y,col){for(let i=0;i<30;i++){const a=Math.random()*Math.PI*2,s=1+Math.random()*6;particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:30+Math.random()*30,col,sz:1+Math.random()*3})}}
 function updateParticles(){for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.x+=p.vx;p.y+=p.vy;p.vy+=0.1;p.life--;if(p.life<=0)particles.splice(i,1)}}
@@ -931,19 +965,80 @@ async function endRound(winner){
   ov.classList.remove('hidden');
 }
 
+function computeRoundBonus(aiWon){
+  // Dodge bonus: surviving flèches proches (max 8 pts)
+  const dodgeBonus = Math.min(roundStats.arrowsDodged, 8);
+  // Aim bonus: flèches IA proches du joueur (max 6 pts)
+  const aimBonus = Math.min(roundStats.shotsNearMiss, 6);
+  // Mobility bonus: utilisation des plateformes (max 4 pts)
+  const mobilityBonus = Math.min(roundStats.platformChanges * 0.8, 4);
+  // Survival bonus: plus l'IA survit longtemps même en perdant, plus c'est récompensé
+  const survivalBonus = Math.min(roundTimer / (60 * 35) * 3, 3);
+  return dodgeBonus + aimBonus + mobilityBonus + survivalBonus;
+}
+
 function evolveBrain(aiWon){
+  const bonus = computeRoundBonus(aiWon);
+  const prevFitness = activeBrain.fitness || 0;
+
   if(aiWon){
-    activeBrain.fitness=(activeBrain.fitness||0)+10;
-    if(!bestBrain||(activeBrain.fitness||0)>=(bestBrain.fitness||0)){bestBrain=activeBrain.clone();bestBrain.fitness=activeBrain.fitness}
-    hallOfFame.push(activeBrain.clone());if(hallOfFame.length>15)hallOfFame.shift();
-    activeBrain.mutate(0.05,0.1);
-  }else{
-    activeBrain.fitness=Math.max(0,(activeBrain.fitness||0)-3);
-    if(bestBrain&&Math.random()<0.5){activeBrain=Brain.crossover(activeBrain,bestBrain);activeBrain.mutate(0.2,0.35)}
-    else if(hallOfFame.length>1&&Math.random()<0.3){activeBrain=Brain.crossover(hallOfFame[Math.floor(Math.random()*hallOfFame.length)],hallOfFame[Math.floor(Math.random()*hallOfFame.length)]);activeBrain.mutate(0.15,0.3)}
-    else activeBrain.mutate(0.25,0.45);
+    // Victoire : +12 base + bonus comportementaux
+    activeBrain.fitness = prevFitness + 12 + bonus;
+    if(!bestBrain || activeBrain.fitness >= (bestBrain.fitness || 0)){
+      bestBrain = activeBrain.clone();
+      bestBrain.fitness = activeBrain.fitness;
+    }
+    // Hall of Fame élitiste : garder les 8 meilleurs distincts
+    hallOfFame.push(activeBrain.clone());
+    hallOfFame.sort((a,b)=>(b.fitness||0)-(a.fitness||0));
+    if(hallOfFame.length > 8) hallOfFame.length = 8;
+    stagnationCounter = 0;
+
+    // Mutation fine après victoire : taux adaptatif selon fitness
+    // Plus la fitness est haute, plus on est conservateur
+    const conservatism = Math.min(activeBrain.fitness / 150, 0.85);
+    const rate = 0.05 * (1 - conservatism * 0.6);   // 0.02 ~ 0.05
+    const power = 0.08 * (1 - conservatism * 0.5);  // 0.04 ~ 0.08
+    activeBrain.mutate(rate, power);
+
+  } else {
+    // Défaite : -2 base (moins punitif), mais bonus comportementaux préservés
+    activeBrain.fitness = Math.max(0, prevFitness - 2 + bonus * 0.5);
+
+    // Détection de stagnation
+    if(activeBrain.fitness <= prevFitness) stagnationCounter++;
+    else stagnationCounter = Math.max(0, stagnationCounter - 1);
+
+    // Taux de mutation adaptatif selon stagnation
+    // Plus on stagne, plus on explore agressivement
+    const exploreFactor = Math.min(1 + stagnationCounter * 0.15, 2.5);
+    const baseRate = 0.18 * exploreFactor;
+    const basePower = 0.28 * exploreFactor;
+
+    const rand = Math.random();
+    if(bestBrain && rand < 0.40){
+      // 40% : crossover avec le meilleur cerveau
+      activeBrain = Brain.crossover(activeBrain, bestBrain);
+      activeBrain.mutate(Math.min(baseRate, 0.35), Math.min(basePower, 0.5));
+    } else if(hallOfFame.length >= 2 && rand < 0.65){
+      // 25% : crossover entre deux membres du Hall of Fame
+      const a = hallOfFame[Math.floor(Math.random() * Math.min(hallOfFame.length, 4))];
+      const b = hallOfFame[Math.floor(Math.random() * hallOfFame.length)];
+      activeBrain = Brain.crossover(a, b);
+      activeBrain.mutate(Math.min(baseRate * 0.8, 0.3), Math.min(basePower * 0.8, 0.45));
+    } else if(bestBrain && rand < 0.85){
+      // 20% : repartir du meilleur cerveau avec mutation forte
+      activeBrain = bestBrain.clone();
+      activeBrain.mutate(Math.min(baseRate * 1.2, 0.4), Math.min(basePower * 1.2, 0.55));
+    } else {
+      // 15% : mutation pure (exploration radicale si trop stagné)
+      activeBrain.mutate(Math.min(baseRate * 1.5, 0.5), Math.min(basePower * 1.5, 0.65));
+    }
+    activeBrain.fitness = Math.max(0, prevFitness - 2 + bonus * 0.5);
   }
-  generation++;document.getElementById('h-gen').textContent=generation;
+
+  generation++;
+  document.getElementById('h-gen').textContent = generation;
 }
 
 function nextRound(){sessionScore.round++;document.getElementById('h-round').textContent='Round '+sessionScore.round;initRound()}
@@ -964,7 +1059,37 @@ function drawGame(){
   if(activeBrain.acts&&activeBrain.acts.length){const w=nnCv.width,h=nnCv.height;nnC.clearRect(0,0,w,h);const ls=activeBrain.acts,mx=8;for(let l=0;l<ls.length;l++){const ns=ls[l],dc=Math.min(ns.length,mx),lx=12+(l/(ls.length-1))*(w-24);for(let n=0;n<dc;n++){const ny=6+(dc>1?(n/(dc-1))*(h-12):h/2-6),v=ns[n];if(l<ls.length-1){const nc=Math.min(ls[l+1].length,mx),nlx=12+((l+1)/(ls.length-1))*(w-24);for(let nn=0;nn<nc;nn++){const nny=6+(nc>1?(nn/(nc-1))*(h-12):h/2-6),wt=activeBrain.w[l]?.[nn]?.[n]||0,a=Math.min(Math.abs(wt)*0.25,0.3);nnC.strokeStyle=wt>0?`rgba(59,240,160,${a})`:`rgba(255,68,102,${a})`;nnC.lineWidth=0.5;nnC.beginPath();nnC.moveTo(lx,ny);nnC.lineTo(nlx,nny);nnC.stroke()}}const abs=Math.min(Math.abs(v),2)/2;nnC.fillStyle=v>0?`rgba(59,240,160,${0.2+abs*0.8})`:`rgba(255,68,102,${0.2+abs*0.8})`;nnC.beginPath();nnC.arc(lx,ny,2+abs*2,0,Math.PI*2);nnC.fill()}}}
 }
 
-function gameLoop(){if(!gameActive)return;requestAnimationFrame(gameLoop);if(!roundOver){playerInput();const inp=aiInputs(),out=activeBrain.forward(inp);aiProcess(out);P.update();A.update();const hit=checkHits();if(hit)endRound(hit);roundTimer++;if(roundTimer>60*35)endRound(null)}updateCamera();updateParticles();drawGame()}
+function gameLoop(){
+  if(!gameActive)return;
+  requestAnimationFrame(gameLoop);
+  if(!roundOver){
+    playerInput();
+    const inp=aiInputs(),out=activeBrain.forward(inp);
+    aiProcess(out);
+    P.update();A.update();
+
+    // ── Collect per-frame stats for fitness ──────────────────────
+    // Platform mobility: detect when AI lands on a new platform height
+    if(A.gnd){
+      const py=Math.round(A.y/10)*10;
+      if(py!==roundStats.lastPlatformY&&roundStats.lastPlatformY!==-1){
+        roundStats.platformChanges++;
+      }
+      roundStats.lastPlatformY=py;
+    }
+    // Stagnation: penalise IA immobile (camp en coin)
+    if(Math.abs(A.x-roundStats.lastX)<2)roundStats.stagnationFrames++;
+    else roundStats.stagnationFrames=Math.max(0,roundStats.stagnationFrames-3);
+    roundStats.lastX=A.x;
+    // ─────────────────────────────────────────────────────────────
+
+    const hit=checkHits();
+    if(hit)endRound(hit);
+    roundTimer++;
+    if(roundTimer>60*35)endRound(null);
+  }
+  updateCamera();updateParticles();drawGame();
+}
 
 // ================================================================
 //  SCREENS
