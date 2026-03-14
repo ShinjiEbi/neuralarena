@@ -9,14 +9,18 @@
 <link rel="manifest" href="manifest.json">
 <title>Neural Arena</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Anybody:wght@400;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=JetBrains+Mono:wght@400;600&display=swap');
 :root {
-  --bg:#060810;--surface:#0c0e18;--card:#10121e;--border:rgba(255,255,255,0.06);
-  --text:#6a6e82;--bright:#c0c4d8;--accent:#3bf0a0;--accent2:#00b4ff;
-  --warn:#ff3250;--gold:#f0c040;--radius:8px;
+  /* Donjon sombre — palette TowerFall */
+  --bg:#1a0e2e;--surface:#120a1f;--card:#1e1232;--border:rgba(255,200,100,0.15);
+  --text:#8878aa;--bright:#e8d8ff;--accent:#f0a030;--accent2:#60c8ff;
+  --warn:#ff4444;--gold:#f0c040;--radius:4px;
+  /* Couleurs donjon */
+  --stone1:#3a3050;--stone2:#2a2040;--stone3:#4a4060;
+  --torch:#ff8820;--torch2:#ffcc44;
 }
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;width:100%;height:100%;overflow:hidden;user-select:none;-webkit-user-select:none}
+html,body{background:var(--bg);color:var(--text);font-family:'Press Start 2P',monospace;width:100%;height:100%;overflow:hidden;user-select:none;-webkit-user-select:none;image-rendering:pixelated}
 
 #lab-screen,#community-screen,#menu-screen{touch-action:pan-y;-webkit-overflow-scrolling:touch}
 #game-screen{touch-action:none}
@@ -26,70 +30,76 @@ html,body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',mo
 
 /* MENU */
 #menu-screen{align-items:center;justify-content:center;background:var(--bg)}
-.menu-logo{font-family:'Anybody',sans-serif;font-weight:900;font-size:clamp(24px,6vw,42px);color:var(--accent);letter-spacing:4px;text-shadow:0 0 40px rgba(59,240,160,0.25);margin-bottom:4px}
-.menu-sub{font-size:10px;color:#3a3d50;letter-spacing:5px;text-transform:uppercase;margin-bottom:32px}
-.menu-stats{display:flex;gap:20px;margin-bottom:28px;font-size:10px}
-.menu-stat{text-align:center}
-.menu-stat .val{font-size:18px;font-weight:700;color:var(--bright);display:block;margin-bottom:2px}
-.menu-stat .lbl{color:#3a3d50;letter-spacing:1px;font-size:8px;text-transform:uppercase}
-.menu-brain-info{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 20px;margin-bottom:24px;text-align:center;font-size:10px;max-width:320px}
-.menu-brain-info .brain-name{color:var(--accent);font-weight:600;font-size:12px;margin-bottom:4px}
-.menu-brain-info .brain-meta{color:#444}
-.menu-btns{display:flex;flex-direction:column;gap:8px;width:280px}
+/* Fond donjon animé via CSS */
+#menu-screen::before{content:'';position:absolute;inset:0;background:
+  repeating-linear-gradient(0deg,transparent,transparent 31px,rgba(255,200,100,0.03) 32px),
+  repeating-linear-gradient(90deg,transparent,transparent 31px,rgba(255,200,100,0.03) 32px);
+  pointer-events:none}
+.menu-logo{font-family:'Press Start 2P',monospace;font-size:clamp(12px,3.5vw,22px);color:var(--gold);letter-spacing:2px;text-shadow:3px 3px 0 #7a4400,0 0 20px rgba(240,160,48,0.5);margin-bottom:6px;text-align:center;image-rendering:pixelated}
+.menu-sub{font-size:6px;color:#6040a0;letter-spacing:3px;text-transform:uppercase;margin-bottom:28px}
+.menu-stats{display:flex;gap:16px;margin-bottom:20px;font-size:7px}
+.menu-stat{text-align:center;background:var(--card);border:2px solid var(--border);padding:8px 12px}
+.menu-stat .val{font-size:14px;color:var(--gold);display:block;margin-bottom:4px;text-shadow:2px 2px 0 #7a4400}
+.menu-stat .lbl{color:#6040a0;font-size:5px;letter-spacing:1px}
+.menu-brain-info{background:var(--card);border:2px solid var(--border);padding:10px 16px;margin-bottom:20px;text-align:center;max-width:300px;box-shadow:3px 3px 0 rgba(0,0,0,0.5)}
+.menu-brain-info .brain-name{color:var(--gold);font-size:8px;margin-bottom:6px;text-shadow:1px 1px 0 #7a4400}
+.menu-brain-info .brain-meta{color:#6040a0;font-size:6px;line-height:1.8}
+.menu-btns{display:flex;flex-direction:column;gap:6px;width:260px}
 
-.btn{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:500;padding:12px 20px;border:1px solid var(--border);background:var(--card);color:var(--bright);border-radius:var(--radius);cursor:pointer;letter-spacing:1px;transition:all 0.15s;text-align:center;-webkit-tap-highlight-color:transparent}
-.btn:active{transform:scale(0.97)}
-.btn.primary{border-color:rgba(59,240,160,0.3);background:rgba(59,240,160,0.08);color:var(--accent)}
-.btn.warn{border-color:rgba(255,50,80,0.2);color:var(--warn)}
-.btn.small{font-size:10px;padding:8px 14px}
-.btn:disabled{opacity:0.3;pointer-events:none}
+.btn{font-family:'Press Start 2P',monospace;font-size:8px;padding:10px 16px;border:2px solid var(--border);background:var(--card);color:var(--bright);cursor:pointer;letter-spacing:1px;transition:all 0.08s;text-align:center;-webkit-tap-highlight-color:transparent;box-shadow:3px 3px 0 rgba(0,0,0,0.6);image-rendering:pixelated;border-radius:0}
+.btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 rgba(0,0,0,0.6)}
+.btn.primary{border-color:var(--gold);background:rgba(240,160,48,0.15);color:var(--gold);text-shadow:1px 1px 0 #7a4400}
+.btn.primary:hover{background:rgba(240,160,48,0.25)}
+.btn.warn{border-color:rgba(255,68,68,0.5);color:var(--warn)}
+.btn.small{font-size:6px;padding:7px 10px}
 
 /* GAME */
-#game-screen{background:#080a12}
-canvas#game{display:block;width:100%;height:100%;position:absolute;top:0;left:0}
-#game-hud{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;z-index:15;background:rgba(6,8,16,0.85);backdrop-filter:blur(6px);border-bottom:1px solid var(--border)}
-.hud-score{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:600;letter-spacing:1px}
-.hud-score .num{font-family:'Anybody',sans-serif;font-size:18px;font-weight:900}
+#game-screen{background:#0d0818;flex-direction:column}
+#game-area{position:relative;flex:1;overflow:hidden;min-height:0}
+canvas#game{display:block;width:100%;height:100%;position:absolute;top:0;left:0;image-rendering:pixelated;image-rendering:crisp-edges}
+#game-hud{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:6px 10px;z-index:15;background:rgba(13,8,24,0.93);border-bottom:2px solid rgba(240,160,48,0.25)}
+.hud-score{display:flex;align-items:center;gap:6px;font-size:7px}
+.hud-score .num{font-size:13px;color:var(--gold);text-shadow:2px 2px 0 #7a4400}
 .hud-player{color:var(--accent2)}
 .hud-ai{color:var(--warn)}
-.hud-center{font-size:8px;color:#333;letter-spacing:2px;text-align:center}
-.hud-center .gen-val{color:var(--accent);font-size:10px}
-#game-nn{position:absolute;top:42px;right:6px;opacity:0.4;z-index:14;pointer-events:none}
-#touch-pad{position:absolute;bottom:0;left:0;right:0;display:none;justify-content:space-between;align-items:flex-end;padding:0;z-index:15;pointer-events:none}
+.hud-center{font-size:5px;color:#5040a0;letter-spacing:1px;text-align:center;line-height:1.8}
+.hud-center .gen-val{color:var(--gold);font-size:6px}
+.hud-quit{width:22px;height:22px;border:2px solid rgba(240,160,48,0.3);background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:9px;color:rgba(240,160,48,0.5);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.hud-quit:active{background:rgba(255,68,68,0.2);color:var(--warn)}
+#game-nn{position:absolute;top:44px;right:6px;opacity:0.55;z-index:14;pointer-events:none}
+/* Joysticks sous le canvas — dans le flux normal */
+#touch-pad{display:none;flex-direction:row;justify-content:space-between;align-items:flex-end;height:150px;flex-shrink:0;position:relative;background:rgba(13,8,24,0.97);border-top:2px solid rgba(240,160,48,0.12);pointer-events:none}
 #touch-pad.on{display:flex}
-.joy-zone{position:absolute;bottom:0;width:50%;height:200px;pointer-events:auto;-webkit-tap-highlight-color:transparent}
-.joy-zone.left{left:0}
-.joy-zone.right{right:0}
-.joy-base{position:absolute;width:110px;height:110px;border-radius:50%;border:2px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.02);backdrop-filter:blur(2px);pointer-events:none}
-.joy-base.left-base{bottom:30px;left:30px}
-.joy-base.right-base{bottom:30px;right:100px}
-.joy-knob{position:absolute;width:46px;height:46px;border-radius:50%;pointer-events:none;transition:transform 0.05s;top:50%;left:50%;transform:translate(-50%,-50%)}
-.joy-knob.move-knob{background:radial-gradient(circle,rgba(0,180,255,0.35),rgba(0,180,255,0.08));border:2px solid rgba(0,180,255,0.3);box-shadow:0 0 16px rgba(0,180,255,0.1)}
-.joy-knob.aim-knob{background:radial-gradient(circle,rgba(255,50,80,0.35),rgba(255,50,80,0.08));border:2px solid rgba(255,50,80,0.3);box-shadow:0 0 16px rgba(255,50,80,0.1)}
-.joy-label{position:absolute;font-family:'JetBrains Mono',monospace;font-size:7px;letter-spacing:2px;text-transform:uppercase;pointer-events:none;opacity:0.2}
-.joy-label.left-label{bottom:142px;left:52px}
-.joy-label.right-label{bottom:142px;right:118px}
-.jump-btn{position:absolute;bottom:40px;right:22px;width:62px;height:62px;border-radius:50%;border:2px solid rgba(0,180,255,0.25);background:rgba(0,180,255,0.06);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1px;color:rgba(0,180,255,0.5);pointer-events:auto;-webkit-tap-highlight-color:transparent;transition:all 0.1s}
-.jump-btn.held{background:rgba(0,180,255,0.2);border-color:rgba(0,180,255,0.5);color:rgba(0,180,255,0.9);transform:scale(0.93)}
-#game-overlay{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(6,8,16,0.88);backdrop-filter:blur(8px);z-index:20;transition:opacity 0.3s}
+.joy-zone{position:relative;width:50%;height:150px;pointer-events:auto;-webkit-tap-highlight-color:transparent;flex-shrink:0}
+.joy-base{position:absolute;width:100px;height:100px;border-radius:50%;border:2px solid rgba(240,160,48,0.15);background:rgba(240,160,48,0.03);pointer-events:none;bottom:16px;left:28px}
+.joy-base.right-base{left:auto;right:80px}
+.joy-knob{position:absolute;width:42px;height:42px;border-radius:50%;pointer-events:none;transition:transform 0.05s;top:50%;left:50%;transform:translate(-50%,-50%)}
+.joy-knob.move-knob{background:radial-gradient(circle,rgba(96,200,255,0.3),rgba(96,200,255,0.06));border:2px solid rgba(96,200,255,0.25)}
+.joy-knob.aim-knob{background:radial-gradient(circle,rgba(255,80,80,0.3),rgba(255,80,80,0.06));border:2px solid rgba(255,80,80,0.25)}
+.joy-label{position:absolute;font-family:'Press Start 2P',monospace;font-size:5px;letter-spacing:1px;pointer-events:none;opacity:0.12;bottom:120px;left:48px}
+.joy-label.right-label{left:auto;right:95px}
+.jump-btn{position:absolute;bottom:18px;right:16px;width:52px;height:52px;border:2px solid rgba(240,160,48,0.3);background:rgba(240,160,48,0.08);display:flex;align-items:center;justify-content:center;font-family:'Press Start 2P',monospace;font-size:6px;color:rgba(240,160,48,0.5);pointer-events:auto;-webkit-tap-highlight-color:transparent;transition:all 0.08s}
+.jump-btn.held{background:rgba(240,160,48,0.2);border-color:rgba(240,160,48,0.6);color:var(--gold);transform:scale(0.92)}
+#game-overlay{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(13,8,24,0.92);z-index:20;transition:opacity 0.2s}
 #game-overlay.hidden{opacity:0;pointer-events:none}
-#game-overlay h2{font-family:'Anybody',sans-serif;font-size:16px;margin-bottom:6px;text-shadow:0 0 20px currentColor}
-#game-overlay .ov-sub{font-size:10px;color:#444;margin-bottom:16px}
-.winner-p{color:var(--accent2)}.winner-a{color:var(--warn)}
+#game-overlay h2{font-family:'Press Start 2P',monospace;font-size:13px;margin-bottom:10px;color:var(--gold);text-shadow:3px 3px 0 #7a4400,0 0 20px rgba(240,160,48,0.4)}
+#game-overlay .ov-sub{font-size:6px;color:#6040a0;margin-bottom:18px;text-align:center;line-height:2.2}
+.winner-p{color:var(--accent2)!important;text-shadow:2px 2px 0 #003366,0 0 15px rgba(96,200,255,0.5)!important}
+.winner-a{color:var(--warn)!important;text-shadow:2px 2px 0 #660000,0 0 15px rgba(255,68,68,0.5)!important}
 
 /* LAB */
 #lab-screen{background:var(--bg);overflow-y:auto;padding-bottom:60px}
-.page-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
-.page-title{font-family:'Anybody',sans-serif;font-weight:700;font-size:15px;color:var(--bright);letter-spacing:2px}
-.page-body{padding:14px}
-.brain-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:8px;cursor:pointer;transition:border-color 0.15s}
-.brain-card:active{border-color:rgba(59,240,160,0.3)}
-.brain-card.active-brain{border-color:rgba(59,240,160,0.4);background:rgba(59,240,160,0.03)}
+.page-header{padding:12px 14px;border-bottom:2px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.page-title{font-family:'Press Start 2P',monospace;font-size:10px;color:var(--gold);text-shadow:2px 2px 0 #7a4400}
+.page-body{padding:12px}
+.brain-card{background:var(--card);border:2px solid var(--border);padding:10px;margin-bottom:6px;cursor:pointer;transition:border-color 0.1s;box-shadow:2px 2px 0 rgba(0,0,0,0.5)}
+.brain-card:active{border-color:var(--gold);transform:translate(1px,1px);box-shadow:1px 1px 0 rgba(0,0,0,0.5)}
+.brain-card.active-brain{border-color:rgba(240,160,48,0.6);background:rgba(240,160,48,0.05)}
 .bc-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
-.bc-name{font-weight:600;font-size:11px;color:var(--bright)}
-.bc-gen{font-size:9px;color:var(--accent)}
-.bc-stats{display:flex;gap:10px;font-size:9px;color:#444;flex-wrap:wrap}
-.lab-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+.bc-name{font-size:7px;color:var(--bright)}
+.bc-gen{font-size:6px;color:var(--gold)}
+.bc-stats{display:flex;gap:8px;font-size:6px;color:#6040a0;flex-wrap:wrap}
+.lab-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:2px solid var(--border)}
 
 /* COMMUNITY */
 #community-screen{background:var(--bg);overflow-y:auto;padding-bottom:60px}
@@ -143,7 +153,6 @@ canvas#game{display:block;width:100%;height:100%;position:absolute;top:0;left:0}
 .nav-icon{font-size:16px}
 
 body.in-game #nav{display:none}
-body.in-game #touch-pad{display:flex}
 .hud-quit{width:32px;height:32px;border-radius:50%;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);display:flex;align-items:center;justify-content:center;font-size:14px;color:rgba(255,255,255,0.35);cursor:pointer;-webkit-tap-highlight-color:transparent;flex-shrink:0;transition:all 0.15s}
 .hud-quit:active{background:rgba(255,50,80,0.15);border-color:rgba(255,50,80,0.3);color:var(--warn)}
 
@@ -220,44 +229,44 @@ body:not(.observe-mode) #cam-hint{display:none}
 
 <!-- =============== GAME =============== -->
 <div id="game-screen" class="screen">
-  <canvas id="game"></canvas>
-  <div id="game-hud">
-    <button class="hud-quit" onclick="quitGame()" title="Quitter">✕</button>
-    <div class="hud-score hud-player">JOU <span class="num" id="h-pscore">0</span></div>
-    <div class="hud-center">GEN <span class="gen-val" id="h-gen">1</span><br><span id="h-round">Round 1</span></div>
-    <div class="hud-score hud-ai"><span class="num" id="h-ascore">0</span> IA</div>
+  <div id="game-area">
+    <canvas id="game"></canvas>
+    <div id="game-hud">
+      <button class="hud-quit" onclick="quitGame()" title="Quitter">✕</button>
+      <div class="hud-score hud-player">JOU <span class="num" id="h-pscore">0</span></div>
+      <div class="hud-center">GEN <span class="gen-val" id="h-gen">1</span><br><span id="h-round">Round 1</span></div>
+      <div class="hud-score hud-ai"><span class="num" id="h-ascore">0</span> IA</div>
+    </div>
+    <div id="multi-hud" style="display:none">
+      <button class="mhud-quit" onclick="quitGame()">✕</button>
+      <div id="mhud-players"></div>
+      <div id="mhud-center"><span class="gen-val" id="mh-round">Round 1</span></div>
+    </div>
+    <canvas id="game-nn" width="130" height="65"></canvas>
+    <div id="cam-hint">ZQSD · DRAG · SCROLL = zoom · ESPACE = reset</div>
+    <div id="game-overlay" class="hidden">
+      <h2 id="ov-title"></h2>
+      <div class="ov-sub" id="ov-sub"></div>
+      <div id="ov-btns" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+        <button class="btn small" onclick="quitGame()">✕ Quitter</button>
+        <button class="btn small primary" onclick="multiMode?nextRoundMulti():nextRound()">▶ CONTINUER</button>
+      </div>
+    </div>
   </div>
-  <!-- Multi HUD (hidden in classic mode) -->
-  <div id="multi-hud" style="display:none">
-    <button class="mhud-quit" onclick="quitGame()">✕</button>
-    <div id="mhud-players"></div>
-    <div id="mhud-center"><span class="gen-val" id="mh-round">Round 1</span></div>
-  </div>
-  <canvas id="game-nn" width="130" height="65"></canvas>
-  <div id="cam-hint">ZQSD · DRAG · SCROLL = zoom · ESPACE = reset caméra</div>
+  <!-- Joysticks sous le canvas -->
   <div id="touch-pad">
-    <!-- Left joystick: movement -->
     <div class="joy-zone left" id="joy-left">
       <div class="joy-base left-base">
         <div class="joy-knob move-knob" id="knob-left"></div>
       </div>
       <div class="joy-label left-label">MOVE</div>
     </div>
-    <!-- Right joystick: aim + auto-fire -->
     <div class="joy-zone right" id="joy-right">
       <div class="joy-base right-base">
         <div class="joy-knob aim-knob" id="knob-right"></div>
       </div>
-      <div class="joy-label right-label">AIM + FIRE</div>
+      <div class="joy-label right-label">AIM</div>
       <button class="jump-btn" id="jump-btn">SAUT</button>
-    </div>
-  </div>
-  <div id="game-overlay" class="hidden">
-    <h2 id="ov-title"></h2>
-    <div class="ov-sub" id="ov-sub"></div>
-    <div id="ov-btns" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
-      <button class="btn small" onclick="quitGame()">✕ Quitter</button>
-      <button class="btn small primary" onclick="multiMode?nextRoundMulti():nextRound()">▶ CONTINUER</button>
     </div>
   </div>
 </div>
@@ -385,17 +394,20 @@ function sanitize(str){
   return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+// ================================================================
+//  LEGACY BRAIN — conservé pour désérialisation d'anciens cerveaux
+// ================================================================
 class Brain {
-  constructor(topo=[16,20,14,6]) {
-    this.topo=topo; this.w=[]; this.b=[]; this.acts=[]; this.fitness=0;
-    for (let i=0;i<topo.length-1;i++) {
+  constructor(topo=[16,20,14,6]){
+    this.topo=topo;this.w=[];this.b=[];this.acts=[];this.fitness=0;this.elo=ELO_BASE||1200;
+    for(let i=0;i<topo.length-1;i++){
       const R=topo[i+1],C=topo[i],s=Math.sqrt(2/(C+R));
       const wl=[],bl=[];
-      for (let r=0;r<R;r++){const row=[];for(let c=0;c<C;c++)row.push((Math.random()*2-1)*s);wl.push(row);bl.push((Math.random()*2-1)*0.05)}
+      for(let r=0;r<R;r++){const row=[];for(let c=0;c<C;c++)row.push((Math.random()*2-1)*s);wl.push(row);bl.push((Math.random()*2-1)*0.05)}
       this.w.push(wl);this.b.push(bl);
     }
   }
-  forward(inp) {
+  forward(inp){
     let cur=inp;this.acts=[cur.slice()];
     for(let l=0;l<this.w.length;l++){
       const nx=[],wl=this.w[l],bl=this.b[l],isOut=l===this.w.length-1;
@@ -404,13 +416,291 @@ class Brain {
     }
     return cur;
   }
-  clone(){const b=new Brain(this.topo);for(let l=0;l<this.w.length;l++){for(let r=0;r<this.w[l].length;r++){for(let c=0;c<this.w[l][r].length;c++)b.w[l][r][c]=this.w[l][r][c];b.b[l][r]=this.b[l][r]}}b.fitness=this.fitness;return b}
+  clone(){const b=new Brain(this.topo);for(let l=0;l<this.w.length;l++){for(let r=0;r<this.w[l].length;r++){for(let c=0;c<this.w[l][r].length;c++)b.w[l][r][c]=this.w[l][r][c];b.b[l][r]=this.b[l][r]}}b.fitness=this.fitness;b.elo=this.elo||1200;return b}
   mutate(rate=0.15,power=0.35){for(let l=0;l<this.w.length;l++)for(let r=0;r<this.w[l].length;r++){for(let c=0;c<this.w[l][r].length;c++)if(Math.random()<rate){const u1=Math.random(),u2=Math.random();this.w[l][r][c]+=Math.sqrt(-2*Math.log(u1||1e-4))*Math.cos(2*Math.PI*u2)*power}if(Math.random()<rate)this.b[l][r]+=(Math.random()*2-1)*power*0.5}}
   static crossover(a,b){const ch=a.clone();for(let l=0;l<ch.w.length;l++){const cut=Math.floor(Math.random()*ch.w[l].length);for(let r=cut;r<ch.w[l].length;r++){for(let c=0;c<ch.w[l][r].length;c++)ch.w[l][r][c]=b.w[l][r][c];ch.b[l][r]=b.b[l][r]}}return ch}
-  serialize(){return{topo:this.topo,w:this.w,b:this.b}}
+  serialize(){return{type:'legacy',topo:this.topo,w:this.w,b:this.b}}
   static deserialize(d){const b=new Brain(d.topo);b.w=d.w;b.b=d.b;return b}
   paramCount(){let n=0;for(let l=0;l<this.w.length;l++)n+=this.w[l].length*this.w[l][0].length+this.b[l].length;return n}
+  resetMemory(){}  // no-op pour compat
 }
+
+// ================================================================
+//  GRU EXPERT — réseau récurrent léger avec mémoire interne
+// ================================================================
+// inputs : sous-ensemble des 16 inputs globaux (indices configurables)
+// H      : taille de la mémoire (hidden state), défaut 8
+// outSize: taille de la sortie projetée après le GRU
+//
+// Architecture GRU minimale :
+//   z = sigmoid(Wz · [h, x])   porte update
+//   r = sigmoid(Wr · [h, x])   porte reset
+//   c = tanh(Wc · [r⊙h, x])   candidat
+//   h = (1-z)⊙h + z⊙c         nouvel état
+//   out = Wo · h + bo           projection linéaire → outSize
+//
+class GRUExpert {
+  constructor(inSize, H=8, outSize=4){
+    this.inSize=inSize; this.H=H; this.outSize=outSize;
+    const s=Math.sqrt(2/(inSize+H));
+    // Initialisation Xavier pour Wz, Wr, Wc : shape [H][H+inSize]
+    this._init=()=>{
+      const mat=(rows,cols,sc)=>Array.from({length:rows},()=>Array.from({length:cols},()=>(Math.random()*2-1)*sc));
+      const vec=(n,sc=0.05)=>Array.from({length:n},()=>(Math.random()*2-1)*sc);
+      return{
+        Wz:mat(H,H+inSize,s), bz:vec(H),
+        Wr:mat(H,H+inSize,s), br:vec(H),
+        Wc:mat(H,H+inSize,s), bc:vec(H),
+        Wo:mat(outSize,H,Math.sqrt(2/H)), bo:vec(outSize),
+      };
+    };
+    this.p=this._init();   // poids
+    this.h=new Array(H).fill(0);  // état caché (mémoire)
+    this.fitness=0; this.elo=1200;
+  }
+
+  // Fonctions d'activation
+  _sig(x){return 1/(1+Math.exp(-Math.max(-10,Math.min(10,x))))}
+  _tanh(x){const e=Math.exp(-2*Math.max(-10,Math.min(10,x)));return(1-e)/(1+e)}
+  _matvec(W,b,v){return W.map((row,i)=>b[i]+row.reduce((s,w,j)=>s+w*v[j],0))}
+
+  forward(x){
+    const {Wz,bz,Wr,br,Wc,bc,Wo,bo}=this.p;
+    const H=this.H, h=this.h;
+    const hx=[...h,...x];  // concat [h, x]
+
+    const z=this._matvec(Wz,bz,hx).map(v=>this._sig(v));
+    const r=this._matvec(Wr,br,hx).map(v=>this._sig(v));
+    const rh=h.map((v,i)=>r[i]*v);
+    const cx=[...rh,...x];
+    const c=this._matvec(Wc,bc,cx).map(v=>this._tanh(v));
+    const hNew=h.map((_,i)=>(1-z[i])*h[i]+z[i]*c[i]);
+    this.h=hNew;
+
+    // Projection vers outSize
+    const out=this._matvec(Wo,bo,hNew).map(v=>this._tanh(v));
+    return out;
+  }
+
+  resetMemory(){this.h=new Array(this.H).fill(0);}
+
+  // Mutation gaussienne d'un seul expert
+  mutate(rate=0.15, power=0.35){
+    const gauss=()=>{const u1=Math.random(),u2=Math.random();return Math.sqrt(-2*Math.log(u1||1e-4))*Math.cos(2*Math.PI*u2)};
+    for(const key of['Wz','Wr','Wc','Wo']){
+      for(let r=0;r<this.p[key].length;r++)
+        for(let c=0;c<this.p[key][r].length;c++)
+          if(Math.random()<rate) this.p[key][r][c]+=gauss()*power;
+    }
+    for(const key of['bz','br','bc','bo']){
+      for(let i=0;i<this.p[key].length;i++)
+        if(Math.random()<rate) this.p[key][i]+=(Math.random()*2-1)*power*0.5;
+    }
+  }
+
+  clone(){
+    const e=new GRUExpert(this.inSize,this.H,this.outSize);
+    e.p=JSON.parse(JSON.stringify(this.p));
+    e.fitness=this.fitness; e.elo=this.elo;
+    return e;
+  }
+
+  // Crossover : mélange ligne par ligne dans Wz,Wr,Wc,Wo
+  static crossover(a,b){
+    const ch=a.clone();
+    for(const key of['Wz','Wr','Wc','Wo']){
+      const cut=Math.floor(Math.random()*ch.p[key].length);
+      for(let r=cut;r<ch.p[key].length;r++)
+        ch.p[key][r]=b.p[key][r].slice();
+    }
+    for(const key of['bz','br','bc','bo']){
+      const cut=Math.floor(Math.random()*ch.p[key].length);
+      for(let i=cut;i<ch.p[key].length;i++)
+        ch.p[key][i]=b.p[key][i];
+    }
+    return ch;
+  }
+
+  serialize(){return{inSize:this.inSize,H:this.H,outSize:this.outSize,p:this.p}}
+  static deserialize(d){const e=new GRUExpert(d.inSize,d.H,d.outSize);e.p=d.p;return e}
+  paramCount(){
+    const {Wz,Wr,Wc,Wo,bz,br,bc,bo}=this.p;
+    return[Wz,Wr,Wc,Wo].reduce((s,m)=>s+m.length*m[0].length,0)
+          +[bz,br,bc,bo].reduce((s,v)=>s+v.length,0);
+  }
+}
+
+// ================================================================
+//  DENSE LAYER — couche dense simple pour l'arbitre
+// ================================================================
+class DenseLayer {
+  constructor(inSize,outSize,activation='sigmoid'){
+    const s=Math.sqrt(2/(inSize+outSize));
+    this.W=Array.from({length:outSize},()=>Array.from({length:inSize},()=>(Math.random()*2-1)*s));
+    this.b=Array.from({length:outSize},()=>(Math.random()*2-1)*0.05);
+    this.act=activation;
+  }
+  forward(x){
+    return this.W.map((row,i)=>{
+      const v=this.b[i]+row.reduce((s,w,j)=>s+w*x[j],0);
+      if(this.act==='sigmoid') return 1/(1+Math.exp(-Math.max(-10,Math.min(10,v))));
+      if(this.act==='relu')    return v>0?v:v*0.01; // leaky relu
+      return v;
+    });
+  }
+  mutate(rate,power){
+    const gauss=()=>{const u1=Math.random(),u2=Math.random();return Math.sqrt(-2*Math.log(u1||1e-4))*Math.cos(2*Math.PI*u2)};
+    for(let r=0;r<this.W.length;r++)for(let c=0;c<this.W[r].length;c++)if(Math.random()<rate)this.W[r][c]+=gauss()*power;
+    for(let i=0;i<this.b.length;i++)if(Math.random()<rate)this.b[i]+=(Math.random()*2-1)*power*0.5;
+  }
+  clone(){const d=new DenseLayer(this.W[0].length,this.W.length,this.act);d.W=JSON.parse(JSON.stringify(this.W));d.b=this.b.slice();return d}
+  static crossover(a,b){const ch=a.clone();const cut=Math.floor(Math.random()*ch.W.length);for(let r=cut;r<ch.W.length;r++){ch.W[r]=b.W[r].slice();ch.b[r]=b.b[r]}return ch}
+  serialize(){return{W:this.W,b:this.b,act:this.act}}
+  static deserialize(d){const l=new DenseLayer(d.W[0].length,d.W.length,d.act||'sigmoid');l.W=d.W;l.b=d.b;return l}
+  paramCount(){return this.W.length*this.W[0].length+this.b.length}
+}
+
+// ================================================================
+//  MULTI-EXPERT BRAIN
+// ================================================================
+//
+//  3 experts GRU spécialisés + 2 couches arbitre dense
+//
+//  EXPERT 0 — DANGER  (6 inputs) : esquive flèches
+//    inputs : [8,9,10,11,2,3]  (flèche proche + mes vélocités)
+//
+//  EXPERT 1 — VISÉE   (6 inputs) : viser et tirer
+//    inputs : [0,1,4,5,6,15]  (position+vélo ennemi + aim + bruit)
+//
+//  EXPERT 2 — TERRAIN (6 inputs) : positionnement
+//    inputs : [7,12,13,2,3,14] (sol + position + vélos + timer)
+//
+//  ARBITRE : [out0|out1|out2] (4+4+4=12) → dense(12→8) → dense(8→6) → sigmoid
+//
+//  Paramètres totaux ≈ 1262
+//
+class MultiExpertBrain {
+  static EXPERT_INPUTS=[
+    [8,9,10,11,2,3],   // danger
+    [0,1,4,5,6,15],    // visée
+    [7,12,13,2,3,14],  // terrain
+  ];
+  static H=8;
+  static OUT_PER_EXPERT=4;
+
+  constructor(){
+    this.experts=MultiExpertBrain.EXPERT_INPUTS.map(
+      idx=>new GRUExpert(idx.length, MultiExpertBrain.H, MultiExpertBrain.OUT_PER_EXPERT)
+    );
+    const arbIn=this.experts.length*MultiExpertBrain.OUT_PER_EXPERT; // 12
+    this.arb1=new DenseLayer(arbIn,8,'relu');
+    this.arb2=new DenseLayer(8,6,'sigmoid');
+    this.fitness=0; this.elo=1200;
+    this.acts=[];  // pour la visualisation NN
+    this.topo=[16,8,8,8,12,8,6]; // représentation approximative pour affichage
+  }
+
+  forward(inp){
+    // Chaque expert reçoit son sous-ensemble d'inputs
+    const expertOuts=this.experts.map((exp,i)=>{
+      const x=MultiExpertBrain.EXPERT_INPUTS[i].map(idx=>inp[idx]||0);
+      return exp.forward(x);
+    });
+
+    // Concatène les sorties pour l'arbitre
+    const arbIn=expertOuts.flat();
+    const h1=this.arb1.forward(arbIn);
+    const out=this.arb2.forward(h1);
+
+    // Stocke les activations pour la visu NN
+    this.acts=[
+      inp.slice(),
+      expertOuts[0], expertOuts[1], expertOuts[2],
+      arbIn, h1, out
+    ];
+
+    return out;
+  }
+
+  resetMemory(){
+    this.experts.forEach(e=>e.resetMemory());
+  }
+
+  // Mutation : par défaut tous les experts + arbitre
+  // expertIdx optionnel pour cibler un seul expert
+  mutate(rate=0.15, power=0.35, expertIdx=null){
+    if(expertIdx!==null && expertIdx<this.experts.length){
+      this.experts[expertIdx].mutate(rate,power);
+    } else {
+      this.experts.forEach(e=>e.mutate(rate,power));
+      this.arb1.mutate(rate*0.7, power*0.7);
+      this.arb2.mutate(rate*0.7, power*0.7);
+    }
+  }
+
+  clone(){
+    const b=new MultiExpertBrain();
+    b.experts=this.experts.map(e=>e.clone());
+    b.arb1=this.arb1.clone();
+    b.arb2=this.arb2.clone();
+    b.fitness=this.fitness; b.elo=this.elo;
+    return b;
+  }
+
+  // Crossover par expert : chaque expert est échangé indépendamment
+  static crossover(a,b){
+    const ch=a.clone();
+    for(let i=0;i<ch.experts.length;i++){
+      if(Math.random()<0.5) ch.experts[i]=GRUExpert.crossover(a.experts[i],b.experts[i]);
+    }
+    if(Math.random()<0.5) ch.arb1=DenseLayer.crossover(a.arb1,b.arb1);
+    if(Math.random()<0.5) ch.arb2=DenseLayer.crossover(a.arb2,b.arb2);
+    ch.fitness=a.fitness; ch.elo=a.elo;
+    return ch;
+  }
+
+  paramCount(){
+    return this.experts.reduce((s,e)=>s+e.paramCount(),0)
+          +this.arb1.paramCount()+this.arb2.paramCount();
+  }
+
+  serialize(){
+    return{
+      type:'multi-expert-v1',
+      experts:this.experts.map(e=>e.serialize()),
+      arb1:this.arb1.serialize(),
+      arb2:this.arb2.serialize(),
+    };
+  }
+
+  static deserialize(d){
+    if(!d||d.type!=='multi-expert-v1') return null;
+    const b=new MultiExpertBrain();
+    b.experts=d.experts.map(e=>GRUExpert.deserialize(e));
+    b.arb1=DenseLayer.deserialize(d.arb1);
+    b.arb2=DenseLayer.deserialize(d.arb2);
+    return b;
+  }
+
+  // Migration depuis un ancien cerveau dense : on ne peut pas transférer les poids
+  // directement (topologies différentes), on initialise fresh
+  static fromLegacy(legacyBrain){
+    const b=new MultiExpertBrain();
+    b.fitness=legacyBrain.fitness||0;
+    b.elo=legacyBrain.elo||1200;
+    return b;
+  }
+}
+
+// Helper universel de désérialisation
+function deserializeBrain(data){
+  if(!data) return new MultiExpertBrain();
+  if(data.type==='multi-expert-v1') return MultiExpertBrain.deserialize(data);
+  // Legacy : migration automatique
+  const legacy=Brain.deserialize(data);
+  return MultiExpertBrain.fromLegacy(legacy);
+}
+
 
 // ================================================================
 //  INDEXEDDB STORE
@@ -688,23 +978,22 @@ async function downloadCommunityBrain(index){
   if(!data||!data.brain)return toast('Cerveau invalide');
 
   const id='community_'+Date.now();
-  const brain=Brain.deserialize(data.brain);
+  const brain=deserializeBrain(data.brain);
+  brain.fitness=data.fitness||0; brain.elo=data.elo||ELO_BASE;
   const entry={
     id, name:data.name||data.pseudo||data._filename||'Community',
+    creator:data.pseudo||data.name||'?',
     brain:brain.serialize(), generation:data.generation||1,
-    fitness:data.fitness||0, wins:0, played:0,
+    fitness:brain.fitness, elo:brain.elo, wins:0, played:0,
     timestamp:Date.now(), game:'arena-archer',
-    topology:brain.topo.join('-'), params:brain.paramCount(),
+    topology:'GRU×3', params:brain.paramCount(),
     imported:true, source:'github:'+githubSync.repo
   };
   await store.put('brains',entry);
-
-  // Activate it
   currentBrainId=id;
-  activeBrain=brain; activeBrain.fitness=entry.fitness;
+  activeBrain=brain; activeBrain.fitness=entry.fitness; activeBrain.elo=entry.elo;
   generation=entry.generation;
   bestBrain=brain.clone();
-
   toast(`"${entry.name}" téléchargé et activé !`);
 }
 
@@ -716,13 +1005,13 @@ async function challengeCommunityBrain(index){
 async function uploadBrain(){
   const brain=bestBrain||activeBrain;
   const data={
-    format:'neuralarena-brain-v1',
+    format:'neuralarena-brain-v2',
     game:'arena-archer',
-    name:githubSync.pseudo,
-    pseudo:githubSync.pseudo,
-    generation, fitness:brain.fitness||0,
+    name:githubSync.pseudo||localCreator,
+    pseudo:githubSync.pseudo||localCreator,
+    generation, fitness:brain.fitness||0, elo:brain.elo||ELO_BASE,
     wins:totalWins, played:totalPlayed,
-    topology:brain.topo, params:brain.paramCount(),
+    params:brain.paramCount(),
     brain:brain.serialize(),
     exported:new Date().toISOString()
   };
@@ -738,16 +1027,40 @@ async function uploadBrain(){
 //  GAME STATE
 // ================================================================
 let currentBrainId='default';
-let activeBrain=new Brain();
+let activeBrain=new MultiExpertBrain();
 let bestBrain=null;
 let hallOfFame=[];
 let generation=1;
-let totalWins=0,totalPlayed=0;
-let sessionScore={player:0,ai:0,round:1};
+// ================================================================
+//  COMPTEURS — système unifié propre
+// ================================================================
+//
+//  SOLO
+//    session    : remis à zéro à chaque startArena()
+//    brain.wins / brain.played : cumulés, persistés dans le store
+//    → totalWins/totalPlayed = stats du cerveau IA (pas du joueur)
+//
+//  MULTI
+//    playerWins[] : victoires de session par slot (affiché HUD)
+//    brain.wins/played via evolveAllMulti : cumulés, persistés
+//
+//  Affiché dans le menu : wins/played du cerveau IA actif
+
+// Stats de session solo — remises à zéro à chaque partie
+let session = {
+  playerWins : 0,   // victoires du joueur humain cette session
+  aiWins     : 0,   // victoires de l'IA cette session
+  round      : 1,   // numéro de round actuel
+};
+
+// Stats cumulées du cerveau IA actif — persistées dans le store
+let totalWins   = 0;   // rounds gagnés par l'IA (vs joueur)
+let totalPlayed = 0;   // rounds joués total
 let gameActive=false,roundOver=false,roundTimer=0;
 
 // ── Multi / Lobby state ─────────────────────────────────────────
-const SLOT_COLORS=['#00b4ff','#ff3250','#3bf0a0','#f0c040'];
+// Couleurs TowerFall par slot : Bleu, Rouge, Vert, Jaune
+const SLOT_COLORS=['#60c8ff','#ff4444','#60ff80','#f0c040'];
 const SLOT_NAMES=['P1','P2','P3','P4'];
 
 // lobbySlots: array of 4 {type:'human'|'ai'|'off', brainId:string}
@@ -813,7 +1126,14 @@ const nnCv=document.getElementById('game-nn');
 const nnC=nnCv.getContext('2d');
 let vW,vH,dpr;
 
-function resizeGame(){dpr=window.devicePixelRatio||1;const r=cv.getBoundingClientRect();vW=r.width;vH=r.height;cv.width=vW*dpr;cv.height=vH*dpr;c.setTransform(dpr,0,0,dpr,0,0)}
+function resizeGame(){
+  dpr=window.devicePixelRatio||1;
+  const area=document.getElementById('game-area');
+  const r=area?area.getBoundingClientRect():cv.getBoundingClientRect();
+  vW=r.width; vH=r.height;
+  cv.width=vW*dpr; cv.height=vH*dpr;
+  c.setTransform(dpr,0,0,dpr,0,0);
+}
 
 // ================================================================
 //  LOBBY
@@ -902,8 +1222,10 @@ async function startMulti(){
     playerWins.push(0);
     if(s.type==='ai'){
       const entry=await store.get('brains',s.brainId);
-      const brain=entry?Brain.deserialize(entry.brain):new Brain();
+      const brain=entry?deserializeBrain(entry.brain):new MultiExpertBrain();
       brain.fitness=entry?.fitness||0;
+      brain.elo=entry?.elo||ELO_BASE;
+      brain.resetMemory();
       playerBrains.push(brain);
     }else{
       playerBrains.push(null); // human
@@ -913,15 +1235,12 @@ async function startMulti(){
   // Show game screen first so canvas has dimensions
   showScreen('game');
   resizeGame();
-  // showScreen sets gameActive=false for non-game screens, but we're going to game — reset properly
   document.getElementById('game-hud').style.display='none';
   document.getElementById('multi-hud').style.display='flex';
-  if(isObserve){
-    freeCam=true;
-    document.body.classList.add('observe-mode');
-  }
+  // freeCam + joysticks gérés par updateGameControls selon les slots
+  updateGameControls();
   setupFreeCam();
-  sessionScore={player:0,ai:0,round:1};
+  session={playerWins:0, aiWins:0, round:1};
   updateMultiHUD();
   multiRoundOver=false;
   humanDeadShown=false;
@@ -943,7 +1262,7 @@ function updateMultiHUD(){
     </div>`;
   }
   document.getElementById('mhud-players').innerHTML=html;
-  document.getElementById('mh-round').textContent=`Round ${sessionScore.round}`;
+  document.getElementById('mh-round').textContent=`Round ${session.round}`;
 }
 
 // ================================================================
@@ -1020,31 +1339,153 @@ class Ent {
     this.vx-=ax*0.9;
   }
   draw(ctx){
-    const cx=this.x+this.w/2,cy=this.y+this.h/2,d=this.face;ctx.save();
-    if(this.ht>0)ctx.globalAlpha=0.4+Math.sin(this.ht*0.5)*0.3;
-    const gc=this.ai?'rgba(255,50,80,0.12)':'rgba(0,180,255,0.12)';const gr=ctx.createRadialGradient(cx,cy,2,cx,cy,35);gr.addColorStop(0,gc);gr.addColorStop(1,'transparent');ctx.fillStyle=gr;ctx.fillRect(cx-35,cy-35,70,70);
-    const la=this.gnd?Math.sin(Date.now()*0.012+(this.ai?99:0))*(Math.abs(this.vx)>0.5?5:0):4;ctx.strokeStyle=this.col;ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(cx-4,this.y+this.h-5);ctx.lineTo(cx-6,this.y+this.h+la);ctx.moveTo(cx+4,this.y+this.h-5);ctx.lineTo(cx+6,this.y+this.h-la);ctx.stroke();
-    ctx.fillStyle=this.col;ctx.beginPath();ctx.roundRect(this.x+3,this.y+10,this.w-6,this.h-14,4);ctx.fill();
-    ctx.beginPath();ctx.arc(cx,this.y+7,8,0,Math.PI*2);ctx.fill();
-    // Oeil suit la direction de visée
-    const ex=Math.cos(this.aim)*3.5,ey=Math.sin(this.aim)*1.5;
-    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(cx+ex,this.y+6+ey,2.2,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#111';ctx.beginPath();ctx.arc(cx+ex*1.1,this.y+6+ey*1.1,1.1,0,Math.PI*2);ctx.fill();
-    // Arc positionné à 360° autour du corps
-    const bx=cx+Math.cos(this.aim)*14,by=cy+Math.sin(this.aim)*10;
-    ctx.save();ctx.translate(bx,by);ctx.rotate(this.aim);
-    ctx.strokeStyle='#c8a050';ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(0,0,12,-1.2,1.2);ctx.stroke();
-    ctx.strokeStyle='rgba(255,255,255,0.35)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(Math.cos(-1.2)*12,Math.sin(-1.2)*12);ctx.lineTo(0,0);ctx.lineTo(Math.cos(1.2)*12,Math.sin(1.2)*12);ctx.stroke();ctx.restore();
-    // Ligne de visée (joueur uniquement)
-    if(!this.ai){ctx.strokeStyle='rgba(0,180,255,0.1)';ctx.lineWidth=1;ctx.setLineDash([5,7]);ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+Math.cos(this.aim)*80,by+Math.sin(this.aim)*80);ctx.stroke();ctx.setLineDash([])}
+    const cx=Math.round(this.x+this.w/2), cy=Math.round(this.y+this.h/2);
+    const px=Math.round(this.x), py=Math.round(this.y);
+    ctx.save();
+    if(this.ht>0) ctx.globalAlpha=0.3+Math.sin(this.ht*0.8)*0.4;
+
+    // Couleurs selon le slot/équipe
+    const C = this.col;          // couleur principale ex: '#00b4ff'
+    const Cd = this._darken(C);  // ombre
+
+    // ── CAPE (derrière le corps) ──────────────────────────────────
+    const capeFlap = this.gnd ? Math.sin(Date.now()*0.008)*2*Math.sign(this.vx||this.face) : this.vy*0.3;
+    ctx.fillStyle = Cd;
+    // Cape : rectangle avec coin bas qui flotte
+    ctx.beginPath();
+    ctx.moveTo(cx - this.face*2, py+8);
+    ctx.lineTo(cx - this.face*10, py+8);
+    ctx.lineTo(cx - this.face*12 + capeFlap, py+this.h-2);
+    ctx.lineTo(cx - this.face*4,  py+this.h-2);
+    ctx.closePath();
+    ctx.fill();
+
+    // ── CORPS — pixel art carré ───────────────────────────────────
+    // Torse
+    ctx.fillStyle = C;
+    ctx.fillRect(px+2, py+8, this.w-4, this.h-16);
+    // Épaule highlight
+    ctx.fillStyle = this._lighten(C);
+    ctx.fillRect(px+2, py+8, this.w-4, 3);
+
+    // ── JAMBES ───────────────────────────────────────────────────
+    const legAnim = this.gnd && Math.abs(this.vx)>0.5 ? Math.sin(Date.now()*0.018)*3 : 0;
+    ctx.fillStyle = Cd;
+    ctx.fillRect(px+3,  py+this.h-10, 6, 8+legAnim);   // jambe gauche
+    ctx.fillRect(px+this.w-9, py+this.h-10, 6, 8-legAnim); // jambe droite
+    // Pieds (carrés)
+    ctx.fillStyle = '#1a1020';
+    ctx.fillRect(px+2,  py+this.h-3, 7, 3);
+    ctx.fillRect(px+this.w-9, py+this.h-3, 7, 3);
+
+    // ── TÊTE + CAPUCHE ───────────────────────────────────────────
+    // Tête
+    ctx.fillStyle = '#e8c090';  // peau
+    ctx.fillRect(cx-5, py, 10, 10);
+    // Capuche
+    ctx.fillStyle = C;
+    ctx.fillRect(cx-6, py-2, 12, 8);  // haut capuche
+    ctx.fillRect(cx-5, py+4, 4, 5);   // côté gauche
+    ctx.fillRect(cx+1, py+4, 4, 5);   // côté droit
+    // Ombre capuche
+    ctx.fillStyle = Cd;
+    ctx.fillRect(cx-6, py-2, 12, 2);
+
+    // ── YEUX sous la capuche ─────────────────────────────────────
+    const aimDx = Math.cos(this.aim), aimDy = Math.sin(this.aim);
+    const eyeX = cx + Math.round(aimDx*2);
+    const eyeY = py+5 + Math.round(aimDy*1);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(eyeX-1, eyeY-1, 2, 2);
+    // Pupille
+    ctx.fillStyle = '#000';
+    ctx.fillRect(eyeX + Math.round(aimDx), eyeY + Math.round(aimDy), 1, 1);
+
+    // ── ARC (pixel art) ──────────────────────────────────────────
+    const bowDist = 14;
+    const bx = Math.round(cx + aimDx*bowDist);
+    const by = Math.round(cy + aimDy*10 - 4);
+    ctx.save();
+    ctx.translate(bx, by);
+    ctx.rotate(this.aim);
+    // Corps de l'arc (bois)
+    ctx.fillStyle = '#c8782a';
+    ctx.fillRect(-1, -10, 2, 20);
+    // Extrémités courbées (pixel)
+    ctx.fillStyle = '#a05820';
+    ctx.fillRect(-2, -12, 4, 3);
+    ctx.fillRect(-2, 9, 4, 3);
+    // Corde
+    ctx.fillStyle = '#e8e0c0';
+    ctx.fillRect(0, -10, 1, 20);
+    // Flèche sur l'arc si en train de viser
+    if(this.cd===0){
+      ctx.fillStyle = '#d4a030';
+      ctx.fillRect(1, -2, 18, 1);
+      ctx.fillStyle = '#60a030';
+      ctx.fillRect(17, -3, 3, 3);
+    }
     ctx.restore();
-    for(const a of this.arr){for(let t=0;t<a.tr.length;t++){ctx.fillStyle=this.ai?`rgba(255,50,80,${(t/a.tr.length)*0.25})`:`rgba(0,180,255,${(t/a.tr.length)*0.25})`;ctx.beginPath();ctx.arc(a.tr[t].x,a.tr[t].y,1.5,0,Math.PI*2);ctx.fill()}const ang=Math.atan2(a.vy||0.01,a.vx||0.01);ctx.save();ctx.translate(a.x,a.y);ctx.rotate(ang);ctx.strokeStyle=a.st?'#665533':(this.ai?'#ff5566':'#55aaff');ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-14,0);ctx.lineTo(7,0);ctx.stroke();ctx.fillStyle=a.st?'#998866':'#fff';ctx.beginPath();ctx.moveTo(9,0);ctx.lineTo(5,-3);ctx.lineTo(5,3);ctx.closePath();ctx.fill();ctx.strokeStyle=this.ai?'rgba(255,80,100,0.5)':'rgba(80,150,255,0.5)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(-12,0);ctx.lineTo(-15,-3);ctx.moveTo(-12,0);ctx.lineTo(-15,3);ctx.stroke();ctx.restore()}
+
+    // ── Ligne de visée joueur (pointillés pixel) ──────────────────
+    if(!this.ai && this.cd===0){
+      ctx.fillStyle = `${C}44`;
+      for(let d=20;d<90;d+=6){
+        const tx=Math.round(bx+aimDx*d), ty=Math.round(by+aimDy*d);
+        ctx.fillRect(tx, ty, 2, 2);
+      }
+    }
+
+    ctx.restore();
+
+    // ── FLÈCHES EN VOL + PLANTÉES ────────────────────────────────
+    for(const a of this.arr){
+      const ang = Math.atan2(a.vy||0.01, a.vx||0.01);
+      // Trail pixel
+      for(let t=0;t<a.tr.length-1;t++){
+        const alpha = (t/a.tr.length)*0.35;
+        ctx.fillStyle = a.st ? `rgba(160,100,40,${alpha})` : `${C}${Math.round(alpha*255).toString(16).padStart(2,'0')}`;
+        ctx.fillRect(Math.round(a.tr[t].x), Math.round(a.tr[t].y), 2, 2);
+      }
+      // Corps de la flèche
+      ctx.save();
+      ctx.translate(Math.round(a.x), Math.round(a.y));
+      if(!a.st) ctx.rotate(ang);
+      // Hampe
+      ctx.fillStyle = a.st ? '#8a6030' : '#d4a030';
+      ctx.fillRect(-12, -1, 16, 2);
+      // Pointe
+      ctx.fillStyle = a.st ? '#666' : '#e8e8e8';
+      ctx.fillRect(4, -2, 5, 4);
+      ctx.fillRect(7, -1, 3, 2);
+      // Plumes
+      ctx.fillStyle = a.st ? '#5a4020' : (this.ai ? '#cc3344' : '#3388cc');
+      ctx.fillRect(-14, -3, 4, 2);
+      ctx.fillRect(-14, 1, 4, 2);
+      ctx.restore();
+    }
+  }
+
+  // Helpers couleur pixel art
+  _darken(hex){
+    const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+    return `rgb(${Math.max(0,r-60)},${Math.max(0,g-60)},${Math.max(0,b-60)})`;
+  }
+  _lighten(hex){
+    const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+    return `rgb(${Math.min(255,r+50)},${Math.min(255,g+50)},${Math.min(255,b+50)})`;
   }
 }
 
 let P,A;
-function initRound(){P=new Ent(200,WH-100,'#00b4ff',false);P.face=1;A=new Ent(WW-220,WH-100,'#ff3250',true);A.face=-1;roundOver=false;roundTimer=0;particles=[];camX=P.x-vW/2;camY=P.y-vH/2;document.getElementById('game-overlay').classList.add('hidden');
-  // Reset per-round stats
+function initRound(){
+  P=new Ent(200,WH-100,'#60c8ff',false); P.face=1;
+  A=new Ent(WW-220,WH-100,'#ff4444',true); A.face=-1;
+  roundOver=false;roundTimer=0;particles=[];
+  camX=P.x-vW/2;camY=P.y-vH/2;
+  document.getElementById('game-overlay').classList.add('hidden');
+  // Reset mémoire GRU entre chaque round
+  activeBrain.resetMemory();
   roundStats={arrowsDodged:0,shotsFired:0,shotsNearMiss:0,platformChanges:0,lastPlatformY:WH-30,stagnationFrames:0,lastX:A.x};
 }
 
@@ -1251,180 +1692,613 @@ function checkHits(){
   return null;
 }
 
-function boom(x,y,col){for(let i=0;i<30;i++){const a=Math.random()*Math.PI*2,s=1+Math.random()*6;particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:30+Math.random()*30,col,sz:1+Math.random()*3})}}
+function boom(x,y,col){
+  for(let i=0;i<20;i++){
+    const a=Math.random()*Math.PI*2, s=1+Math.random()*5;
+    particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:25+Math.random()*20,col,sz:2+Math.random()*2});
+  }
+  // Étincelles dorées (style TowerFall)
+  for(let i=0;i<10;i++){
+    const a=Math.random()*Math.PI*2, s=2+Math.random()*7;
+    particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-3,life:15+Math.random()*15,col:'#f0c040',sz:1});
+  }
+}
 function updateParticles(){for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.x+=p.vx;p.y+=p.vy;p.vy+=0.1;p.life--;if(p.life<=0)particles.splice(i,1)}}
 function updateCamera(){if(!P)return;let tx=P.x+P.w/2-vW/2+P.vx*18,ty=P.y+P.h/2-vH/2+P.vy*6;tx=Math.max(0,Math.min(WW-vW,tx));ty=Math.max(0,Math.min(WH-vH,ty));camX+=(tx-camX)*0.08;camY+=(ty-camY)*0.1}
 
 async function endRound(winner){
-  roundOver=true;totalPlayed++;
-  if(winner!=='ai')totalWins++;
-  evolveBrain(winner==='ai');
+  // winner : 'player' | 'ai' | null (timeout)
+  roundOver = true;
+  totalPlayed++;
+
+  const aiWon = (winner === 'ai');
+  const playerWon = (winner === 'player');
+
+  // Stats cumulées du cerveau IA
+  if(aiWon) totalWins++;
+
+  // Stats de session (HUD)
+  if(playerWon) session.playerWins++;
+  else if(aiWon) session.aiWins++;
+
+  // Évolution + sauvegarde
+  evolveBrain(aiWon);
   await saveCurrent();
-  if(winner==='player')sessionScore.player++;else if(winner==='ai')sessionScore.ai++;
-  document.getElementById('h-pscore').textContent=sessionScore.player;
-  document.getElementById('h-ascore').textContent=sessionScore.ai;
-  const ov=document.getElementById('game-overlay'),title=document.getElementById('ov-title'),sub=document.getElementById('ov-sub'),btns=document.getElementById('ov-btns');
-  if(winner==='player'){title.textContent='TOUCHÉ !';title.style.color='var(--accent2)'}else if(winner==='ai'){title.textContent='IA GAGNE';title.style.color='var(--warn)'}else{title.textContent='TEMPS ÉCOULÉ';title.style.color=''}
-  sub.textContent=`Gen ${generation} · Round ${sessionScore.round} · ${sessionScore.player}-${sessionScore.ai}`;
-  btns.innerHTML=`<button class="btn small" onclick="quitGame()">✕ Quitter</button><button class="btn small primary" onclick="nextRound()">▶ CONTINUER</button>`;
+
+  // Mise à jour HUD scores
+  document.getElementById('h-pscore').textContent = session.playerWins;
+  document.getElementById('h-ascore').textContent = session.aiWins;
+
+  // Overlay
+  const ov=document.getElementById('game-overlay');
+  const title=document.getElementById('ov-title');
+  const sub=document.getElementById('ov-sub');
+  const btns=document.getElementById('ov-btns');
+
+  if(playerWon){
+    title.textContent='TOUCHÉ !';
+    title.className='winner-p';
+    title.style.color='';
+  } else if(aiWon){
+    title.textContent='IA GAGNE';
+    title.className='winner-a';
+    title.style.color='';
+  } else {
+    title.textContent='TEMPS ÉCOULÉ';
+    title.className='';
+    title.style.color='var(--gold)';
+  }
+
+  sub.textContent=`Round ${session.round}  ·  Joueur ${session.playerWins} - IA ${session.aiWins}  ·  ELO ${activeBrain.elo||ELO_BASE}`;
+  btns.innerHTML=`<button class="btn small" onclick="quitGame()">✕ Quitter</button><button class="btn small primary" onclick="nextRound()">▶ Suite</button>`;
   ov.classList.remove('hidden');
 }
 
-function computeRoundBonus(aiWon){
-  // Dodge bonus: surviving flèches proches (max 8 pts)
-  const dodgeBonus = Math.min(roundStats.arrowsDodged, 8);
-  // Aim bonus: flèches IA proches du joueur (max 6 pts)
-  const aimBonus = Math.min(roundStats.shotsNearMiss, 6);
-  // Mobility bonus: utilisation des plateformes (max 4 pts)
-  const mobilityBonus = Math.min(roundStats.platformChanges * 0.8, 4);
-  // Survival bonus: plus l'IA survit longtemps même en perdant, plus c'est récompensé
-  const survivalBonus = Math.min(roundTimer / (60 * 35) * 3, 3);
-  return dodgeBonus + aimBonus + mobilityBonus + survivalBonus;
+// ================================================================
+//  SCORING — ELO + FITNESS RÉALISTE
+// ================================================================
+//
+//  ELO  : mesure la force relative contre des adversaires.
+//         Démarre à 1200. Monte/descend selon l'adversaire battu.
+//         K-factor adaptatif : grand au début, petit quand stable.
+//
+//  FITNESS : mesure comportementale indépendante de l'adversaire.
+//            Basée sur ce que le cerveau FAIT, pas juste gagner/perdre.
+//            Composantes : esquive, précision visée, mobilité, survie.
+//            Utilisée pour piloter la mutation (taux + stratégie).
+//
+//  MULTI MÊME CERVEAU : si le même brainId joue N fois,
+//            les résultats ELO sont moyennés (pas cumulés)
+//            et la fitness est agrégée sur toutes les copies.
+
+const ELO_BASE = 1200;
+const ELO_HUMAN = 1500; // ELO fictif du joueur humain en solo
+
+// Calcule l'ELO attendu (probabilité de victoire)
+function eloExpected(ra, rb){ return 1 / (1 + Math.pow(10, (rb - ra) / 400)); }
+
+// Calcule le nouveau ELO après un match
+// K adaptatif : grand si peu de parties (incertitude), petit si stable
+function eloUpdate(rating, expected, score, played){
+  const K = played < 20 ? 40 : played < 50 ? 24 : 16;
+  return Math.round(rating + K * (score - expected));
 }
 
+// Calcule la fitness comportementale d'un round (solo ou multi)
+// stats : {arrowsDodged, shotsNearMiss, platformChanges, roundTimer, survived}
+function computeFitnessGain(stats, won, timer){
+  const dodge    = Math.min((stats.arrowsDodged    || 0) * 0.8, 10);
+  const aim      = Math.min((stats.shotsNearMiss   || 0) * 0.6, 8);
+  const mobility = Math.min((stats.platformChanges || 0) * 0.5, 5);
+  const survival = Math.min((timer || 0) / (60*35) * 6, 6);
+  const winBonus = won ? 8 : 0;
+  return dodge + aim + mobility + survival + winBonus;
+}
+
+// Copie les entrailles d'un MultiExpertBrain dans un autre (sans changer la référence)
+function copyBrainInto(target, src){
+  target.experts = src.experts.map(e => e.clone());
+  target.arb1    = src.arb1.clone();
+  target.arb2    = src.arb2.clone();
+  // ELO et fitness restent ceux de target
+}
+
+// Pilote la mutation selon fitness actuelle et stagnation
+function selectMutationStrategy(brain, stag, won, hof, best){
+  const fit  = brain.fitness || 0;
+  const cons = Math.min(fit / 200, 0.85);
+  const expl = Math.min(1 + stag * 0.15, 2.5);
+
+  if(won){
+    // Victoire : mutation fine conservative
+    brain.mutate(
+      0.04 * (1 - cons * 0.6),
+      0.07 * (1 - cons * 0.5)
+    );
+  } else {
+    const rate  = Math.min(0.16 * expl, 0.38);
+    const power = Math.min(0.26 * expl, 0.52);
+    const rand  = Math.random();
+
+    if(best && rand < 0.40){
+      // 40% : crossover par expert avec le meilleur
+      const child = MultiExpertBrain.crossover(brain, best);
+      child.mutate(rate * 0.9, power * 0.9);
+      copyBrainInto(brain, child);
+
+    } else if(hof.length >= 2 && rand < 0.65){
+      // 25% : crossover entre deux membres du Hall of Fame
+      const a = hof[Math.floor(Math.random() * Math.min(hof.length, 4))];
+      const b = hof[Math.floor(Math.random() * hof.length)];
+      const child = MultiExpertBrain.crossover(a, b);
+      child.mutate(rate * 0.8, power * 0.8);
+      copyBrainInto(brain, child);
+
+    } else if(best && rand < 0.85){
+      // 20% : repartir du meilleur + mutation forte
+      const child = best.clone();
+      child.mutate(rate * 1.2, power * 1.2);
+      copyBrainInto(brain, child);
+
+    } else {
+      // 15% : mutation pure — cibler aléatoirement un expert
+      const expertIdx = Math.random() < 0.6 ? Math.floor(Math.random() * 3) : null;
+      brain.mutate(rate * 1.5, power * 1.5, expertIdx);
+    }
+    // Remet à zéro la mémoire après crossover/reset (état cohérent)
+    brain.resetMemory();
+  }
+}
+
+// ── SOLO : évolue activeBrain après un round contre le joueur ────
 function evolveBrain(aiWon){
-  const bonus = computeRoundBonus(aiWon);
+  const fitnessGain = computeFitnessGain(roundStats, aiWon, roundTimer);
   const prevFitness = activeBrain.fitness || 0;
 
+  // Fitness : cumul atténué (racine carrée du gain pour éviter l'explosion)
   if(aiWon){
-    // Victoire : +12 base + bonus comportementaux
-    activeBrain.fitness = prevFitness + 12 + bonus;
-    if(!bestBrain || activeBrain.fitness >= (bestBrain.fitness || 0)){
-      bestBrain = activeBrain.clone();
-      bestBrain.fitness = activeBrain.fitness;
-    }
-    // Hall of Fame élitiste : garder les 8 meilleurs distincts
-    hallOfFame.push(activeBrain.clone());
-    hallOfFame.sort((a,b)=>(b.fitness||0)-(a.fitness||0));
-    if(hallOfFame.length > 8) hallOfFame.length = 8;
-    stagnationCounter = 0;
-
-    // Mutation fine après victoire : taux adaptatif selon fitness
-    // Plus la fitness est haute, plus on est conservateur
-    const conservatism = Math.min(activeBrain.fitness / 150, 0.85);
-    const rate = 0.05 * (1 - conservatism * 0.6);   // 0.02 ~ 0.05
-    const power = 0.08 * (1 - conservatism * 0.5);  // 0.04 ~ 0.08
-    activeBrain.mutate(rate, power);
-
+    activeBrain.fitness = prevFitness + fitnessGain;
   } else {
-    // Défaite : -2 base (moins punitif), mais bonus comportementaux préservés
-    activeBrain.fitness = Math.max(0, prevFitness - 2 + bonus * 0.5);
-
-    // Détection de stagnation
-    if(activeBrain.fitness <= prevFitness) stagnationCounter++;
-    else stagnationCounter = Math.max(0, stagnationCounter - 1);
-
-    // Taux de mutation adaptatif selon stagnation
-    // Plus on stagne, plus on explore agressivement
-    const exploreFactor = Math.min(1 + stagnationCounter * 0.15, 2.5);
-    const baseRate = 0.18 * exploreFactor;
-    const basePower = 0.28 * exploreFactor;
-
-    const rand = Math.random();
-    if(bestBrain && rand < 0.40){
-      // 40% : crossover avec le meilleur cerveau
-      activeBrain = Brain.crossover(activeBrain, bestBrain);
-      activeBrain.mutate(Math.min(baseRate, 0.35), Math.min(basePower, 0.5));
-    } else if(hallOfFame.length >= 2 && rand < 0.65){
-      // 25% : crossover entre deux membres du Hall of Fame
-      const a = hallOfFame[Math.floor(Math.random() * Math.min(hallOfFame.length, 4))];
-      const b = hallOfFame[Math.floor(Math.random() * hallOfFame.length)];
-      activeBrain = Brain.crossover(a, b);
-      activeBrain.mutate(Math.min(baseRate * 0.8, 0.3), Math.min(basePower * 0.8, 0.45));
-    } else if(bestBrain && rand < 0.85){
-      // 20% : repartir du meilleur cerveau avec mutation forte
-      activeBrain = bestBrain.clone();
-      activeBrain.mutate(Math.min(baseRate * 1.2, 0.4), Math.min(basePower * 1.2, 0.55));
-    } else {
-      // 15% : mutation pure (exploration radicale si trop stagné)
-      activeBrain.mutate(Math.min(baseRate * 1.5, 0.5), Math.min(basePower * 1.5, 0.65));
-    }
-    activeBrain.fitness = Math.max(0, prevFitness - 2 + bonus * 0.5);
+    // Défaite : on perd peu si le comportement était bon
+    const behaviorSave = Math.min(fitnessGain * 0.4, 4);
+    activeBrain.fitness = Math.max(0, prevFitness - 3 + behaviorSave);
   }
 
+  // ELO solo : adversaire = joueur humain fixé à ELO_HUMAN
+  const prevElo = activeBrain.elo || ELO_BASE;
+  const played  = (totalPlayed) || 1;
+  const expected = eloExpected(prevElo, ELO_HUMAN);
+  const score    = aiWon ? 1 : 0;
+  activeBrain.elo = Math.max(400, eloUpdate(prevElo, expected, score, played));
+
+  // Hall of Fame : garder les 8 meilleurs par ELO
+  if(aiWon){
+    stagnationCounter = 0;
+    hallOfFame.push(activeBrain.clone());
+    hallOfFame.sort((a,b)=>(b.elo||ELO_BASE)-(a.elo||ELO_BASE));
+    if(hallOfFame.length > 8) hallOfFame.length = 8;
+    if(!bestBrain || activeBrain.elo >= (bestBrain.elo||ELO_BASE)){
+      bestBrain = activeBrain.clone();
+    }
+  } else {
+    if(activeBrain.fitness <= prevFitness) stagnationCounter++;
+    else stagnationCounter = Math.max(0, stagnationCounter - 1);
+  }
+
+  selectMutationStrategy(activeBrain, stagnationCounter, aiWon, hallOfFame, bestBrain);
   generation++;
   document.getElementById('h-gen').textContent = generation;
 }
 
-function nextRound(){sessionScore.round++;document.getElementById('h-round').textContent='Round '+sessionScore.round;initRound()}
+// ── MULTI : évolue tous les cerveaux IA après un round ──────────
+// Gère proprement le cas où le même brainId joue plusieurs fois :
+// les deltas ELO et fitness sont moyennés avant application.
+async function evolveAllMulti(winnerIdx){
+  const N = players.length;
+  const totalRounds = roundTimer; // durée du round
+
+  // 1. Calculer les résultats bruts par slot
+  const results = players.map((pl, i) => {
+    if(playerBrains[i] === null) return null; // humain
+    const won = (i === winnerIdx);
+    // Survie = frames vécues (si mort, on estime ~roundTimer/2 pour simplifier)
+    const survived = playerAlive[i] ? totalRounds : totalRounds * 0.5;
+    const stats = {
+      arrowsDodged: 0,   // pas de stats par joueur en multi (TODO futur)
+      shotsNearMiss: 0,
+      platformChanges: 0,
+      roundTimer: survived,
+    };
+    const fitnessGain = computeFitnessGain(stats, won, survived);
+    return { i, won, fitnessGain, brainId: pl._brainId };
+  }).filter(Boolean);
+
+  // 2. Grouper par brainId (même cerveau joué plusieurs fois)
+  const groups = {};
+  for(const r of results){
+    if(!groups[r.brainId]) groups[r.brainId] = [];
+    groups[r.brainId].push(r);
+  }
+
+  // 3. Pour chaque groupe de copies du même cerveau
+  for(const [brainId, copies] of Object.entries(groups)){
+    const entry = await store.get('brains', brainId);
+    if(!entry) continue;
+
+    const brain = deserializeBrain(entry.brain);
+    brain.fitness = entry.fitness || 0;
+    brain.elo     = entry.elo     || ELO_BASE;
+
+    const played  = (entry.played || 0) + copies.length;
+    const wins    = copies.filter(c => c.won).length;
+    // Score normalisé : proportion de victoires dans ce groupe
+    const score   = wins / copies.length;
+    // Fitness gain : moyenne de toutes les copies
+    const avgFitnessGain = copies.reduce((s,c) => s + c.fitnessGain, 0) / copies.length;
+    const won = score >= 0.5;
+
+    // ELO : on joue contre tous les adversaires non-copies
+    const opponents = results.filter(r => r.brainId !== brainId);
+    let eloNew = brain.elo;
+    if(opponents.length > 0){
+      for(const opp of opponents){
+        const oppEntry = await store.get('brains', opp.brainId) || {elo: ELO_BASE};
+        const oppElo   = oppEntry.elo || ELO_BASE;
+        const exp      = eloExpected(eloNew, oppElo);
+        eloNew = Math.max(400, eloUpdate(eloNew, exp, score, played));
+      }
+    } else {
+      // Seul cerveau (ou que des clones) : ELO contre ELO_HUMAN
+      const exp = eloExpected(eloNew, ELO_HUMAN);
+      eloNew = Math.max(400, eloUpdate(eloNew, exp, score, played));
+    }
+    brain.elo = eloNew;
+
+    // Fitness
+    if(won){
+      brain.fitness = brain.fitness + avgFitnessGain;
+    } else {
+      const save = Math.min(avgFitnessGain * 0.4, 4);
+      brain.fitness = Math.max(0, brain.fitness - 3 + save);
+    }
+
+    // Mutation (utilise le 1er slot comme référence)
+    selectMutationStrategy(brain, 0, won, [], null);
+
+    // Sauvegarde
+    entry.brain      = brain.serialize();
+    entry.fitness    = brain.fitness;
+    entry.elo        = brain.elo;
+    entry.generation = (entry.generation || 1) + copies.length;
+    entry.wins       = (entry.wins || 0) + wins;
+    entry.played     = played;
+    entry.timestamp  = Date.now();
+    await store.put('brains', entry);
+
+    // Mettre à jour les instances en mémoire
+    for(const c of copies){
+      playerBrains[c.i].fitness = brain.fitness;
+      playerBrains[c.i].elo     = brain.elo;
+    }
+  }
+}
+
+function nextRound(){
+  session.round++;
+  document.getElementById('h-round').textContent='Round '+session.round;
+  initRound();
+}
 
 // ================================================================
 //  DRAWING
+// ── Dessine une plateforme style pierre pixel art ─────────────────
+function drawPlatform(ctx, p, camX, camY){
+  const x=Math.round(p.x), y=Math.round(p.y), w=p.w, h=p.h;
+  // Murs et sol : pierre sombre massive
+  if(p.w<=12||p.h>=WH-40){
+    // Mur latéral
+    ctx.fillStyle='#1e1630';
+    ctx.fillRect(x,y,w,h);
+    // Joints de pierre verticaux
+    ctx.fillStyle='#12102a';
+    for(let sy=y;sy<y+h;sy+=32) ctx.fillRect(x,sy,w,2);
+    // Bord lumineux intérieur
+    ctx.fillStyle='rgba(255,200,100,0.04)';
+    ctx.fillRect(x+(p.x===0?w-2:0),y,2,h);
+    return;
+  }
+  if(p.h>=WH-40){
+    // Sol du bas
+    ctx.fillStyle='#1e1630';
+    ctx.fillRect(x,y,w,h);
+    ctx.fillStyle='#2a2040';
+    ctx.fillRect(x,y,w,4);
+    // Motif pierre
+    for(let sx=x;sx<x+w;sx+=48){
+      ctx.fillStyle='#12102a';
+      ctx.fillRect(sx,y,2,h);
+    }
+    return;
+  }
+
+  // Plateforme normale : dalle de pierre
+  // Face principale
+  ctx.fillStyle='#2e2448';
+  ctx.fillRect(x, y, w, h);
+  // Tranche du dessus (pierre claire)
+  ctx.fillStyle='#3e3460';
+  ctx.fillRect(x, y, w, 4);
+  // Highlight du bord supérieur
+  ctx.fillStyle='#5a4e80';
+  ctx.fillRect(x, y, w, 2);
+  // Ombre dessous
+  ctx.fillStyle='#1a1430';
+  ctx.fillRect(x, y+h-3, w, 3);
+  // Jointures horizontales (texture pierre)
+  ctx.fillStyle='#221c3a';
+  ctx.fillRect(x+2, y+4, w-4, 2);
+  // Craquelures aléatoires déterministes
+  const seed = (x*7+y*13)%100;
+  if(seed < 40 && w > 60){
+    ctx.fillStyle='#1a1430';
+    const cx2 = x + 15 + (seed*3)%Math.max(1,w-30);
+    ctx.fillRect(cx2, y+2, 1, h-4);
+  }
+  // Bords latéraux (ombre)
+  ctx.fillStyle='#1a1430';
+  ctx.fillRect(x, y+4, 3, h-4);
+  ctx.fillRect(x+w-3, y+4, 3, h-4);
+}
+
+// ── Dessine une torche animée ─────────────────────────────────────
+function drawTorch(ctx, x, y, t){
+  const flicker = Math.sin(t*0.08)*2 + Math.sin(t*0.13)*1.5;
+  // Support métal
+  ctx.fillStyle='#6a5030';
+  ctx.fillRect(x-2, y, 4, 10);
+  ctx.fillStyle='#8a7040';
+  ctx.fillRect(x-3, y-2, 6, 4);
+  // Flamme (plusieurs rectangles empilés)
+  const flames=[
+    {w:6,h:4,col:'#ff8820',dy:0},
+    {w:4,h:4,col:'#ffaa30',dy:-4+flicker},
+    {w:3,h:3,col:'#ffcc44',dy:-8+flicker*0.5},
+    {w:2,h:2,col:'#ffee88',dy:-11},
+  ];
+  for(const f of flames){
+    ctx.fillStyle=f.col;
+    ctx.fillRect(Math.round(x-f.w/2), Math.round(y-4+f.dy), f.w, f.h);
+  }
+  // Halo lumineux
+  ctx.fillStyle=`rgba(255,140,30,${0.06+Math.abs(flicker)*0.015})`;
+  ctx.fillRect(x-20, y-20, 40, 40);
+}
+
+// ── Fond de donjon ────────────────────────────────────────────────
+function drawDungeonBG(ctx, camX, camY){
+  // Fond de base
+  ctx.fillStyle='#0d0818';
+  ctx.fillRect(0,0,vW,vH);
+
+  // Briques du mur en arrière plan
+  const bW=64, bH=32;
+  const startX=Math.floor(camX/bW)*bW;
+  const startY=Math.floor(camY/bH)*bH;
+  for(let by2=startY-bH;by2<camY+vH+bH;by2+=bH){
+    const row=Math.floor(by2/bH);
+    const offsetX = (row%2)*bW/2;
+    for(let bx2=startX-bW-offsetX;bx2<camX+vW+bW;bx2+=bW){
+      const bx_s=Math.round(bx2-camX), by_s=Math.round(by2-camY);
+      // Brique
+      ctx.fillStyle='#130e22';
+      ctx.fillRect(bx_s+1, by_s+1, bW-2, bH-2);
+      // Joint
+      ctx.fillStyle='#0a0814';
+      ctx.fillRect(bx_s, by_s, bW, 1);
+      ctx.fillRect(bx_s, by_s, 1, bH);
+    }
+  }
+
+  // Colonnes décoratives en arrière plan
+  const colPositions=[200,500,900,1200];
+  for(const colX of colPositions){
+    const sx=Math.round(colX-camX);
+    if(sx<-40||sx>vW+40) continue;
+    // Fût de colonne
+    ctx.fillStyle='#1e1630';
+    ctx.fillRect(sx-12, Math.round(-camY), 24, WH);
+    ctx.fillStyle='#2a2040';
+    ctx.fillRect(sx-10, Math.round(-camY), 4, WH);
+    // Chapiteaux
+    ctx.fillStyle='#241c3a';
+    ctx.fillRect(sx-16, Math.round(80-camY), 32, 12);
+    ctx.fillRect(sx-16, Math.round(WH-92-camY), 32, 12);
+  }
+}
+
 // ================================================================
 function drawGame(){
-  c.fillStyle='#080a12';c.fillRect(0,0,vW,vH);c.save();c.translate(-camX,-camY);
-  c.strokeStyle='rgba(255,255,255,0.012)';c.lineWidth=1;const gs=50,sx=Math.floor(camX/gs)*gs,sy=Math.floor(camY/gs)*gs;
-  for(let x=sx;x<camX+vW+gs;x+=gs){c.beginPath();c.moveTo(x,camY);c.lineTo(x,camY+vH);c.stroke()}
-  for(let y=sy;y<camY+vH+gs;y+=gs){c.beginPath();c.moveTo(camX,y);c.lineTo(camX+vW,y);c.stroke()}
-  for(const p of platforms){if(p.x+p.w<camX-20||p.x>camX+vW+20||p.y+p.h<camY-20||p.y>camY+vH+20)continue;if(p.w<=12||p.h>=WH-40){c.fillStyle='#14141c';c.fillRect(p.x,p.y,p.w,p.h);if(p.h>=WH-40){c.fillStyle='rgba(255,255,255,0.05)';c.fillRect(p.x,p.y,p.w,1)}continue}const gr=c.createLinearGradient(p.x,p.y,p.x,p.y+p.h);gr.addColorStop(0,'#2a2a38');gr.addColorStop(1,'#1a1a24');c.fillStyle=gr;c.beginPath();c.roundRect(p.x,p.y,p.w,p.h,3);c.fill();c.fillStyle='rgba(255,255,255,0.08)';c.fillRect(p.x+2,p.y,p.w-4,1)}
-  if(P)P.draw(c);if(A)A.draw(c);
-  for(const p of particles){c.globalAlpha=p.life/60;c.fillStyle=p.col;c.beginPath();c.arc(p.x,p.y,p.sz,0,Math.PI*2);c.fill()}c.globalAlpha=1;c.restore();
-  if(A&&P){const sx2=A.x+A.w/2-camX,sy2=A.y+A.h/2-camY;if(sx2<-30||sx2>vW+30||sy2<-30||sy2>vH+30){const cx2=vW/2,cy2=vH/2,ang=Math.atan2(sy2-cy2,sx2-cx2),mg=36;let ix=cx2+Math.cos(ang)*(vW/2-mg),iy=cy2+Math.sin(ang)*(vH/2-mg);ix=Math.max(mg,Math.min(vW-mg,ix));iy=Math.max(mg,Math.min(vH-mg,iy));c.save();c.translate(ix,iy);c.rotate(ang);c.fillStyle='rgba(255,50,80,0.7)';c.beginPath();c.moveTo(10,0);c.lineTo(-5,-6);c.lineTo(-5,6);c.closePath();c.fill();c.rotate(-ang);c.font='8px JetBrains Mono';c.fillStyle='rgba(255,50,80,0.5)';c.textAlign='center';c.fillText(Math.round(Math.sqrt((A.x-P.x)**2+(A.y-P.y)**2))+'m',0,-12);c.restore()}}
+  if(!vW||!vH) return;
+  const t=Date.now();
+
+  c.save();
+  c.translate(-camX,-camY);
+
+  // Fond donjon
+  c.restore();
+  drawDungeonBG(c, camX, camY);
+  c.save();
+  c.translate(-camX,-camY);
+
+  // Torches sur certaines plateformes
+  const torchPlats=[4,8,14,18]; // indices de plateformes avec torches
+  for(const ti of torchPlats){
+    if(ti>=platforms.length) continue;
+    const p=platforms[ti];
+    if(p.w<=12||p.h>=WH-40) continue;
+    if(p.x+p.w<camX-60||p.x>camX+vW+60) continue;
+    drawTorch(c, p.x+20, p.y-12, t);
+    if(p.w>100) drawTorch(c, p.x+p.w-20, p.y-12, t);
+  }
+
+  // Plateformes
+  for(const p of platforms){
+    if(p.x+p.w<camX-20||p.x>camX+vW+20||p.y+p.h<camY-20||p.y>camY+vH+20) continue;
+    drawPlatform(c, p, camX, camY);
+  }
+
+  // Entités
+  if(P) P.draw(c);
+  if(A) A.draw(c);
+
+  // Particules (pixel art)
+  for(const p of particles){
+    const alpha=p.life/60;
+    c.fillStyle=p.col+(Math.round(alpha*255).toString(16).padStart(2,'0'));
+    c.fillRect(Math.round(p.x), Math.round(p.y), Math.ceil(p.sz), Math.ceil(p.sz));
+  }
+
+  c.restore();
+
+  // Indicateur hors-écran (style TowerFall — flèche pixel)
+  if(A&&P){
+    const sx2=Math.round(A.x+A.w/2-camX), sy2=Math.round(A.y+A.h/2-camY);
+    if(sx2<-30||sx2>vW+30||sy2<-30||sy2>vH+30){
+      const ang=Math.atan2(sy2-vH/2,sx2-vW/2),mg=40;
+      let ix=vW/2+Math.cos(ang)*(vW/2-mg), iy=vH/2+Math.sin(ang)*(vH/2-mg);
+      ix=Math.max(mg,Math.min(vW-mg,ix)); iy=Math.max(mg,Math.min(vH-mg,iy));
+      c.save(); c.translate(Math.round(ix),Math.round(iy)); c.rotate(ang);
+      c.fillStyle=A.col;
+      // Flèche pixelisée
+      c.fillRect(-8,-3,14,6); c.fillRect(-8,-5,4,10);
+      c.fillStyle='rgba(0,0,0,0.5)';
+      c.fillRect(-8,3,14,2); c.fillRect(2,-3,2,6);
+      c.restore();
+    }
+  }
+
   // NN viz
-  if(activeBrain.acts&&activeBrain.acts.length){const w=nnCv.width,h=nnCv.height;nnC.clearRect(0,0,w,h);const ls=activeBrain.acts,mx=8;for(let l=0;l<ls.length;l++){const ns=ls[l],dc=Math.min(ns.length,mx),lx=12+(l/(ls.length-1))*(w-24);for(let n=0;n<dc;n++){const ny=6+(dc>1?(n/(dc-1))*(h-12):h/2-6),v=ns[n];if(l<ls.length-1){const nc=Math.min(ls[l+1].length,mx),nlx=12+((l+1)/(ls.length-1))*(w-24);for(let nn=0;nn<nc;nn++){const nny=6+(nc>1?(nn/(nc-1))*(h-12):h/2-6),wt=activeBrain.w[l]?.[nn]?.[n]||0,a=Math.min(Math.abs(wt)*0.25,0.3);nnC.strokeStyle=wt>0?`rgba(59,240,160,${a})`:`rgba(255,68,102,${a})`;nnC.lineWidth=0.5;nnC.beginPath();nnC.moveTo(lx,ny);nnC.lineTo(nlx,nny);nnC.stroke()}}const abs=Math.min(Math.abs(v),2)/2;nnC.fillStyle=v>0?`rgba(59,240,160,${0.2+abs*0.8})`:`rgba(255,68,102,${0.2+abs*0.8})`;nnC.beginPath();nnC.arc(lx,ny,2+abs*2,0,Math.PI*2);nnC.fill()}}}
+  if(activeBrain.acts && activeBrain.acts.length >= 6){
+    const w=nnCv.width, h=nnCv.height;
+    nnC.clearRect(0,0,w,h);
+    const EXPERT_COLS=['rgba(240,160,48,','rgba(96,200,255,','rgba(160,100,255,'];
+    const layers=[
+      {data:activeBrain.acts[0], label:'IN',  col:'rgba(80,70,120,'},
+      {data:activeBrain.acts[1], label:'DNG', col:EXPERT_COLS[0]},
+      {data:activeBrain.acts[2], label:'AIM', col:EXPERT_COLS[1]},
+      {data:activeBrain.acts[3], label:'TRN', col:EXPERT_COLS[2]},
+      {data:activeBrain.acts[5], label:'ARB', col:'rgba(220,180,80,'},
+      {data:activeBrain.acts[6], label:'OUT', col:'rgba(255,100,100,'},
+    ];
+    const mx=8, pad=8;
+    layers.forEach((layer,li)=>{
+      const lx=pad+(li/(layers.length-1))*(w-pad*2);
+      const nd=Math.min(layer.data.length,mx);
+      layer.data.slice(0,nd).forEach((v,ni)=>{
+        const ny=5+(nd>1?(ni/(nd-1))*(h-14):h/2-5);
+        if(li<layers.length-1){
+          const next=layers[li+1], nlx=pad+((li+1)/(layers.length-1))*(w-pad*2);
+          const nd2=Math.min(next.data.length,mx);
+          next.data.slice(0,nd2).forEach((_,nni)=>{
+            const nny=5+(nd2>1?(nni/(nd2-1))*(h-14):h/2-5);
+            nnC.strokeStyle=`${layer.col}${Math.min(Math.abs(v)*0.3,0.2)})`;
+            nnC.lineWidth=0.5; nnC.beginPath(); nnC.moveTo(lx,ny); nnC.lineTo(nlx,nny); nnC.stroke();
+          });
+        }
+        const abs=Math.min(Math.abs(v),1);
+        // Pixel art : carré au lieu de cercle
+        nnC.fillStyle=`${layer.col}${0.3+abs*0.7})`;
+        const sz=Math.round(2+abs*2);
+        nnC.fillRect(Math.round(lx-sz/2), Math.round(ny-sz/2), sz, sz);
+      });
+      nnC.fillStyle=`${layer.col}0.6)`;
+      nnC.font='5px monospace';
+      nnC.textAlign='center';
+      nnC.fillText(layer.label,lx,h-1);
+    });
+  }
 }
 
 // ── Multi-player draw ─────────────────────────────────────────────
 function drawGameMulti(){
   if(!vW||!vH)return;
-  c.fillStyle='#080a12';c.fillRect(0,0,vW,vH);
+  const t=Date.now();
+
   c.save();
   c.translate(vW/2,vH/2);
   c.scale(camZoom,camZoom);
   c.translate(-vW/2,-vH/2);
   c.translate(-camX,-camY);
 
-  // Grid
-  c.strokeStyle='rgba(255,255,255,0.012)';c.lineWidth=1;
-  const gs=50,sx0=Math.floor(camX/gs)*gs,sy0=Math.floor(camY/gs)*gs;
-  for(let x=sx0;x<camX+vW+gs;x+=gs){c.beginPath();c.moveTo(x,camY);c.lineTo(x,camY+vH);c.stroke()}
-  for(let y=sy0;y<camY+vH+gs;y+=gs){c.beginPath();c.moveTo(camX,y);c.lineTo(camX+vW,y);c.stroke()}
+  // Fond donjon (dans l'espace caméra)
+  c.restore();
+  c.save();
+  c.translate(vW/2,vH/2);
+  c.scale(camZoom,camZoom);
+  c.translate(-vW/2,-vH/2);
+  drawDungeonBG(c, camX, camY);
 
-  // Platforms
-  for(const p of platforms){
-    if(p.x+p.w<camX-20||p.x>camX+vW+20||p.y+p.h<camY-20||p.y>camY+vH+20)continue;
-    if(p.w<=12||p.h>=WH-40){c.fillStyle='#14141c';c.fillRect(p.x,p.y,p.w,p.h);if(p.h>=WH-40){c.fillStyle='rgba(255,255,255,0.05)';c.fillRect(p.x,p.y,p.w,1)}continue}
-    const gr=c.createLinearGradient(p.x,p.y,p.x,p.y+p.h);gr.addColorStop(0,'#2a2a38');gr.addColorStop(1,'#1a1a24');c.fillStyle=gr;c.beginPath();c.roundRect(p.x,p.y,p.w,p.h,3);c.fill();c.fillStyle='rgba(255,255,255,0.08)';c.fillRect(p.x+2,p.y,p.w-4,1);
+  // On translate maintenant en espace world
+  c.translate(-camX,-camY);
+
+  // Torches
+  const torchPlats=[4,8,14,18];
+  for(const ti of torchPlats){
+    if(ti>=platforms.length)continue;
+    const p=platforms[ti];
+    if(p.w<=12||p.h>=WH-40)continue;
+    if(p.x+p.w<camX-60||p.x>camX+vW+60)continue;
+    drawTorch(c, p.x+20, p.y-12, t);
+    if(p.w>100) drawTorch(c, p.x+p.w-20, p.y-12, t);
   }
 
-  // Players + arrows (in world space)
+  // Plateformes
+  for(const p of platforms){
+    if(p.x+p.w<camX-20||p.x>camX+vW+20||p.y+p.h<camY-20||p.y>camY+vH+20)continue;
+    drawPlatform(c, p, camX, camY);
+  }
+
+  // Players
   for(let i=0;i<players.length;i++){
     if(playerAlive[i])players[i].draw(c);
   }
 
   // Particles
-  for(const p of particles){c.globalAlpha=p.life/60;c.fillStyle=p.col;c.beginPath();c.arc(p.x,p.y,p.sz,0,Math.PI*2);c.fill()}
-  c.globalAlpha=1;
+  for(const p of particles){
+    const alpha=p.life/60;
+    c.fillStyle=p.col+(Math.round(alpha*255).toString(16).padStart(2,'0'));
+    c.fillRect(Math.round(p.x), Math.round(p.y), Math.ceil(p.sz), Math.ceil(p.sz));
+  }
 
   c.restore(); // back to screen space
 
-  // Name labels (screen space — convert world → screen)
-  c.font='bold 8px JetBrains Mono';c.textAlign='center';
+  // Labels joueurs (screen space)
+  c.font='bold 6px monospace';
+  c.textAlign='center';
   for(let i=0;i<players.length;i++){
     if(!playerAlive[i])continue;
     const pl=players[i];
-    // world → screen: multiply by zoom, offset by cam
     const sx=(pl.x+pl.w/2-camX)*camZoom+(vW/2)*(1-camZoom);
-    const sy=(pl.y-camY)*camZoom+(vH/2)*(1-camZoom)-6;
+    const sy=(pl.y-camY)*camZoom+(vH/2)*(1-camZoom)-8;
     c.fillStyle=SLOT_COLORS[pl._slotIndex];
-    c.globalAlpha=0.8;
-    c.fillText(pl._label,sx,sy);
+    c.globalAlpha=0.9;
+    c.fillText(pl._label,Math.round(sx),Math.round(sy));
   }
   c.globalAlpha=1;
 
-  // Off-screen indicators (screen space)
+  // Indicateurs hors-écran
   for(let i=0;i<players.length;i++){
     if(!playerAlive[i])continue;
     const pl=players[i];
     const sx=(pl.x+pl.w/2-camX)*camZoom+(vW/2)*(1-camZoom);
     const sy=(pl.y+pl.h/2-camY)*camZoom+(vH/2)*(1-camZoom);
     if(sx>-30&&sx<vW+30&&sy>-30&&sy<vH+30)continue;
-    const cx2=vW/2,cy2=vH/2,ang=Math.atan2(sy-cy2,sx-cx2),mg=32;
-    let ix=cx2+Math.cos(ang)*(vW/2-mg),iy=cy2+Math.sin(ang)*(vH/2-mg);
-    ix=Math.max(mg,Math.min(vW-mg,ix));iy=Math.max(mg,Math.min(vH-mg,iy));
-    c.save();c.translate(ix,iy);c.rotate(ang);
-    c.fillStyle=SLOT_COLORS[pl._slotIndex]+'bb';
-    c.beginPath();c.moveTo(10,0);c.lineTo(-5,-5);c.lineTo(-5,5);c.closePath();c.fill();
+    const ang=Math.atan2(sy-vH/2,sx-vW/2),mg=32;
+    let ix=vW/2+Math.cos(ang)*(vW/2-mg), iy=vH/2+Math.sin(ang)*(vH/2-mg);
+    ix=Math.max(mg,Math.min(vW-mg,ix)); iy=Math.max(mg,Math.min(vH-mg,iy));
+    c.save(); c.translate(Math.round(ix),Math.round(iy)); c.rotate(ang);
+    c.fillStyle=SLOT_COLORS[pl._slotIndex];
+    c.fillRect(-8,-3,14,6); c.fillRect(-8,-5,4,10);
     c.restore();
   }
 }
@@ -1450,104 +2324,88 @@ function checkHitsMulti(){
   return -1;
 }
 
-function evolveBrainMulti(brain, won){
-  // Simplified evolution for multi — no roundStats (would need per-brain stats)
-  const prevFitness=brain.fitness||0;
-  const survivalBonus=Math.min(roundTimer/(60*35)*3,3);
-
-  if(won){
-    brain.fitness=prevFitness+12+survivalBonus;
-    const rate=0.05*(1-Math.min(brain.fitness/150,0.85)*0.6);
-    const power=0.08*(1-Math.min(brain.fitness/150,0.85)*0.5);
-    brain.mutate(rate,power);
-  } else {
-    brain.fitness=Math.max(0,prevFitness-2+survivalBonus*0.5);
-    brain.mutate(0.15,0.28);
-  }
-}
-
 async function endRoundMulti(eliminatedIdx){
   if(multiRoundOver)return;
   multiRoundOver=true;
+
+  // Trouver le gagnant (dernier survivant)
   const alivePlayers=players.filter((_,i)=>playerAlive[i]);
   const winnerIdx=alivePlayers.length===1?players.indexOf(alivePlayers[0]):-1;
-  if(winnerIdx>=0)playerWins[winnerIdx]++;
 
-  // Evolve each AI brain based on win/loss
-  for(let i=0;i<players.length;i++){
-    if(playerBrains[i]===null)continue; // skip humans
-    const won=(i===winnerIdx);
-    evolveBrainMulti(playerBrains[i],won);
-    // Save evolved brain back to store
-    const slotBrainId=players[i]._brainId;
-    if(slotBrainId){
-      const entry=await store.get('brains',slotBrainId);
-      if(entry){
-        entry.brain=playerBrains[i].serialize();
-        entry.fitness=playerBrains[i].fitness;
-        entry.generation=(entry.generation||1)+1;
-        entry.wins=(entry.wins||0)+(won?1:0);
-        entry.played=(entry.played||0)+1;
-        entry.timestamp=Date.now();
-        await store.put('brains',entry);
-      }
-    }
-  }
+  // Incrémenter le compteur de session du gagnant
+  if(winnerIdx>=0) playerWins[winnerIdx]++;
+
+  // Évolution + persistance des cerveaux IA
+  await evolveAllMulti(winnerIdx);
 
   updateMultiHUD();
-  const ov=document.getElementById('game-overlay');
-  const title=document.getElementById('ov-title');
-  const sub=document.getElementById('ov-sub');
-  const btns=document.getElementById('ov-btns');
+
+  const ov   = document.getElementById('game-overlay');
+  const title= document.getElementById('ov-title');
+  const sub  = document.getElementById('ov-sub');
+  const btns = document.getElementById('ov-btns');
+
   if(winnerIdx>=0){
-    title.textContent=`${sanitize(players[winnerIdx]._label)} GAGNE !`;
-    title.style.color=SLOT_COLORS[players[winnerIdx]._slotIndex];
+    const w=players[winnerIdx];
+    title.textContent=`${sanitize(w._label)} GAGNE !`;
+    title.className='';
+    title.style.color=SLOT_COLORS[w._slotIndex];
   } else {
-    title.textContent='TEMPS ÉCOULÉ';title.style.color='';
+    title.textContent='TEMPS ÉCOULÉ';
+    title.className='';
+    title.style.color='var(--gold)';
   }
-  const scores=players.map((p,i)=>`${sanitize(p._label)} ${playerWins[i]}`).join('  ·  ');
-  sub.textContent=scores;
-  btns.innerHTML=`<button class="btn small" onclick="quitGame()">✕ Quitter</button><button class="btn small primary" onclick="nextRoundMulti()">▶ Round suivant</button>`;
+
+  // Score de session : [label] W pour chaque slot
+  const scores=players.map((p,i)=>`${sanitize(p._label).split(' ')[0]} ${playerWins[i]}W`).join('  ');
+  sub.textContent=`Round ${session.round}  ·  ${scores}`;
+  btns.innerHTML=`<button class="btn small" onclick="quitGame()">✕ Quitter</button><button class="btn small primary" onclick="nextRoundMulti()">▶ Suite</button>`;
   ov.classList.remove('hidden');
 }
 
 function showHumanDeadOverlay(){
-  // Don't trigger if round already over
   if(multiRoundOver)return;
-  const ov=document.getElementById('game-overlay');
-  const title=document.getElementById('ov-title');
-  const sub=document.getElementById('ov-sub');
-  const btns=document.getElementById('ov-btns');
+  // Caméra libre + masquer joysticks immédiatement
+  updateGameControls();
+  resizeGame();
+
+  const ov   = document.getElementById('game-overlay');
+  const title= document.getElementById('ov-title');
+  const sub  = document.getElementById('ov-sub');
+  const btns = document.getElementById('ov-btns');
   title.textContent='ÉLIMINÉ';
-  title.style.color='var(--warn)';
-  sub.textContent='Tu peux observer ou passer au round suivant';
+  title.className='winner-a';
+  title.style.color='';
+  sub.textContent='Observer la suite ou passer au round suivant';
   btns.innerHTML=`
     <button class="btn small" onclick="quitGame()">✕ Quitter</button>
     <button class="btn small" onclick="document.getElementById('game-overlay').classList.add('hidden')">👁 Observer</button>
-    <button class="btn small primary" onclick="endRoundMulti(-1)">⏭ Round suivant</button>
+    <button class="btn small primary" onclick="endRoundMulti(-1)">⏭ Suivant</button>
   `;
   ov.classList.remove('hidden');
 }
 
 function nextRoundMulti(){
-  sessionScore.round++;
+  session.round++;
   multiRoundOver=false;
   humanDeadShown=false;
   roundTimer=0;
   particles=[];
-  // Re-spawn all players at corners
-  const activeSlots=lobbySlots.map((s,i)=>({...s,index:i})).filter(s=>s.type!=='off');
+  playerBrains.forEach(b=>{ if(b) b.resetMemory(); });
   for(let i=0;i<players.length;i++){
     const sp=SPAWN_POS[i%4];
-    players[i].x=sp.x;players[i].y=sp.y;
-    players[i].vx=0;players[i].vy=0;
-    players[i].arr=[];players[i].cd=0;players[i].aim=0;
+    players[i].x=sp.x; players[i].y=sp.y;
+    players[i].vx=0; players[i].vy=0;
+    players[i].arr=[]; players[i].cd=0; players[i].aim=0;
     players[i].face=sp.face;
     playerAlive[i]=true;
   }
+  // Restaurer les contrôles (joysticks si humain, camlib si full IA)
+  updateGameControls();
+  resizeGame();
   updateMultiHUD();
   document.getElementById('game-overlay').classList.add('hidden');
-  document.getElementById('mh-round').textContent=`Round ${sessionScore.round}`;
+  document.getElementById('mh-round').textContent=`Round ${session.round}`;
 }
 
 function gameLoop(){
@@ -1659,19 +2517,54 @@ function gameLoop(){
 // ================================================================
 //  SCREENS
 // ================================================================
+// ── Gère l'affichage des joysticks et l'état caméra selon le contexte ──
+// Règles :
+//   Solo          : joysticks si touch, caméra classique
+//   Multi humain  : joysticks si touch, caméra suit humain vivant
+//   Multi tout IA : pas de joysticks, caméra libre
+//   Humain mort   : joysticks cachés, caméra libre
+function updateGameControls(){
+  const isTouch=('ontouchstart' in window)||navigator.maxTouchPoints>0;
+  const pad=document.getElementById('touch-pad');
+
+  if(!multiMode){
+    // Solo : joysticks si touch
+    if(isTouch) pad.classList.add('on'); else pad.classList.remove('on');
+    freeCam=false;
+    document.body.classList.remove('observe-mode');
+  } else {
+    const humanIdx=playerBrains.findIndex(b=>b===null);
+    const hasHuman=humanIdx>=0;
+    const humanAlive=hasHuman&&playerAlive[humanIdx];
+    const allAI=!hasHuman;
+
+    if(allAI || !humanAlive){
+      // Pas d'humain ou humain mort : caméra libre, pas de joysticks
+      pad.classList.remove('on');
+      freeCam=true;
+      document.body.classList.add('observe-mode');
+    } else {
+      // Humain vivant : joysticks si touch, caméra suit le joueur
+      if(isTouch) pad.classList.add('on'); else pad.classList.remove('on');
+      freeCam=false;
+      document.body.classList.remove('observe-mode');
+    }
+  }
+  // Resize après reflow DOM (les joysticks ont changé de taille)
+  requestAnimationFrame(()=>resizeGame());
+}
+
 function showScreen(name){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(name+'-screen').classList.add('active');
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.screen===name));
   if(name==='game'){
     document.body.classList.add('in-game');
-    const isTouch=('ontouchstart' in window)||navigator.maxTouchPoints>0;
-    if(isTouch&&!multiMode)document.getElementById('touch-pad').classList.add('on');
+    // Les joysticks/caméra sont gérés par updateGameControls()
   } else {
     document.body.classList.remove('in-game','observe-mode');
     document.getElementById('touch-pad').classList.remove('on');
     gameActive=false;
-    // Reset HUD visibility when leaving game
     document.getElementById('game-hud').style.display='';
     document.getElementById('multi-hud').style.display='none';
   }
@@ -1685,7 +2578,19 @@ function showScreen(name){
   }
 }
 
-function startArena(){showScreen('game');resizeGame();sessionScore={player:0,ai:0,round:1};document.getElementById('h-pscore').textContent='0';document.getElementById('h-ascore').textContent='0';document.getElementById('h-gen').textContent=generation;document.getElementById('h-round').textContent='Round 1';initRound();gameActive=true;requestAnimationFrame(gameLoop)}
+function startArena(){
+  showScreen('game');
+  resizeGame();
+  updateGameControls();
+  session={playerWins:0, aiWins:0, round:1};
+  document.getElementById('h-pscore').textContent='0';
+  document.getElementById('h-ascore').textContent='0';
+  document.getElementById('h-gen').textContent=generation;
+  document.getElementById('h-round').textContent='Round 1';
+  initRound();
+  gameActive=true;
+  requestAnimationFrame(gameLoop);
+}
 
 async function quitGame(){
   gameActive=false;
@@ -1704,34 +2609,39 @@ window.addEventListener('resize',()=>{if(gameActive)resizeGame()});
 //  PERSISTENCE
 // ================================================================
 async function saveCurrent(){
-  const existing=await store.get('brains',currentBrainId);
-  // Use existing name, or generate one if first save of default brain
-  let name=existing?.name;
-  if(!name) name = currentBrainId==='default' ? makeBrainName() : makeBrainName();
-  const creator=existing?.creator||localCreator;
-  const entry={id:currentBrainId,name,creator,brain:activeBrain.serialize(),generation,fitness:activeBrain.fitness||0,wins:totalWins,played:totalPlayed,timestamp:Date.now(),game:'arena-archer',topology:activeBrain.topo.join('-'),params:activeBrain.paramCount()};
-  if(bestBrain){entry.bestBrain=bestBrain.serialize();entry.bestFitness=bestBrain.fitness||0}
-  await store.put('brains',entry);
+  const existing = await store.get('brains', currentBrainId);
+  // Nom : conserve l'existant, génère séquentiellement si premier save
+  const name = existing?.name || await nextBrainName();
+  const creator = existing?.creator || localCreator;
+  const topoStr = activeBrain.topo ? activeBrain.topo.join('-') : 'GRU×3+ARB';
+  const entry = {id:currentBrainId, name, creator, brain:activeBrain.serialize(),
+    generation, fitness:activeBrain.fitness||0, elo:activeBrain.elo||ELO_BASE,
+    wins:totalWins, played:totalPlayed, timestamp:Date.now(),
+    game:'arena-archer', topology:topoStr, params:activeBrain.paramCount()};
+  if(bestBrain){entry.bestBrain=bestBrain.serialize();entry.bestFitness=bestBrain.fitness||0;entry.bestElo=bestBrain.elo||ELO_BASE}
+  await store.put('brains', entry);
 }
 
 async function loadBrains(){
   const all=await store.getAll('brains');
   const entry=all.find(b=>b.id==='default');
   if(entry){
-    activeBrain=Brain.deserialize(entry.brain);
+    activeBrain=deserializeBrain(entry.brain);
     activeBrain.fitness=entry.fitness||0;
+    activeBrain.elo=entry.elo||ELO_BASE;
     generation=entry.generation||1;
-    // wins/played are per-brain — load from brain entry only
     totalWins=entry.wins||0;
     totalPlayed=entry.played||0;
-    if(entry.bestBrain){bestBrain=Brain.deserialize(entry.bestBrain);bestBrain.fitness=entry.bestFitness||0}
+    if(entry.bestBrain){
+      bestBrain=deserializeBrain(entry.bestBrain);
+      bestBrain.fitness=entry.bestFitness||0;
+      bestBrain.elo=entry.bestElo||ELO_BASE;
+    }
   }
-  // Legacy migration: if global config had values and brain entry has 0, migrate once
   const cfgWins=await store.getConfig('totalWins',null);
   const cfgPlayed=await store.getConfig('totalPlayed',null);
   if(cfgWins!==null&&totalWins===0&&totalPlayed===0){
     totalWins=cfgWins;totalPlayed=cfgPlayed||0;
-    // Clear global config to avoid future contamination
     await store.setConfig('totalWins',null);
     await store.setConfig('totalPlayed',null);
   }
@@ -1741,17 +2651,24 @@ function updateMenuUI(){
   document.getElementById('m-wins').textContent=totalWins;
   document.getElementById('m-played').textContent=totalPlayed;
   document.getElementById('m-gen').textContent=generation;
-  document.getElementById('m-brain-name').textContent=currentBrainId==='default'?'Cerveau principal':currentBrainId;
-  document.getElementById('m-brain-meta').textContent=`Gen ${generation} · ${activeBrain.paramCount()} params · Fitness ${Math.round(activeBrain.fitness||0)}`;
+  // Charge le nom depuis le store async, affiche un placeholder en attendant
+  store.get('brains', currentBrainId).then(e=>{
+    document.getElementById('m-brain-name').textContent = e?.name || localCreator+'#???';
+  }).catch(()=>{
+    document.getElementById('m-brain-name').textContent = localCreator+'#???';
+  });
+  document.getElementById('m-brain-meta').textContent=`ELO ${activeBrain.elo||ELO_BASE} · Gen ${generation} · Fitness ${Math.round(activeBrain.fitness||0)}`;
 }
 
 async function updateLabUI(){
   const all=await store.getAll('brains');
   let html=`<div style="margin-bottom:12px;font-size:10px;color:#444;display:flex;justify-content:space-between;align-items:center"><span>${all.length} cerveau(x)</span><span style="color:var(--accent);font-size:9px;letter-spacing:1px">👤 ${sanitize(localCreator)}</span></div>`;
-  for(const e of all.sort((a,b)=>(b.fitness||0)-(a.fitness||0))){
-    const cur=e.id===currentBrainId;const d=new Date(e.timestamp).toLocaleDateString('fr-FR');
+  for(const e of all.sort((a,b)=>(b.elo||ELO_BASE)-(a.elo||ELO_BASE))){
+    const cur=e.id===currentBrainId;
+    const eloStr=e.elo?`🏆${e.elo}`:'🏆?';
+    const typeTag=e.brain&&e.brain.type==='multi-expert-v1'?'<span style="color:var(--accent)">GRU×3</span>':'<span style="color:#444">legacy</span>';
     const creatorTag=e.creator&&e.creator!==localCreator?`<span style="color:#3a5a6a">📡 ${sanitize(e.creator)}</span>`:'';
-    html+=`<div class="brain-card ${cur?'active-brain':''}" onclick="selectBrain('${e.id}')"><div class="bc-header"><span class="bc-name">${sanitize(e.name||e.id)} ${cur?'● ACTIF':''}</span><span class="bc-gen">Gen ${e.generation||'?'}</span></div><div class="bc-stats"><span>⚡${Math.round(e.fitness||0)}</span><span>🎯 ${e.wins||0}W/${e.played||0}P</span><span>🧠 ${e.params||'?'}p</span><span>📅 ${d}</span>${creatorTag}${e.imported?'<span>📥 importé</span>':''}</div></div>`;
+    html+=`<div class="brain-card ${cur?'active-brain':''}" onclick="selectBrain('${e.id}')"><div class="bc-header"><span class="bc-name">${sanitize(e.name||e.id)} ${cur?'● ACTIF':''}</span><span class="bc-gen">Gen ${e.generation||'?'}</span></div><div class="bc-stats"><span>${eloStr}</span><span>⚡${Math.round(e.fitness||0)}</span><span>🎯 ${e.wins||0}W/${e.played||0}P</span><span>🧠 ${e.params||'?'}p</span>${typeTag}${creatorTag}${e.imported?'<span>📥 importé</span>':''}</div></div>`;
   }
   html+=`<div class="lab-actions"><button class="btn small primary" onclick="newBrain()">+ Nouveau</button><button class="btn small" onclick="duplicateCurrent()">📋 Dupliquer</button><button class="btn small warn" onclick="resetCurrent()">🗑 Reset</button></div>`;
   document.getElementById('lab-content').innerHTML=html;
@@ -1761,45 +2678,99 @@ async function selectBrain(id){
   const e=await store.get('brains',id);
   if(!e)return;
   currentBrainId=id;
-  activeBrain=Brain.deserialize(e.brain);
+  activeBrain=deserializeBrain(e.brain);
   activeBrain.fitness=e.fitness||0;
+  activeBrain.elo=e.elo||ELO_BASE;
   generation=e.generation||1;
-  // Load per-brain stats — critical fix
   totalWins=e.wins||0;
   totalPlayed=e.played||0;
-  // Reset hallOfFame for this brain context
   hallOfFame=[];
   stagnationCounter=0;
-  if(e.bestBrain){bestBrain=Brain.deserialize(e.bestBrain);bestBrain.fitness=e.bestFitness||0}
+  if(e.bestBrain){bestBrain=deserializeBrain(e.bestBrain);bestBrain.fitness=e.bestFitness||0;bestBrain.elo=e.bestElo||ELO_BASE;}
   else bestBrain=null;
   toast(`"${e.name||id}" activé`);
   updateMenuUI();
   updateLabUI();
 }
+
 async function newBrain(){
-  const id='brain_'+Date.now();
-  const name=makeBrainName();
-  await store.put('brains',{id,name,creator:localCreator,brain:new Brain().serialize(),generation:1,fitness:0,wins:0,played:0,timestamp:Date.now(),game:'arena-archer',topology:'16-20-14-6',params:new Brain().paramCount()});
-  currentBrainId=id;activeBrain=new Brain();generation=1;bestBrain=null;
-  toast(`Nouveau cerveau : ${name}`);updateLabUI();
+  const id   = 'brain_' + Date.now();
+  const name = await nextBrainName();
+  const b    = new MultiExpertBrain();
+  await store.put('brains', {id, name, creator:localCreator, brain:b.serialize(),
+    generation:1, fitness:0, elo:ELO_BASE, wins:0, played:0,
+    timestamp:Date.now(), game:'arena-archer', topology:'GRU×3', params:b.paramCount()});
+  currentBrainId=id; activeBrain=b; generation=1; bestBrain=null;
+  totalWins=0; totalPlayed=0;
+  toast(`Nouveau : ${name}`); updateLabUI();
 }
 
 async function duplicateCurrent(){
-  const id='brain_'+Date.now();
-  const name=makeBrainName();
-  const e={id,name,creator:localCreator,brain:activeBrain.serialize(),generation,fitness:activeBrain.fitness||0,wins:0,played:0,timestamp:Date.now(),game:'arena-archer',topology:activeBrain.topo.join('-'),params:activeBrain.paramCount()};
-  if(bestBrain)e.bestBrain=bestBrain.serialize();
-  await store.put('brains',e);
-  toast(`Dupliqué : ${name}`);updateLabUI();
+  const id   = 'brain_' + Date.now();
+  // Récupère le nom actuel depuis le store pour construire le nom clone
+  const src  = await store.get('brains', currentBrainId);
+  const name = await cloneBrainName(src?.name || await nextBrainName());
+  const e = {id, name, creator:localCreator, brain:activeBrain.serialize(),
+    generation, fitness:activeBrain.fitness||0, elo:activeBrain.elo||ELO_BASE,
+    wins:0, played:0, timestamp:Date.now(), game:'arena-archer',
+    topology:'GRU×3', params:activeBrain.paramCount()};
+  if(bestBrain) e.bestBrain=bestBrain.serialize();
+  await store.put('brains', e);
+  toast(`Clone : ${name}`); updateLabUI();
 }
-async function resetCurrent(){activeBrain=new Brain();generation=1;bestBrain=null;hallOfFame=[];await saveCurrent();toast('Reset');updateLabUI()}
+
+async function resetCurrent(){
+  activeBrain=new MultiExpertBrain();
+  generation=1; bestBrain=null; hallOfFame=[];
+  totalWins=0; totalPlayed=0;
+  await saveCurrent(); toast('Reset'); updateLabUI();
+}
 
 // ================================================================
 //  FILE IMPORT/EXPORT
 // ================================================================
-async function exportBestBrain(){const brain=bestBrain||activeBrain;const data={format:'neuralarena-brain-v1',game:'arena-archer',name:githubSync.pseudo||'Anonyme',pseudo:githubSync.pseudo||'Anonyme',generation,fitness:brain.fitness||0,wins:totalWins,played:totalPlayed,topology:brain.topo,params:brain.paramCount(),brain:brain.serialize(),exported:new Date().toISOString()};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`neuralarena_gen${generation}_f${Math.round(data.fitness)}.json`;a.click();URL.revokeObjectURL(a.href);toast('Exporté !')}
+async function exportBestBrain(){
+  const brain = bestBrain || activeBrain;
+  const src   = await store.get('brains', currentBrainId);
+  const brainName = src?.name || localCreator;
+  const data = {format:'neuralarena-brain-v2', game:'arena-archer',
+    name:brainName, creator:localCreator,
+    pseudo:githubSync.pseudo||localCreator,
+    generation, fitness:brain.fitness||0, elo:brain.elo||ELO_BASE,
+    wins:totalWins, played:totalPlayed, params:brain.paramCount(),
+    brain:brain.serialize(), exported:new Date().toISOString()};
+  const safe = brainName.replace(/[^a-zA-Z0-9#~]/g,'_');
+  const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${safe}_elo${brain.elo||ELO_BASE}.json`;
+  a.click(); URL.revokeObjectURL(a.href); toast('Exporté !');
+}
 
-async function importBrainFile(event){const file=event.target.files[0];if(!file)return;try{const data=JSON.parse(await file.text());if(!data.brain||!data.brain.topo)return toast('Format invalide');const id='imported_'+Date.now();const brain=Brain.deserialize(data.brain);await store.put('brains',{id,name:data.name||file.name,brain:brain.serialize(),generation:data.generation||1,fitness:data.fitness||0,wins:0,played:0,timestamp:Date.now(),game:'arena-archer',topology:brain.topo.join('-'),params:brain.paramCount(),imported:true});currentBrainId=id;activeBrain=brain;activeBrain.fitness=data.fitness||0;generation=data.generation||1;bestBrain=brain.clone();toast(`"${data.name||file.name}" importé !`)}catch(e){toast('Erreur: '+e.message)}event.target.value=''}
+async function importBrainFile(event){
+  const file=event.target.files[0]; if(!file) return;
+  try{
+    const data=JSON.parse(await file.text());
+    if(!data.brain) return toast('Format invalide');
+    const id      = 'imported_' + Date.now();
+    const brain   = deserializeBrain(data.brain);
+    brain.fitness = data.fitness||0;
+    brain.elo     = data.elo||ELO_BASE;
+    // Conserve le nom original + numéro local pour éviter les doublons
+    const baseName = data.name || data.creator || file.name.replace('.json','');
+    const localNum = await nextBrainName(); // incrémente le compteur
+    const name     = `${baseName}>${localNum.split('#')[1]||'?'}`;
+    await store.put('brains',{id, name, creator:data.creator||data.pseudo||'?',
+      brain:brain.serialize(), generation:data.generation||1,
+      fitness:brain.fitness, elo:brain.elo, wins:0, played:0,
+      timestamp:Date.now(), game:'arena-archer', topology:'GRU×3',
+      params:brain.paramCount(), imported:true});
+    currentBrainId=id; activeBrain=brain;
+    generation=data.generation||1; bestBrain=brain.clone();
+    toast(`Importé : ${name}`); updateLabUI();
+  }catch(e){ toast('Erreur: '+e.message); }
+  event.target.value='';
+}
 
 async function exportAllBrains(){const all=await store.getAll('brains');const blob=new Blob([JSON.stringify({format:'neuralarena-backup-v1',exported:new Date().toISOString(),brains:all})],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`neuralarena_backup_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);toast(`${all.length} cerveaux exportés`)}
 
@@ -1817,32 +2788,58 @@ if(!CanvasRenderingContext2D.prototype.roundRect){CanvasRenderingContext2D.proto
 document.getElementById('game').addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
 
 // ================================================================
-//  INIT
+//  IDENTITÉ CRÉATEUR & NOMMAGE DES CERVEAUX
 // ================================================================
-// ================================================================
-//  LOCAL CREATOR IDENTITY
-// ================================================================
-const PSEUDO_ADJ=['swift','dark','neo','iron','ghost','void','storm','neon','arc','hyper','flux','echo','apex','zero','nova'];
-const PSEUDO_NOUN=['archer','mind','core','agent','pulse','forge','byte','node','grid','wave','link','base','unit','mesh','drift'];
+//
+//  Creator  : mot court mémorable, généré une fois
+//             ex: "darknode"
+//
+//  Cerveau  : [creator]#[NNN]   numéro séquentiel
+//             ex: "darknode#001"
+//
+//  Clone    : [source_name]~[NNN]
+//             ex: "darknode#001~002"
+//
+//  Importé  : conserve le nom original du fichier/export
+//
+const CREATOR_ADJ =['swift','dark','neo','iron','ghost','void','storm','neon','arc','hyper','flux','echo','apex','zero','nova','red','cold','deep','wild','hex'];
+const CREATOR_NOUN=['node','mind','core','agent','pulse','forge','byte','grid','wave','link','unit','mesh','gate','loop','data','cell','port','chip','flow','net'];
 
-function generatePseudo(){
-  const adj=PSEUDO_ADJ[Math.floor(Math.random()*PSEUDO_ADJ.length)];
-  const noun=PSEUDO_NOUN[Math.floor(Math.random()*PSEUDO_NOUN.length)];
-  const num=String(Math.floor(Math.random()*9000)+1000);
-  return adj+noun+num;
+function generateCreatorId(){
+  const adj  = CREATOR_ADJ [Math.floor(Math.random()*CREATOR_ADJ.length)];
+  const noun = CREATOR_NOUN[Math.floor(Math.random()*CREATOR_NOUN.length)];
+  return adj + noun; // ex: "darknode"
 }
 
-let localCreator='';
+let localCreator = '';
+let brainCounter = 0; // compteur séquentiel local, chargé depuis le store
 
 async function loadCreator(){
-  let saved=await store.getConfig('localCreator',null);
-  if(!saved){saved=generatePseudo();await store.setConfig('localCreator',saved);}
-  localCreator=saved;
+  let saved = await store.getConfig('localCreator', null);
+  if(!saved){ saved = generateCreatorId(); await store.setConfig('localCreator', saved); }
+  localCreator = saved;
+
+  // Charge le compteur séquentiel
+  const cnt = await store.getConfig('brainCounter', 0);
+  brainCounter = cnt || 0;
 }
 
-function makeBrainName(){
-  const num=String(Math.floor(Math.random()*9000)+1000);
-  return `${localCreator}-${num}`;
+// Génère le prochain nom séquentiel et incrémente le compteur
+async function nextBrainName(){
+  brainCounter++;
+  await store.setConfig('brainCounter', brainCounter);
+  const num = String(brainCounter).padStart(3, '0');
+  return `${localCreator}#${num}`; // ex: darknode#001
+}
+
+// Génère un nom de clone basé sur le nom source
+async function cloneBrainName(sourceName){
+  brainCounter++;
+  await store.setConfig('brainCounter', brainCounter);
+  const num = String(brainCounter).padStart(3, '0');
+  // Prend la racine avant ~ si déjà un clone
+  const base = sourceName.split('~')[0];
+  return `${base}~${num}`; // ex: darknode#001~002
 }
 
 // ================================================================
@@ -1852,12 +2849,8 @@ async function init(){
   await githubSync.loadConfig();
   updateMenuUI();
 
-  // Auto-sync if repo configured
-  if(githubSync.repo){
-    setTimeout(()=>githubSync.sync(),800);
-  }
-
-  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+  if(githubSync.repo){ setTimeout(()=>githubSync.sync(),800); }
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
 init();
 </script>
