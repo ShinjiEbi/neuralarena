@@ -191,6 +191,57 @@ body.in-game #nav{display:none}
 #cam-hint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:8px;color:#2a2d3a;letter-spacing:2px;z-index:15;pointer-events:none;text-align:center}
 body.observe-mode #cam-hint{display:block}
 body:not(.observe-mode) #cam-hint{display:none}
+
+/* ── ARÈNE ───────────────────────────────────────── */
+#arena-screen{background:var(--bg);flex-direction:column;overflow:hidden}
+.arena-tabs{display:flex;border-bottom:2px solid var(--border);flex-shrink:0}
+.arena-tab{font-family:'Press Start 2P',monospace;font-size:6px;padding:8px 10px;border:none;background:none;color:#6040a0;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;-webkit-tap-highlight-color:transparent;letter-spacing:0.5px}
+.arena-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+.arena-panels{flex:1;overflow-y:auto;padding:12px}
+
+/* Tournoi */
+.tourney-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.tourney-speed{display:flex;align-items:center;gap:6px;font-size:6px;color:#8060c0}
+.speed-btn{font-family:'Press Start 2P',monospace;font-size:6px;padding:5px 8px;border:2px solid var(--border);background:var(--card);color:#8060c0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.speed-btn.active{border-color:var(--gold);color:var(--gold)}
+.bracket{display:flex;flex-direction:column;gap:6px}
+.match-row{display:flex;align-items:center;gap:8px;background:var(--card);border:2px solid var(--border);padding:8px 10px;font-size:6px}
+.match-row.running{border-color:var(--gold);animation:pulse 1s infinite alternate}
+.match-row.done{border-color:rgba(96,200,255,0.3)}
+.match-a{color:var(--gold);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.match-b{color:#8060c0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}
+.match-score{color:var(--bright);width:40px;text-align:center;flex-shrink:0}
+.match-winner{color:var(--accent2);font-size:5px}
+@keyframes pulse{from{box-shadow:0 0 0 0 rgba(240,160,48,0.4)}to{box-shadow:0 0 0 4px rgba(240,160,48,0)}}
+
+/* Graphique */
+#evo-canvas{width:100%;height:200px;background:var(--card);border:2px solid var(--border);display:block;image-rendering:pixelated}
+.chart-legend{display:flex;gap:10px;flex-wrap:wrap;font-size:6px;margin-top:6px}
+.legend-item{display:flex;align-items:center;gap:4px}
+.legend-dot{width:8px;height:8px;flex-shrink:0;border:1px solid rgba(0,0,0,0.3)}
+
+/* Paramètres */
+.param-group{margin-bottom:14px}
+.param-label{font-size:6px;color:var(--gold);margin-bottom:8px;display:block;letter-spacing:1px}
+.param-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.param-name{font-size:5px;color:#8060c0;width:130px;flex-shrink:0;line-height:1.6}
+.param-slider{flex:1;-webkit-appearance:none;height:4px;background:#2a1a3a;border:1px solid var(--border);outline:none;cursor:pointer}
+.param-slider::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;background:var(--gold);border:1px solid #7a4400;cursor:pointer}
+.param-val{font-size:6px;color:var(--bright);width:36px;text-align:right;flex-shrink:0}
+.param-reset{font-size:5px;padding:4px 7px}
+
+/* Stats */
+.stats-brain-sel{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.stats-card{background:var(--card);border:2px solid var(--border);padding:10px;margin-bottom:8px}
+.stats-row{display:flex;justify-content:space-between;font-size:6px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.stats-row:last-child{border-bottom:none}
+.stats-key{color:#6040a0}
+.stats-val{color:var(--bright)}
+.stats-bar-wrap{margin:4px 0 2px}
+.stats-bar-label{font-size:5px;color:#6040a0;margin-bottom:2px}
+.stats-bar-bg{background:#1a0e2e;border:1px solid var(--border);height:8px;position:relative}
+.stats-bar-fill{height:100%;background:var(--gold);transition:width 0.3s}
+#stats-history-canvas{width:100%;height:140px;background:var(--card);border:2px solid var(--border);display:block;margin-top:8px;image-rendering:pixelated}
 </style>
 </head>
 <body>
@@ -211,6 +262,7 @@ body:not(.observe-mode) #cam-hint{display:none}
   <div class="menu-btns">
     <button class="btn primary" onclick="startArena()">⚔ JOUER ARENA ARCHER</button>
     <button class="btn" onclick="showScreen('lobby')">👥 PARTIE MULTI (2-4)</button>
+    <button class="btn" onclick="showScreen('arena')">🏆 ARÈNE IA</button>
     <button class="btn" onclick="showScreen('lab')">🧠 Laboratoire IA</button>
     <button class="btn" onclick="showScreen('community')">🌐 Communauté</button>
   </div>
@@ -278,6 +330,112 @@ body:not(.observe-mode) #cam-hint{display:none}
     <button class="btn small" onclick="showScreen('menu')">✕</button>
   </div>
   <div class="page-body" id="lab-content"></div>
+</div>
+
+<!-- =============== ARÈNE =============== -->
+<div id="arena-screen" class="screen">
+  <div class="page-header">
+    <span class="page-title">ARÈNE IA</span>
+    <button class="btn small" onclick="arenaStop();showScreen('menu')">✕</button>
+  </div>
+  <div class="arena-tabs">
+    <button class="arena-tab active" onclick="arenaTab('tourney')">🏆 TOURNOI</button>
+    <button class="arena-tab" onclick="arenaTab('graph')">📈 ÉVOLUTION</button>
+    <button class="arena-tab" onclick="arenaTab('params')">⚙ PARAMÈTRES</button>
+    <button class="arena-tab" onclick="arenaTab('stats')">📊 STATS</button>
+  </div>
+  <div class="arena-panels">
+
+    <!-- TOURNOI -->
+    <div id="panel-tourney">
+      <div class="tourney-controls">
+        <button class="btn small primary" id="tourney-btn" onclick="arenaToggle()">▶ LANCER</button>
+        <div class="tourney-speed">
+          VITESSE :
+          <button class="speed-btn active" onclick="setArenaSpeed(1,this)">×1</button>
+          <button class="speed-btn" onclick="setArenaSpeed(4,this)">×4</button>
+          <button class="speed-btn" onclick="setArenaSpeed(16,this)">×16</button>
+          <button class="speed-btn" onclick="setArenaSpeed(0,this)">MAX</button>
+        </div>
+        <span id="tourney-status" style="font-size:5px;color:#6040a0"></span>
+      </div>
+      <canvas id="tourney-preview" width="600" height="180" style="width:100%;height:180px;background:#0d0818;border:2px solid var(--border);display:none;image-rendering:pixelated;margin-bottom:8px"></canvas>
+      <div class="bracket" id="bracket-list"></div>
+    </div>
+
+    <!-- GRAPHIQUE -->
+    <div id="panel-graph" style="display:none">
+      <div style="font-size:5px;color:#6040a0;margin-bottom:6px">Évolution ELO et Fitness par cerveau au fil des rounds</div>
+      <canvas id="evo-canvas" width="600" height="200"></canvas>
+      <div class="chart-legend" id="chart-legend"></div>
+    </div>
+
+    <!-- PARAMÈTRES -->
+    <div id="panel-params" style="display:none">
+      <div class="param-group">
+        <span class="param-label">ÉVOLUTION</span>
+        <div class="param-row">
+          <span class="param-name">Taux mutation (victoire)</span>
+          <input type="range" class="param-slider" id="p-mutrate-win" min="0.01" max="0.15" step="0.01" oninput="updateParam('mutRateWin',this)">
+          <span class="param-val" id="v-mutrate-win">0.04</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">Taux mutation (défaite)</span>
+          <input type="range" class="param-slider" id="p-mutrate-loss" min="0.05" max="0.40" step="0.01" oninput="updateParam('mutRateLoss',this)">
+          <span class="param-val" id="v-mutrate-loss">0.16</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">Puissance mutation</span>
+          <input type="range" class="param-slider" id="p-mutpower" min="0.05" max="0.60" step="0.01" oninput="updateParam('mutPower',this)">
+          <span class="param-val" id="v-mutpower">0.26</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">Taille Hall of Fame</span>
+          <input type="range" class="param-slider" id="p-hofsize" min="2" max="20" step="1" oninput="updateParam('hofSize',this)">
+          <span class="param-val" id="v-hofsize">8</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">Seuil stagnation</span>
+          <input type="range" class="param-slider" id="p-stagthresh" min="2" max="20" step="1" oninput="updateParam('stagThresh',this)">
+          <span class="param-val" id="v-stagthresh">5</span>
+        </div>
+      </div>
+      <div class="param-group">
+        <span class="param-label">SCORING</span>
+        <div class="param-row">
+          <span class="param-name">ELO K-factor (départ)</span>
+          <input type="range" class="param-slider" id="p-kstart" min="8" max="64" step="4" oninput="updateParam('kStart',this)">
+          <span class="param-val" id="v-kstart">40</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">Bonus victoire fitness</span>
+          <input type="range" class="param-slider" id="p-winbonus" min="0" max="20" step="1" oninput="updateParam('winBonus',this)">
+          <span class="param-val" id="v-winbonus">8</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">Pénalité défaite</span>
+          <input type="range" class="param-slider" id="p-losspen" min="0" max="10" step="0.5" oninput="updateParam('lossPen',this)">
+          <span class="param-val" id="v-losspen">3</span>
+        </div>
+      </div>
+      <div class="param-group">
+        <span class="param-label">TOURNOI</span>
+        <div class="param-row">
+          <span class="param-name">Rounds par match</span>
+          <input type="range" class="param-slider" id="p-matchrounds" min="1" max="9" step="1" oninput="updateParam('matchRounds',this)">
+          <span class="param-val" id="v-matchrounds">3</span>
+        </div>
+      </div>
+      <button class="btn small warn param-reset" onclick="resetParams()">↺ Réinitialiser</button>
+    </div>
+
+    <!-- STATS -->
+    <div id="panel-stats" style="display:none">
+      <div class="stats-brain-sel" id="stats-sel"></div>
+      <div id="stats-content"></div>
+    </div>
+
+  </div>
 </div>
 
 <!-- =============== COMMUNITY =============== -->
@@ -2571,6 +2729,7 @@ function showScreen(name){
   if(name==='menu'){multiMode=false;freeCam=false;camZoom=1;updateMenuUI();}
   if(name==='lab')updateLabUI();
   if(name==='lobby')renderLobby();
+  if(name==='arena'){renderBracket();arenaTab('tourney');}
   if(name==='community'){
     document.getElementById('cfg-repo').value=githubSync.repo;
     document.getElementById('cfg-token').value=githubSync.token;
@@ -2788,7 +2947,671 @@ if(!CanvasRenderingContext2D.prototype.roundRect){CanvasRenderingContext2D.proto
 document.getElementById('game').addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
 
 // ================================================================
-//  IDENTITÉ CRÉATEUR & NOMMAGE DES CERVEAUX
+//  PARAMÈTRES D'ÉVOLUTION ÉDITABLES
+// ================================================================
+const EVO_DEFAULTS = {
+  mutRateWin  : 0.04,
+  mutRateLoss : 0.16,
+  mutPower    : 0.26,
+  hofSize     : 8,
+  stagThresh  : 5,
+  kStart      : 40,
+  winBonus    : 8,
+  lossPen     : 3,
+  matchRounds : 3,
+};
+let evoParams = {...EVO_DEFAULTS};
+
+function updateParam(key, input){
+  const val = parseFloat(input.value);
+  evoParams[key] = val;
+  const label = input.id.replace('p-','v-');
+  document.getElementById(label).textContent = val;
+}
+
+function resetParams(){
+  evoParams = {...EVO_DEFAULTS};
+  for(const [k,v] of Object.entries(EVO_DEFAULTS)){
+    const key = k.replace(/([A-Z])/g,'-$1').toLowerCase();
+    const slider = document.getElementById('p-'+key);
+    const label  = document.getElementById('v-'+key);
+    if(slider){ slider.value = v; }
+    if(label)  { label.textContent = v; }
+  }
+  toast('Paramètres réinitialisés');
+}
+
+function initParamSliders(){
+  const map = {
+    'p-mutrate-win' :{k:'mutRateWin' ,'v-mutrate-win' :true},
+    'p-mutrate-loss':{k:'mutRateLoss','v-mutrate-loss':true},
+    'p-mutpower'    :{k:'mutPower'   ,'v-mutpower'    :true},
+    'p-hofsize'     :{k:'hofSize'    ,'v-hofsize'     :true},
+    'p-stagthresh'  :{k:'stagThresh' ,'v-stagthresh'  :true},
+    'p-kstart'      :{k:'kStart'     ,'v-kstart'      :true},
+    'p-winbonus'    :{k:'winBonus'   ,'v-winbonus'    :true},
+    'p-losspen'     :{k:'lossPen'    ,'v-losspen'     :true},
+    'p-matchrounds' :{k:'matchRounds','v-matchrounds' :true},
+  };
+  for(const [id,{k}] of Object.entries(map)){
+    const el=document.getElementById(id);
+    const vId=id.replace('p-','v-');
+    const vEl=document.getElementById(vId);
+    if(el){ el.value=evoParams[k]; }
+    if(vEl){ vEl.textContent=evoParams[k]; }
+  }
+}
+
+// ================================================================
+//  TOURNOI AUTOMATIQUE
+// ================================================================
+let tourneyRunning = false;
+let tourneySpeed   = 1;      // ×1, ×4, ×16, 0=MAX
+let tourneyMatches = [];     // [{a,b,scoreA,scoreB,done,running}]
+let tourneyInterval= null;
+let tourneyBrains  = [];     // [{id,name,elo,fitness,brain}]
+let tourneyRound   = 0;      // round actuel du match en cours
+let tourneyMatchIdx= 0;
+let tourneyA = null, tourneyB = null;   // Ent en cours
+let tourneyBrainA = null, tourneyBrainB = null;
+let tourneyRoundOver = false;
+let tourneyTimer = 0;
+let tourneyParticles = [];
+let tourneyScoreA = 0, tourneyScoreB = 0;
+
+// Graphique : historique ELO/fitness par brainId
+// {brainId: [{round, elo, fitness}]}
+const evoHistory = {};
+
+function arenaTab(name){
+  document.querySelectorAll('.arena-tab').forEach((t,i)=>{
+    const names=['tourney','graph','params','stats'];
+    t.classList.toggle('active', names[i]===name);
+  });
+  ['tourney','graph','params','stats'].forEach(n=>{
+    const el=document.getElementById('panel-'+n);
+    if(el) el.style.display = n===name?'':'none';
+  });
+  if(name==='graph') drawEvoGraph();
+  if(name==='stats') renderStats();
+  if(name==='params') initParamSliders();
+}
+
+function setArenaSpeed(spd, btn){
+  tourneySpeed = spd;
+  document.querySelectorAll('.speed-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+async function arenaToggle(){
+  if(tourneyRunning){ arenaStop(); return; }
+  await arenaStart();
+}
+
+async function arenaStart(){
+  const all = await store.getAll('brains');
+  if(all.length < 2){ toast('Il faut au moins 2 cerveaux'); return; }
+
+  tourneyBrains = all.map(e=>({
+    id: e.id,
+    name: e.name || e.id,
+    elo: e.elo || ELO_BASE,
+    fitness: e.fitness || 0,
+    wins: 0, played: 0,
+    brain: deserializeBrain(e.brain),
+  }));
+  tourneyBrains.forEach(b=>{ b.brain.fitness=b.fitness; b.brain.elo=b.elo; });
+
+  // Round-robin : tous contre tous
+  tourneyMatches = [];
+  for(let i=0;i<tourneyBrains.length;i++){
+    for(let j=i+1;j<tourneyBrains.length;j++){
+      tourneyMatches.push({
+        aIdx:i, bIdx:j,
+        scoreA:0, scoreB:0,
+        done:false, running:false,
+        winner:null,
+      });
+    }
+  }
+
+  tourneyMatchIdx = 0;
+  tourneyRunning  = true;
+  document.getElementById('tourney-btn').textContent = '■ STOP';
+  renderBracket();
+  runNextMatch();
+}
+
+function arenaStop(){
+  tourneyRunning = false;
+  if(tourneyInterval){ clearInterval(tourneyInterval); tourneyInterval=null; }
+  document.getElementById('tourney-btn').textContent = '▶ LANCER';
+  document.getElementById('tourney-status').textContent = '';
+  // Sauvegarder les ELO mis à jour
+  saveTourneyResults();
+}
+
+async function saveTourneyResults(){
+  for(const tb of tourneyBrains){
+    const entry = await store.get('brains', tb.id);
+    if(!entry) continue;
+    entry.elo     = Math.round(tb.elo);
+    entry.fitness = tb.fitness;
+    entry.wins    = (entry.wins||0) + tb.wins;
+    entry.played  = (entry.played||0) + tb.played;
+    entry.brain   = tb.brain.serialize();
+    await store.put('brains', entry);
+  }
+  toast('Résultats sauvegardés');
+}
+
+function runNextMatch(){
+  if(!tourneyRunning) return;
+  if(tourneyMatchIdx >= tourneyMatches.length){
+    // Tournoi terminé
+    arenaStop();
+    renderBracket();
+    toast('Tournoi terminé !');
+    drawEvoGraph();
+    return;
+  }
+  const match = tourneyMatches[tourneyMatchIdx];
+  match.running = true;
+  renderBracket();
+
+  const bA = tourneyBrains[match.aIdx];
+  const bB = tourneyBrains[match.bIdx];
+  document.getElementById('tourney-status').textContent =
+    `${bA.name.substring(0,14)} vs ${bB.name.substring(0,14)}`;
+
+  bA.brain.resetMemory();
+  bB.brain.resetMemory();
+
+  tourneyScoreA = 0; tourneyScoreB = 0;
+  tourneyRound  = 0;
+  startTourneyRound(match);
+}
+
+function startTourneyRound(match){
+  if(!tourneyRunning) return;
+  if(tourneyRound >= evoParams.matchRounds){
+    finishMatch(match); return;
+  }
+
+  tourneyTimer = 0;
+  tourneyRoundOver = false;
+  tourneyParticles = [];
+
+  const bA = tourneyBrains[match.aIdx];
+  const bB = tourneyBrains[match.bIdx];
+
+  tourneyA = new Ent(160, WH-100, SLOT_COLORS[0], true); tourneyA.face=1;
+  tourneyB = new Ent(WW-180, WH-100, SLOT_COLORS[1], true); tourneyB.face=-1;
+  bA.brain.resetMemory(); bB.brain.resetMemory();
+
+  if(tourneyInterval){ clearInterval(tourneyInterval); tourneyInterval=null; }
+
+  // Statistiques comportementales pour la fitness
+  const matchStats = { arrowsDodgedA:0, shotsNearMissA:0, platformChangesA:0,
+                       arrowsDodgedB:0, shotsNearMissB:0, platformChangesB:0,
+                       lastPlatYA:-1, lastPlatYB:-1 };
+
+  function runStep(){
+    if(!tourneyRunning || tourneyRoundOver) return;
+
+    // IA A
+    const inpA = aiInputsFor(tourneyA, tourneyB, tourneyB.arr);
+    const outA = bA.brain.forward(inpA);
+    aiProcessFor(outA, tourneyA);
+    tourneyA.face = tourneyB.x < tourneyA.x ? -1 : 1;
+    tourneyA.update();
+
+    // IA B
+    const inpB = aiInputsFor(tourneyB, tourneyA, tourneyA.arr);
+    const outB = bB.brain.forward(inpB);
+    aiProcessFor(outB, tourneyB);
+    tourneyB.face = tourneyA.x < tourneyB.x ? -1 : 1;
+    tourneyB.update();
+
+    // Collecte stats comportementales
+    for(const a of tourneyA.arr){
+      if(a.st) continue;
+      const dx=a.x-(tourneyB.x+tourneyB.w/2), dy=a.y-(tourneyB.y+tourneyB.h/2);
+      if(Math.sqrt(dx*dx+dy*dy)<80) matchStats.shotsNearMissA+=0.15;
+    }
+    for(const a of tourneyB.arr){
+      if(a.st) continue;
+      const dx=a.x-(tourneyA.x+tourneyA.w/2), dy=a.y-(tourneyA.y+tourneyA.h/2);
+      if(Math.sqrt(dx*dx+dy*dy)<80) matchStats.shotsNearMissB+=0.15;
+      const dx2=a.x-(tourneyA.x+tourneyA.w/2), dy2=a.y-(tourneyA.y+tourneyA.h/2);
+      if(Math.sqrt(dx2*dx2+dy2*dy2)<80) matchStats.arrowsDodgedA+=0.1;
+    }
+    if(tourneyA.gnd){
+      const py=Math.round(tourneyA.y/10)*10;
+      if(py!==matchStats.lastPlatYA&&matchStats.lastPlatYA!==-1) matchStats.platformChangesA++;
+      matchStats.lastPlatYA=py;
+    }
+    if(tourneyB.gnd){
+      const py=Math.round(tourneyB.y/10)*10;
+      if(py!==matchStats.lastPlatYB&&matchStats.lastPlatYB!==-1) matchStats.platformChangesB++;
+      matchStats.lastPlatYB=py;
+    }
+
+    // Hits
+    const hit = checkTourneyHits();
+    tourneyTimer++;
+    if(hit==='a'){ tourneyScoreA++; tourneyRoundOver=true; }
+    else if(hit==='b'){ tourneyScoreB++; tourneyRoundOver=true; }
+    else if(tourneyTimer>=60*35){ tourneyRoundOver=true; }
+  }
+
+  function onRoundEnd(){
+    tourneyRound++;
+    const aWon = tourneyScoreA > tourneyScoreB;
+    const statsA = {arrowsDodged:matchStats.arrowsDodgedA, shotsNearMiss:matchStats.shotsNearMissA, platformChanges:matchStats.platformChangesA};
+    const statsB = {arrowsDodged:matchStats.arrowsDodgedB, shotsNearMiss:matchStats.shotsNearMissB, platformChanges:matchStats.platformChangesB};
+    evolveTourneyBrain(bA, aWon, tourneyTimer, statsA);
+    evolveTourneyBrain(bB, !aWon, tourneyTimer, statsB);
+    recordEvoHistory(bA);
+    recordEvoHistory(bB);
+
+    // Prochain round après un court délai visuel (sauf MAX)
+    const delay = tourneySpeed===0 ? 0 : tourneySpeed<=4 ? 300 : 50;
+    setTimeout(()=>startTourneyRound(match), delay);
+  }
+
+  if(tourneySpeed === 0){
+    // MAX : tout en synchrone, aucun affichage
+    const cv2=document.getElementById('tourney-preview');
+    if(cv2) cv2.style.display='none';
+    while(!tourneyRoundOver){ runStep(); }
+    onRoundEnd();
+
+  } else {
+    // Avec affichage (×1, ×4, ×16)
+    const cv2=document.getElementById('tourney-preview');
+    if(cv2) cv2.style.display = tourneySpeed<=16 ? 'block' : 'none';
+
+    const stepsPerFrame = tourneySpeed;
+    tourneyInterval = setInterval(()=>{
+      if(!tourneyRunning||tourneyRoundOver){ clearInterval(tourneyInterval); tourneyInterval=null; return; }
+      for(let s=0;s<stepsPerFrame;s++){
+        if(tourneyRoundOver) break;
+        runStep();
+      }
+      if(tourneySpeed<=16) drawTourneyFrame();
+      if(tourneyRoundOver){
+        clearInterval(tourneyInterval); tourneyInterval=null;
+        onRoundEnd();
+      }
+    }, 1000/60);
+  }
+}
+
+function checkTourneyHits(){
+  // A's arrows hit B
+  for(let i=tourneyA.arr.length-1;i>=0;i--){
+    const a=tourneyA.arr[i]; if(a.st)continue;
+    if(a.x>tourneyB.x&&a.x<tourneyB.x+tourneyB.w&&a.y>tourneyB.y&&a.y<tourneyB.y+tourneyB.h){
+      boom(a.x,a.y,tourneyB.col); tourneyA.arr.splice(i,1); return 'a';
+    }
+  }
+  // B's arrows hit A
+  for(let i=tourneyB.arr.length-1;i>=0;i--){
+    const a=tourneyB.arr[i]; if(a.st)continue;
+    if(a.x>tourneyA.x&&a.x<tourneyA.x+tourneyA.w&&a.y>tourneyA.y&&a.y<tourneyA.y+tourneyA.h){
+      boom(a.x,a.y,tourneyA.col); tourneyB.arr.splice(i,1); return 'b';
+    }
+  }
+  return null;
+}
+
+function evolveTourneyBrain(tb, won, timer, stats){
+  const gain = computeFitnessGain(
+    stats || {arrowsDodged:0, shotsNearMiss:0, platformChanges:0},
+    won, timer
+  );
+
+  if(won){
+    tb.fitness = tb.fitness + gain;
+    tb.wins++;
+  } else {
+    const save = Math.min(gain * 0.4, 4);
+    tb.fitness = Math.max(0, tb.fitness - evoParams.lossPen + save);
+  }
+  tb.played++;
+  tb.brain.fitness = tb.fitness;
+
+  // Mutation avec crossover si possible
+  const rate  = won
+    ? evoParams.mutRateWin  * (1 - Math.min(tb.fitness/200,0.85)*0.6)
+    : Math.min(evoParams.mutRateLoss * 1.2, 0.4);
+  const power = evoParams.mutPower * (won ? 0.8 : 1.2);
+
+  if(!won && tourneyBrains.length >= 2){
+    const rand = Math.random();
+    // Trouver le meilleur cerveau du tournoi
+    const best = tourneyBrains.reduce((b,c)=> (c.elo>b.elo&&c.id!==tb.id)?c:b, tourneyBrains[0]);
+    if(rand < 0.4 && best.id !== tb.id){
+      // 40% crossover avec le meilleur
+      const child = MultiExpertBrain.crossover(tb.brain, best.brain);
+      child.mutate(rate*0.9, power*0.9);
+      copyBrainInto(tb.brain, child);
+    } else if(rand < 0.75){
+      // 35% mutation pure
+      tb.brain.mutate(rate, power);
+    } else {
+      // 25% clone du meilleur + mutation
+      if(best.id !== tb.id){
+        const child = best.brain.clone();
+        child.mutate(rate*1.3, power*1.3);
+        copyBrainInto(tb.brain, child);
+      } else {
+        tb.brain.mutate(rate*1.5, power*1.5);
+      }
+    }
+    tb.brain.resetMemory();
+  } else {
+    tb.brain.mutate(rate * 0.7, power * 0.7);
+  }
+}
+
+function finishMatch(match){
+  const bA = tourneyBrains[match.aIdx];
+  const bB = tourneyBrains[match.bIdx];
+
+  match.scoreA = tourneyScoreA;
+  match.scoreB = tourneyScoreB;
+  match.done   = true;
+  match.running= false;
+  match.winner = tourneyScoreA > tourneyScoreB ? match.aIdx
+               : tourneyScoreB > tourneyScoreA ? match.bIdx : null;
+
+  // ELO entre les deux
+  const score = tourneyScoreA > tourneyScoreB ? 1
+              : tourneyScoreB > tourneyScoreA ? 0 : 0.5;
+  const K = bA.played < 20 ? evoParams.kStart : evoParams.kStart * 0.5;
+  const expA = eloExpected(bA.elo, bB.elo);
+  bA.elo = Math.max(400, Math.round(bA.elo + K * (score - expA)));
+  bB.elo = Math.max(400, Math.round(bB.elo + K * ((1-score) - (1-expA))));
+  bA.brain.elo = bA.elo;
+  bB.brain.elo = bB.elo;
+
+  renderBracket();
+
+  tourneyMatchIdx++;
+  setTimeout(()=>runNextMatch(), tourneySpeed===0?0:400);
+}
+
+function recordEvoHistory(tb){
+  if(!evoHistory[tb.id]) evoHistory[tb.id] = [];
+  evoHistory[tb.id].push({
+    round: evoHistory[tb.id].length + 1,
+    elo:   tb.elo,
+    fitness: Math.round(tb.fitness),
+    name:  tb.name,
+  });
+}
+
+function renderBracket(){
+  const list = document.getElementById('bracket-list');
+  if(!list) return;
+  if(tourneyMatches.length === 0){
+    list.innerHTML='<div style="font-size:6px;color:#6040a0;padding:12px">Lance un tournoi pour voir le bracket</div>';
+    return;
+  }
+  list.innerHTML = tourneyMatches.map((m,i)=>{
+    const bA = tourneyBrains[m.aIdx], bB = tourneyBrains[m.bIdx];
+    const cls = m.running?'running':m.done?'done':'';
+    const winnerStr = m.done
+      ? (m.winner===null?'NUL':m.winner===m.aIdx?'◀':' ▶')
+      : '';
+    return `<div class="match-row ${cls}">
+      <span class="match-a">${sanitize(bA.name.substring(0,16))}</span>
+      <span class="match-score">${m.done||m.running?`${m.scoreA}-${m.scoreB}`:'-'} <span class="match-winner">${winnerStr}</span></span>
+      <span class="match-b">${sanitize(bB.name.substring(0,16))}</span>
+    </div>`;
+  }).join('');
+}
+
+function drawTourneyFrame(){
+  const cv2 = document.getElementById('tourney-preview');
+  if(!cv2) return;
+  cv2.style.display = 'block';
+  const ctx2 = cv2.getContext('2d');
+  const W=cv2.width, H=cv2.height;
+  // Scale world → preview
+  const scX = W/WW, scY = H/WH;
+  const sc = Math.min(scX,scY)*0.85;
+  const offX=(W-WW*sc)/2, offY=(H-WH*sc)/2;
+
+  ctx2.fillStyle='#0d0818'; ctx2.fillRect(0,0,W,H);
+  ctx2.save(); ctx2.translate(offX,offY); ctx2.scale(sc,sc);
+
+  // Plateformes (simplifiées)
+  for(const p of platforms){
+    if(p.w<=12||p.h>=WH-40){ctx2.fillStyle='#1e1630';ctx2.fillRect(p.x,p.y,p.w,p.h);continue;}
+    ctx2.fillStyle='#2e2448'; ctx2.fillRect(p.x,p.y,p.w,p.h);
+    ctx2.fillStyle='#5a4e80'; ctx2.fillRect(p.x,p.y,p.w,2);
+  }
+
+  if(tourneyA) tourneyA.draw(ctx2);
+  if(tourneyB) tourneyB.draw(ctx2);
+
+  ctx2.restore();
+
+  // Scores
+  const match = tourneyMatches[tourneyMatchIdx];
+  if(match){
+    const bA=tourneyBrains[match.aIdx], bB=tourneyBrains[match.bIdx];
+    ctx2.fillStyle='rgba(13,8,24,0.8)'; ctx2.fillRect(W/2-70,4,140,20);
+    ctx2.font='bold 7px monospace'; ctx2.textAlign='right';
+    ctx2.fillStyle=SLOT_COLORS[0];
+    ctx2.fillText(sanitize(bA.name.substring(0,9)),W/2-8,17);
+    ctx2.fillStyle='#fff'; ctx2.textAlign='center';
+    ctx2.fillText(`${tourneyScoreA} - ${tourneyScoreB}`,W/2,17);
+    ctx2.fillStyle=SLOT_COLORS[1]; ctx2.textAlign='left';
+    ctx2.fillText(sanitize(bB.name.substring(0,9)),W/2+8,17);
+  }
+}
+
+// ================================================================
+//  GRAPHIQUE ÉVOLUTION
+// ================================================================
+const GRAPH_COLORS=['#f0c040','#60c8ff','#60ff80','#ff4444','#ff80ff','#80ffff','#ffaa40','#aaffaa'];
+
+function drawEvoGraph(){
+  const cv2=document.getElementById('evo-canvas');
+  if(!cv2) return;
+  const ctx=cv2.getContext('2d');
+  const W=cv2.width, H=cv2.height;
+  ctx.fillStyle='#10081e'; ctx.fillRect(0,0,W,H);
+
+  const ids=Object.keys(evoHistory);
+  if(ids.length===0){
+    ctx.fillStyle='#6040a0'; ctx.font='10px monospace'; ctx.textAlign='center';
+    ctx.fillText('Lance un tournoi pour voir le graphique',W/2,H/2);
+    return;
+  }
+
+  // Trouver min/max ELO
+  let minElo=Infinity,maxElo=-Infinity;
+  for(const id of ids){
+    for(const pt of evoHistory[id]){
+      minElo=Math.min(minElo,pt.elo);
+      maxElo=Math.max(maxElo,pt.elo);
+    }
+  }
+  const eloRange=Math.max(maxElo-minElo,50);
+  const maxRound=Math.max(...ids.map(id=>evoHistory[id].length));
+  const pad={l:40,r:10,t:10,b:20};
+  const gW=W-pad.l-pad.r, gH=H-pad.t-pad.b;
+
+  // Grille
+  ctx.strokeStyle='#2a1a3a'; ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    const y=pad.t+gH*(1-i/4);
+    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+gW,y); ctx.stroke();
+    const elo=Math.round(minElo+eloRange*(i/4));
+    ctx.fillStyle='#6040a0'; ctx.font='8px monospace'; ctx.textAlign='right';
+    ctx.fillText(elo,pad.l-3,y+3);
+  }
+
+  // Courbes ELO
+  ids.forEach((id,ci)=>{
+    const pts=evoHistory[id];
+    if(pts.length<2) return;
+    const col=GRAPH_COLORS[ci%GRAPH_COLORS.length];
+    ctx.strokeStyle=col; ctx.lineWidth=2; ctx.beginPath();
+    pts.forEach((pt,pi)=>{
+      const x=pad.l+gW*(pi/(maxRound-1||1));
+      const y=pad.t+gH*(1-(pt.elo-minElo)/eloRange);
+      pi===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+    // Point terminal
+    const last=pts[pts.length-1];
+    const lx=pad.l+gW*((pts.length-1)/(maxRound-1||1));
+    const ly=pad.t+gH*(1-(last.elo-minElo)/eloRange);
+    ctx.fillStyle=col; ctx.fillRect(lx-3,ly-3,6,6);
+  });
+
+  // Légende
+  const legend=document.getElementById('chart-legend');
+  if(legend){
+    legend.innerHTML=ids.map((id,ci)=>{
+      const col=GRAPH_COLORS[ci%GRAPH_COLORS.length];
+      const name=(tourneyBrains.find(b=>b.id===id)?.name||id).substring(0,16);
+      const last=evoHistory[id][evoHistory[id].length-1];
+      return `<div class="legend-item">
+        <div class="legend-dot" style="background:${col}"></div>
+        <span style="color:${col};font-size:5px">${sanitize(name)} · ELO ${last?.elo||'?'}</span>
+      </div>`;
+    }).join('');
+  }
+}
+
+// ================================================================
+//  STATS PAR CERVEAU
+// ================================================================
+let statsSelectedId = null;
+
+async function renderStats(){
+  const all = await store.getAll('brains');
+  const sel  = document.getElementById('stats-sel');
+  const cont = document.getElementById('stats-content');
+  if(!sel||!cont) return;
+
+  // Sélecteur
+  sel.innerHTML = all.map(e=>{
+    const active = e.id===statsSelectedId;
+    return `<button class="btn small ${active?'primary':''}" onclick="selectStats('${e.id}')">${sanitize((e.name||e.id).substring(0,12))}</button>`;
+  }).join('');
+
+  if(!statsSelectedId && all.length>0) statsSelectedId = all[0].id;
+  const e = all.find(b=>b.id===statsSelectedId);
+  if(!e){ cont.innerHTML=''; return; }
+
+  const wr = e.played>0 ? Math.round(e.wins/e.played*100) : 0;
+  const hist = evoHistory[e.id] || [];
+  const eloTrend = hist.length>=2
+    ? (hist[hist.length-1].elo - hist[0].elo)
+    : 0;
+  const fitTrend = hist.length>=2
+    ? (hist[hist.length-1].fitness - hist[0].fitness)
+    : 0;
+
+  cont.innerHTML=`
+  <div class="stats-card">
+    <div class="stats-row"><span class="stats-key">Nom</span><span class="stats-val">${sanitize(e.name||e.id)}</span></div>
+    <div class="stats-row"><span class="stats-key">Créateur</span><span class="stats-val">${sanitize(e.creator||'?')}</span></div>
+    <div class="stats-row"><span class="stats-key">Génération</span><span class="stats-val">${e.generation||0}</span></div>
+    <div class="stats-row"><span class="stats-key">ELO</span><span class="stats-val">${e.elo||ELO_BASE} ${eloTrend>=0?'▲':'▼'}${Math.abs(eloTrend)}</span></div>
+    <div class="stats-row"><span class="stats-key">Fitness</span><span class="stats-val">${Math.round(e.fitness||0)} ${fitTrend>=0?'▲':'▼'}${Math.abs(fitTrend)}</span></div>
+    <div class="stats-row"><span class="stats-key">Victoires / Parties</span><span class="stats-val">${e.wins||0} / ${e.played||0}</span></div>
+    <div class="stats-row"><span class="stats-key">Taux de victoire</span><span class="stats-val">${wr}%</span></div>
+    <div class="stats-row"><span class="stats-key">Topologie</span><span class="stats-val">${e.topology||'?'}</span></div>
+    <div class="stats-row"><span class="stats-key">Paramètres</span><span class="stats-val">${e.params||'?'}</span></div>
+    <div class="stats-row"><span class="stats-key">Dernière activité</span><span class="stats-val">${e.timestamp?new Date(e.timestamp).toLocaleDateString('fr-FR'):'-'}</span></div>
+  </div>
+
+  <div class="stats-bar-wrap">
+    <div class="stats-bar-label">Taux de victoire (${wr}%)</div>
+    <div class="stats-bar-bg"><div class="stats-bar-fill" style="width:${wr}%"></div></div>
+  </div>
+  <div class="stats-bar-wrap">
+    <div class="stats-bar-label">ELO relatif (${e.elo||ELO_BASE} / 2000)</div>
+    <div class="stats-bar-bg"><div class="stats-bar-fill" style="width:${Math.min(((e.elo||ELO_BASE)/2000)*100,100)}%;background:var(--accent2)"></div></div>
+  </div>
+  <div class="stats-bar-wrap">
+    <div class="stats-bar-label">Fitness (${Math.round(e.fitness||0)} / 200)</div>
+    <div class="stats-bar-bg"><div class="stats-bar-fill" style="width:${Math.min(((e.fitness||0)/200)*100,100)}%;background:#60ff80"></div></div>
+  </div>
+
+  <div style="font-size:5px;color:#6040a0;margin:8px 0 4px">Historique ELO (tournois)</div>
+  <canvas id="stats-history-canvas" width="400" height="140"></canvas>
+  `;
+
+  // Mini graphique historique
+  drawStatsHistory(e.id);
+}
+
+function selectStats(id){
+  statsSelectedId = id;
+  renderStats();
+}
+
+function drawStatsHistory(id){
+  const cv2 = document.getElementById('stats-history-canvas');
+  if(!cv2) return;
+  const ctx=cv2.getContext('2d');
+  const W=cv2.width, H=cv2.height;
+  const pts = evoHistory[id] || [];
+
+  ctx.fillStyle='#10081e'; ctx.fillRect(0,0,W,H);
+
+  if(pts.length<2){
+    ctx.fillStyle='#6040a0'; ctx.font='8px monospace'; ctx.textAlign='center';
+    ctx.fillText('Pas encore de données de tournoi',W/2,H/2);
+    return;
+  }
+
+  const elos=pts.map(p=>p.elo);
+  const minE=Math.min(...elos)-20, maxE=Math.max(...elos)+20;
+  const pad={l:36,r:6,t:8,b:16};
+  const gW=W-pad.l-pad.r, gH=H-pad.t-pad.b;
+
+  // Grille
+  ctx.strokeStyle='#2a1a3a'; ctx.lineWidth=1;
+  for(let i=0;i<=3;i++){
+    const y=pad.t+gH*(1-i/3);
+    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+gW,y); ctx.stroke();
+    ctx.fillStyle='#6040a0'; ctx.font='7px monospace'; ctx.textAlign='right';
+    ctx.fillText(Math.round(minE+(maxE-minE)*(i/3)),pad.l-2,y+3);
+  }
+
+  // Courbe ELO
+  ctx.strokeStyle=GRAPH_COLORS[0]; ctx.lineWidth=2; ctx.beginPath();
+  pts.forEach((pt,i)=>{
+    const x=pad.l+gW*(i/(pts.length-1));
+    const y=pad.t+gH*(1-(pt.elo-minE)/(maxE-minE));
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+
+  // Points clés
+  pts.forEach((pt,i)=>{
+    const x=pad.l+gW*(i/(pts.length-1));
+    const y=pad.t+gH*(1-(pt.elo-minE)/(maxE-minE));
+    ctx.fillStyle=GRAPH_COLORS[0];
+    ctx.fillRect(x-2,y-2,4,4);
+  });
+
+  // Label final
+  const last=pts[pts.length-1];
+  ctx.fillStyle='#fff'; ctx.font='7px monospace'; ctx.textAlign='left';
+  ctx.fillText(`ELO ${last.elo}`,pad.l+gW+2,pad.t+8);
+}
 // ================================================================
 //
 //  Creator  : mot court mémorable, généré une fois
