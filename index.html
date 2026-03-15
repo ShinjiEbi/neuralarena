@@ -2145,6 +2145,20 @@ function computeFitnessGain(stats, won, timer){
   return dodge + aim + mobility + survival + winBonus;
 }
 
+// Fitness bornée : moyenne exponentielle glissante vers le gain du round
+// Converge vers la "vraie" performance sans exploser
+// target = gain du round (0-37), fitness s'en approche progressivement
+function updateFitness(currentFitness, gain, won){
+  // Taux d'apprentissage : 5% par round vers le gain observé
+  const alpha = 0.05;
+  const target = won ? gain : Math.max(0, gain - evoParams.lossPen);
+  // EMA : fitness = fitness * (1-alpha) + target * alpha * 100
+  // On scale target sur 100 pour que la fitness soit lisible (0-100)
+  const scaledTarget = (gain / 37) * 100; // normalise sur le max théorique
+  const next = currentFitness * (1 - alpha) + scaledTarget * alpha;
+  return Math.max(0, Math.min(100, next)); // borné 0-100
+}
+
 // Copie les entrailles d'un MultiExpertBrain dans un autre (sans changer la référence)
 function copyBrainInto(target, src){
   target.experts = src.experts.map(e => e.clone());
@@ -2203,16 +2217,7 @@ function selectMutationStrategy(brain, stag, won, hof, best){
 // ── SOLO : évolue activeBrain après un round contre le joueur ────
 function evolveBrain(aiWon){
   const fitnessGain = computeFitnessGain(roundStats, aiWon, roundTimer);
-  const prevFitness = activeBrain.fitness || 0;
-
-  // Fitness : cumul atténué (racine carrée du gain pour éviter l'explosion)
-  if(aiWon){
-    activeBrain.fitness = prevFitness + fitnessGain;
-  } else {
-    // Défaite : on perd peu si le comportement était bon
-    const behaviorSave = Math.min(fitnessGain * 0.4, 4);
-    activeBrain.fitness = Math.max(0, prevFitness - 3 + behaviorSave);
-  }
+  activeBrain.fitness = updateFitness(activeBrain.fitness||0, fitnessGain, aiWon);
 
   // ELO solo : adversaire = joueur humain fixé à ELO_HUMAN
   const prevElo = activeBrain.elo || ELO_BASE;
@@ -2304,13 +2309,8 @@ async function evolveAllMulti(winnerIdx){
     }
     brain.elo = eloNew;
 
-    // Fitness
-    if(won){
-      brain.fitness = brain.fitness + avgFitnessGain;
-    } else {
-      const save = Math.min(avgFitnessGain * 0.4, 4);
-      brain.fitness = Math.max(0, brain.fitness - 3 + save);
-    }
+    // Fitness bornée
+    brain.fitness = updateFitness(brain.fitness, avgFitnessGain, won);
 
     // Mutation (utilise le 1er slot comme référence)
     selectMutationStrategy(brain, 0, won, [], null);
@@ -3566,13 +3566,8 @@ function evolveTourneyBrain(tb, won, timer, stats){
     won, timer
   );
 
-  if(won){
-    tb.fitness = tb.fitness + gain;
-    tb.wins++;
-  } else {
-    const save = Math.min(gain * 0.4, 4);
-    tb.fitness = Math.max(0, tb.fitness - evoParams.lossPen + save);
-  }
+  tb.fitness = updateFitness(tb.fitness, gain, won);
+  if(won) tb.wins++;
   tb.played++;
   tb.brain.fitness = tb.fitness;
 
@@ -4419,7 +4414,18 @@ async function saveTrainResults(){
   entry.elo=trBrain.elo;
   entry.generation=(entry.generation||1)+trRoundsDone;
   await store.put('brains',entry);
-  if(trRoundsDone>0) toast(`${trRoundsDone} rounds sauvegardés`);
+
+  // Si c'est le cerveau actif en solo, sync immédiat en RAM
+  if(trConfig.brainId===currentBrainId){
+    activeBrain=trBrain.clone();
+    activeBrain.fitness=trBrain.fitness;
+    activeBrain.elo=trBrain.elo;
+    generation=entry.generation;
+    totalWins=entry.wins||0;
+    totalPlayed=entry.played||0;
+  }
+
+  if(trRoundsDone>0) toast(`${trRoundsDone} rounds sauvegardés · ELO ${trBrain.elo}`);
 }
 
 function startTrainRound(){
@@ -4565,16 +4571,14 @@ function startTrainRound(){
               +(won?evoParams.winBonus:0);
 
     const prevFit=trBrain.fitness||0;
+    trBrain.fitness = updateFitness(prevFit, gain, won);
     if(won){
-      trBrain.fitness=prevFit+gain;
       if(!trBestBrain||trBrain.fitness>=(trBestBrain.fitness||0)) trBestBrain=trBrain.clone();
       trHof.push(trBrain.clone());
       trHof.sort((a,b)=>(b.elo||0)-(a.elo||0));
       if(trHof.length>evoParams.hofSize) trHof.length=evoParams.hofSize;
       trStag=0;
     } else {
-      const save=Math.min(gain*0.4,4);
-      trBrain.fitness=Math.max(0,prevFit-evoParams.lossPen+save);
       if(trBrain.fitness<=prevFit) trStag++;
       else trStag=Math.max(0,trStag-1);
     }
@@ -4864,6 +4868,8 @@ async function initMenuBg(){
     : 'EN DIRECT · CERVEAU DÉBUTANT vs MASTER';
 
   menuBg.active = true;
+  menuBg.camX = undefined;
+  menuBg.camY = undefined;
   _startMenuBgRound();
 }
 
@@ -4965,26 +4971,45 @@ function _drawMenuBg(){
   const ctx=menuBg.ctx, W=menuBg.W, H=menuBg.H;
   if(!ctx||!W||!H) return;
 
-  // Scale world → screen
-  const sc = Math.max(W/WW, H/WH);
-  const offX=(W-WW*sc)/2, offY=(H-WH*sc)/2;
+  // Caméra fixée sur entA (cerveau) — zoom fixe proche, smooth tracking
+  const A=menuBg.entA;
+  const zoom=2.2; // zoom fixe — plus proche que la vue globale
+  // Largeur/hauteur visible en world coords
+  const vw=W/zoom, vh=H/zoom;
+
+  if(A){
+    // Cible : centrer sur le cerveau, légèrement devant lui
+    const tx = A.x + A.w/2 + A.face*30 - vw/2;
+    const ty = A.y + A.h/2 - vh*0.45;
+    // Clamper pour ne pas sortir de la map
+    const targetCamX = Math.max(0, Math.min(WW-vw, tx));
+    const targetCamY = Math.max(0, Math.min(WH-vh, ty));
+    // Init si première frame
+    if(menuBg.camX===undefined){ menuBg.camX=targetCamX; menuBg.camY=targetCamY; }
+    // Smooth
+    menuBg.camX += (targetCamX - menuBg.camX) * 0.08;
+    menuBg.camY += (targetCamY - menuBg.camY) * 0.08;
+  } else {
+    if(menuBg.camX===undefined){ menuBg.camX=WW/2-vw/2; menuBg.camY=WH/2-vh/2; }
+  }
+
+  const camX=menuBg.camX, camY=menuBg.camY;
 
   ctx.clearRect(0,0,W,H);
-
-  // Fond pierre
   ctx.fillStyle='#0d0818';
   ctx.fillRect(0,0,W,H);
 
   ctx.save();
-  ctx.translate(offX, offY);
-  ctx.scale(sc, sc);
+  ctx.scale(zoom, zoom);
+  ctx.translate(-camX, -camY);
 
-  // Briques arrière-plan (simplifié)
+  // Briques arrière-plan
   const bW=64,bH=32;
-  for(let by=0;by<WH+bH;by+=bH){
+  const bStartX=Math.floor(camX/bW)*bW, bStartY=Math.floor(camY/bH)*bH;
+  for(let by=bStartY-bH;by<camY+vh+bH;by+=bH){
     const row=Math.floor(by/bH);
     const ox=(row%2)*bW/2;
-    for(let bx=-ox;bx<WW+bW;bx+=bW){
+    for(let bx=bStartX-bW-ox;bx<camX+vw+bW;bx+=bW){
       ctx.fillStyle='#110a1e';
       ctx.fillRect(bx+1,by+1,bW-2,bH-2);
       ctx.fillStyle='#0a0814';
@@ -4993,20 +5018,19 @@ function _drawMenuBg(){
     }
   }
 
-  // Torches animées
+  // Torches animées (seulement celles visibles)
   const t=menuBg.timer;
-  [[200,WH-30],[600,WH-30],[1000,WH-30],[400,350],[900,260]].forEach(([tx,ty])=>{
-    drawTorch(ctx,tx,ty,t);
+  [[200,WH-30],[600,WH-30],[1000,WH-30],[400,350],[900,260]].forEach(([tx2,ty2])=>{
+    if(tx2+40>camX&&tx2-40<camX+vw) drawTorch(ctx,tx2,ty2,t);
   });
 
-  // Plateformes
+  // Plateformes visibles
   for(const p of platforms){
-    if(p.w<=12||p.h>=WH-40){
-      ctx.fillStyle='#1e1630'; ctx.fillRect(p.x,p.y,p.w,p.h); continue;
-    }
-    ctx.fillStyle='#2e2448'; ctx.fillRect(p.x,p.y,p.w,p.h);
-    ctx.fillStyle='#5a4e80'; ctx.fillRect(p.x,p.y,p.w,2);
-    ctx.fillStyle='#1a1430'; ctx.fillRect(p.x,p.y+p.h-3,p.w,3);
+    if(p.x+p.w<camX-20||p.x>camX+vw+20||p.y+p.h<camY-20||p.y>camY+vh+20) continue;
+    if(p.w<=12||p.h>=WH-40){ctx.fillStyle='#1e1630';ctx.fillRect(p.x,p.y,p.w,p.h);continue;}
+    ctx.fillStyle='#2e2448';ctx.fillRect(p.x,p.y,p.w,p.h);
+    ctx.fillStyle='#5a4e80';ctx.fillRect(p.x,p.y,p.w,2);
+    ctx.fillStyle='#1a1430';ctx.fillRect(p.x,p.y+p.h-3,p.w,3);
   }
 
   // Entités
@@ -5016,17 +5040,17 @@ function _drawMenuBg(){
   // Particules
   for(const p of menuBg.particles){
     const a=p.life/45;
-    ctx.fillStyle=p.col+(Math.round(a*255).toString(16).padStart(2,'0'));
+    ctx.fillStyle=p.col+(Math.round(Math.min(a,1)*255).toString(16).padStart(2,'0'));
     ctx.fillRect(Math.round(p.x),Math.round(p.y),p.sz,p.sz);
   }
 
   ctx.restore();
 
-  // Label niveau MASTER en coin
+  // Label MASTER (screen space)
   ctx.fillStyle='rgba(255,68,68,0.5)';
   ctx.font='bold 7px monospace';
   ctx.textAlign='left';
-  ctx.fillText('MASTER', offX+12, offY+24);
+  ctx.fillText('MASTER', 10, 20);
 }
 
 async function init(){
