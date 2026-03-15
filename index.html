@@ -29,12 +29,15 @@ html,body{background:var(--bg);color:var(--text);font-family:'Press Start 2P',mo
 .screen.active{display:flex}
 
 /* MENU */
-#menu-screen{align-items:center;justify-content:center;background:var(--bg)}
-/* Fond donjon animé via CSS */
-#menu-screen::before{content:'';position:absolute;inset:0;background:
-  repeating-linear-gradient(0deg,transparent,transparent 31px,rgba(255,200,100,0.03) 32px),
-  repeating-linear-gradient(90deg,transparent,transparent 31px,rgba(255,200,100,0.03) 32px);
-  pointer-events:none}
+#menu-screen{align-items:center;justify-content:center;background:var(--bg);overflow:hidden}
+#menu-bg-canvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;opacity:0.72;pointer-events:none;z-index:0}
+#menu-content{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center}
+/* Overlay gradient pour lisibilité */
+#menu-screen::after{content:'';position:absolute;inset:0;background:
+  radial-gradient(ellipse 60% 80% at 50% 50%, rgba(13,8,24,0.35) 0%, rgba(13,8,24,0.70) 100%);
+  pointer-events:none;z-index:0}
+/* Supprime l'ancien ::before grille */
+#menu-screen::before{display:none}
 .menu-logo{font-family:'Press Start 2P',monospace;font-size:clamp(12px,3.5vw,22px);color:var(--gold);letter-spacing:2px;text-shadow:3px 3px 0 #7a4400,0 0 20px rgba(240,160,48,0.5);margin-bottom:6px;text-align:center;image-rendering:pixelated}
 .menu-sub{font-size:6px;color:#6040a0;letter-spacing:3px;text-transform:uppercase;margin-bottom:28px}
 .menu-stats{display:flex;gap:16px;margin-bottom:20px;font-size:7px}
@@ -160,7 +163,7 @@ body.in-game #nav{display:none}
 #toast.show{opacity:1}
 
 /* ── LOBBY ───────────────────────────────────────── */
-#lobby-screen{background:var(--bg);overflow-y:auto;flex-direction:column;align-items:center;justify-content:flex-start;padding-bottom:60px}
+#pvp-screen{background:var(--bg);overflow-y:auto;flex-direction:column;align-items:center;justify-content:flex-start;padding-bottom:60px}
 .lobby-title{font-family:'Anybody',sans-serif;font-weight:900;font-size:18px;color:var(--accent);letter-spacing:3px;padding:18px 0 6px;text-align:center}
 .lobby-sub{font-size:9px;color:#3a3d50;letter-spacing:3px;text-transform:uppercase;margin-bottom:20px}
 .lobby-slots{display:flex;flex-direction:column;gap:10px;width:100%;max-width:380px;padding:0 16px}
@@ -193,11 +196,25 @@ body.observe-mode #cam-hint{display:block}
 body:not(.observe-mode) #cam-hint{display:none}
 
 /* ── ARÈNE ───────────────────────────────────────── */
-#arena-screen{background:var(--bg);flex-direction:column;overflow:hidden}
+#training-screen{background:var(--bg);flex-direction:column;overflow:hidden}
 .arena-tabs{display:flex;border-bottom:2px solid var(--border);flex-shrink:0}
 .arena-tab{font-family:'Press Start 2P',monospace;font-size:6px;padding:8px 10px;border:none;background:none;color:#6040a0;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;-webkit-tap-highlight-color:transparent;letter-spacing:0.5px}
 .arena-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
 .arena-panels{flex:1;overflow-y:auto;padding:12px}
+
+/* Salle d'entraînement */
+.trap-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:4px}
+.trap-toggle{display:flex;align-items:center;gap:6px;font-size:6px;color:#8060c0;cursor:pointer;padding:5px 8px;background:var(--card);border:2px solid var(--border)}
+.trap-toggle input{cursor:pointer;accent-color:var(--gold)}
+.tr-agent-row{display:flex;align-items:center;gap:6px;margin-bottom:6px;background:var(--card);border:2px solid var(--border);padding:6px 8px}
+.tr-agent-lvl{display:flex;gap:3px}
+.tr-agent-lvl-btn{font-family:'Press Start 2P',monospace;font-size:5px;padding:3px 6px;border:2px solid var(--border);background:none;color:#6040a0;cursor:pointer}
+.tr-agent-lvl-btn.active{border-color:var(--gold);color:var(--gold);background:rgba(240,160,48,0.1)}
+.tr-agent-del{font-size:10px;color:#ff4444;cursor:pointer;padding:2px 6px;background:none;border:none}
+.tr-brain-btn{font-family:'Press Start 2P',monospace;font-size:5px;padding:5px 8px;border:2px solid var(--border);background:var(--card);color:#8060c0;cursor:pointer}
+.tr-brain-btn.active{border-color:var(--gold);color:var(--gold);background:rgba(240,160,48,0.08)}
+#brain-create-modal.open{display:flex!important}
+.btn:disabled{opacity:0.3;pointer-events:none}
 
 /* Tournoi */
 .tourney-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
@@ -248,34 +265,60 @@ body:not(.observe-mode) #cam-hint{display:none}
 
 <!-- =============== MENU =============== -->
 <div id="menu-screen" class="screen active">
-  <div class="menu-logo">NEURAL ARENA</div>
-  <div class="menu-sub">IA GAMING DISTRIBUÉE</div>
-  <div class="menu-stats">
-    <div class="menu-stat"><span class="val" id="m-wins">0</span><span class="lbl">Victoires</span></div>
-    <div class="menu-stat"><span class="val" id="m-played">0</span><span class="lbl">Parties</span></div>
-    <div class="menu-stat"><span class="val" id="m-gen">1</span><span class="lbl">Génération</span></div>
+  <canvas id="menu-bg-canvas"></canvas>
+  <div id="menu-content">
+    <div class="menu-logo">NEURAL ARENA</div>
+    <div class="menu-sub">IA GAMING DISTRIBUÉE</div>
+    <div class="menu-stats">
+      <div class="menu-stat"><span class="val" id="m-wins">0</span><span class="lbl">Victoires</span></div>
+      <div class="menu-stat"><span class="val" id="m-played">0</span><span class="lbl">Parties</span></div>
+      <div class="menu-stat"><span class="val" id="m-gen">1</span><span class="lbl">Génération</span></div>
+    </div>
+    <div class="menu-brain-info">
+      <div class="brain-name" id="m-brain-name">Cerveau par défaut</div>
+      <div class="brain-meta" id="m-brain-meta">Nouveau — aucun entraînement</div>
+    </div>
+    <div class="menu-btns">
+      <button class="btn primary" onclick="startArena()">⚔ JOUER ARENA ARCHER</button>
+      <button class="btn" onclick="showScreen('pvp')">⚔ ARÈNE PVP</button>
+      <button class="btn" onclick="showScreen('training')">🎯 SALLE D'ENTRAÎNEMENT</button>
+      <button class="btn" onclick="showScreen('lab')">🧠 Laboratoire IA</button>
+      <button class="btn" onclick="showScreen('community')">🌐 Communauté</button>
+    </div>
   </div>
-  <div class="menu-brain-info">
-    <div class="brain-name" id="m-brain-name">Cerveau par défaut</div>
-    <div class="brain-meta" id="m-brain-meta">Nouveau — aucun entraînement</div>
-  </div>
-  <div class="menu-btns">
-    <button class="btn primary" onclick="startArena()">⚔ JOUER ARENA ARCHER</button>
-    <button class="btn" onclick="showScreen('lobby')">👥 PARTIE MULTI (2-4)</button>
-    <button class="btn" onclick="showScreen('arena')">🏆 ARÈNE IA</button>
-    <button class="btn" onclick="showScreen('lab')">🧠 Laboratoire IA</button>
-    <button class="btn" onclick="showScreen('community')">🌐 Communauté</button>
-  </div>
+  <!-- Label "en direct" ancré en bas de l'écran, hors du flux -->
+  <div id="menu-bg-label" style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:5px;color:rgba(240,160,48,0.35);letter-spacing:2px;pointer-events:none;z-index:1;white-space:nowrap"></div>
 </div>
 
 <!-- =============== LOBBY =============== -->
-<div id="lobby-screen" class="screen">
-  <div class="lobby-title">PARTIE MULTI</div>
-  <div class="lobby-sub">Configure les joueurs</div>
-  <div class="lobby-slots" id="lobby-slots"></div>
+<div id="pvp-screen" class="screen">
+  <div class="lobby-title">ARÈNE PVP</div>
+  <div class="lobby-sub">2-4 joueurs · humains & IA</div>
+  <div class="lobby-slots" id="pvp-slots"></div>
+
+  <!-- Agents entraîneurs -->
+  <div style="width:100%;max-width:380px;padding:0 16px;margin-top:8px">
+    <div style="font-size:6px;color:var(--gold);letter-spacing:1px;margin-bottom:6px">ENTRAÎNEURS IA (optionnel)</div>
+    <div id="pvp-agents"></div>
+    <button class="btn small" onclick="pvpAddAgent()" style="margin-top:4px;font-size:5px">+ Entraîneur</button>
+  </div>
+
+  <!-- Pièges -->
+  <div style="width:100%;max-width:380px;padding:0 16px;margin-top:10px">
+    <div style="font-size:6px;color:var(--gold);letter-spacing:1px;margin-bottom:6px">PIÈGES</div>
+    <div class="trap-grid">
+      <label class="trap-toggle"><input type="checkbox" id="pvp-trap-mine" onchange="pvpTrapToggle('mine',this)"> 💣 Mines</label>
+      <label class="trap-toggle"><input type="checkbox" id="pvp-trap-launcher" onchange="pvpTrapToggle('launcher',this)"> 🏹 Lanceurs</label>
+      <label class="trap-toggle"><input type="checkbox" id="pvp-trap-electric" onchange="pvpTrapToggle('electric',this)"> ⚡ Électrique</label>
+      <label class="trap-toggle"><input type="checkbox" id="pvp-trap-teleport" onchange="pvpTrapToggle('teleport',this)"> 🌀 Téléporteurs</label>
+      <label class="trap-toggle"><input type="checkbox" id="pvp-trap-collapse" onchange="pvpTrapToggle('collapse',this)"> ⬇ Fragiles</label>
+      <label class="trap-toggle"><input type="checkbox" id="pvp-trap-wind" onchange="pvpTrapToggle('wind',this)"> 💨 Vent</label>
+    </div>
+  </div>
+
   <div class="lobby-actions">
-    <button class="btn small" onclick="showScreen('menu')">✕ Retour</button>
-    <button class="btn small primary" id="lobby-start-btn" onclick="startMulti()">▶ LANCER</button>
+    <button class="btn small" onclick="showScreen('menu')">✕</button>
+    <button class="btn small primary" id="pvp-start-btn" onclick="startPVP()">▶ LANCER</button>
   </div>
 </div>
 
@@ -332,45 +375,100 @@ body:not(.observe-mode) #cam-hint{display:none}
   <div class="page-body" id="lab-content"></div>
 </div>
 
-<!-- =============== ARÈNE =============== -->
-<div id="arena-screen" class="screen">
+<!-- =============== SALLE D'ENTRAÎNEMENT =============== -->
+<div id="training-screen" class="screen">
   <div class="page-header">
-    <span class="page-title">ARÈNE IA</span>
-    <button class="btn small" onclick="arenaStop();showScreen('menu')">✕</button>
+    <span class="page-title">ENTRAÎNEMENT</span>
+    <button class="btn small" onclick="trainingStop();showScreen('menu')">✕</button>
   </div>
   <div class="arena-tabs">
-    <button class="arena-tab active" onclick="arenaTab('tourney')">🏆 TOURNOI</button>
-    <button class="arena-tab" onclick="arenaTab('graph')">📈 ÉVOLUTION</button>
-    <button class="arena-tab" onclick="arenaTab('params')">⚙ PARAMÈTRES</button>
-    <button class="arena-tab" onclick="arenaTab('stats')">📊 STATS</button>
+    <button class="arena-tab active" onclick="trainingTab('config')">⚙ CONFIG</button>
+    <button class="arena-tab" onclick="trainingTab('graph')">📈 ÉVOLUTION</button>
+    <button class="arena-tab" onclick="trainingTab('params')">🧬 PARAMÈTRES</button>
+    <button class="arena-tab" onclick="trainingTab('stats')">📊 STATS</button>
   </div>
   <div class="arena-panels">
 
-    <!-- TOURNOI -->
-    <div id="panel-tourney">
-      <div class="tourney-controls">
-        <button class="btn small primary" id="tourney-btn" onclick="arenaToggle()">▶ LANCER</button>
-        <div class="tourney-speed">
-          VITESSE :
-          <button class="speed-btn active" onclick="setArenaSpeed(1,this)">×1</button>
-          <button class="speed-btn" onclick="setArenaSpeed(4,this)">×4</button>
-          <button class="speed-btn" onclick="setArenaSpeed(16,this)">×16</button>
-          <button class="speed-btn" onclick="setArenaSpeed(0,this)">MAX</button>
-        </div>
-        <span id="tourney-status" style="font-size:5px;color:#6040a0"></span>
+    <!-- CONFIG -->
+    <div id="panel-config">
+      <!-- Cerveau cible -->
+      <div class="param-group">
+        <span class="param-label">CERVEAU À ENTRAÎNER</span>
+        <div id="tr-brain-sel" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
       </div>
-      <canvas id="tourney-preview" width="600" height="180" style="width:100%;height:180px;background:#0d0818;border:2px solid var(--border);display:none;image-rendering:pixelated;margin-bottom:8px"></canvas>
-      <div class="bracket" id="bracket-list"></div>
+
+      <!-- Adversaires scriptés -->
+      <div class="param-group">
+        <span class="param-label">ADVERSAIRES IA (1-3)</span>
+        <div id="tr-agents"></div>
+        <button class="btn small" onclick="trAddAgent()" style="margin-top:6px">+ Ajouter</button>
+      </div>
+
+      <!-- Pièges -->
+      <div class="param-group">
+        <span class="param-label">PIÈGES SUR LA CARTE</span>
+        <div class="trap-grid" id="trap-grid">
+          <label class="trap-toggle"><input type="checkbox" id="trap-mine" onchange="trTrapToggle('mine',this)"> 💣 Mines</label>
+          <label class="trap-toggle"><input type="checkbox" id="trap-launcher" onchange="trTrapToggle('launcher',this)"> 🏹 Lanceurs</label>
+          <label class="trap-toggle"><input type="checkbox" id="trap-electric" onchange="trTrapToggle('electric',this)"> ⚡ Zones électriques</label>
+          <label class="trap-toggle"><input type="checkbox" id="trap-teleport" onchange="trTrapToggle('teleport',this)"> 🌀 Téléporteurs</label>
+          <label class="trap-toggle"><input type="checkbox" id="trap-collapse" onchange="trTrapToggle('collapse',this)"> ⬇ Plateformes fragiles</label>
+          <label class="trap-toggle"><input type="checkbox" id="trap-wind" onchange="trTrapToggle('wind',this)"> 💨 Courants d'air</label>
+        </div>
+      </div>
+
+      <!-- Paramètres session -->
+      <div class="param-group">
+        <span class="param-label">SESSION</span>
+        <div class="param-row">
+          <span class="param-name">Rounds total</span>
+          <input type="range" class="param-slider" id="tr-rounds" min="10" max="500" step="10" value="50" oninput="document.getElementById('tv-rounds').textContent=this.value">
+          <span class="param-val" id="tv-rounds">50</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">Vitesse</span>
+          <div style="display:flex;gap:4px;flex:1">
+            <button class="speed-btn active" onclick="setTrainSpeed(1,this)">×1</button>
+            <button class="speed-btn" onclick="setTrainSpeed(4,this)">×4</button>
+            <button class="speed-btn" onclick="setTrainSpeed(16,this)">×16</button>
+            <button class="speed-btn" onclick="setTrainSpeed(0,this)">MAX</button>
+          </div>
+        </div>
+        <div class="param-row">
+          <span class="param-name">Curriculum auto</span>
+          <input type="checkbox" id="tr-curriculum" style="width:16px;height:16px;cursor:pointer">
+          <span class="param-val" style="color:#6040a0;font-size:5px">monte le niveau si ELO↑</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">Objectif entraînement</span>
+          <select id="tr-objective" style="flex:1;background:var(--card);border:2px solid var(--border);color:var(--bright);font-family:'Press Start 2P';font-size:5px;padding:4px">
+            <option value="balanced">Équilibré</option>
+            <option value="dodge">Esquive</option>
+            <option value="aim">Précision visée</option>
+            <option value="mobility">Mobilité</option>
+            <option value="aggro">Agressivité</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Preview canvas -->
+      <canvas id="tr-preview" width="600" height="160" style="width:100%;height:160px;background:#0d0818;border:2px solid var(--border);display:none;image-rendering:pixelated;margin-bottom:8px"></canvas>
+
+      <!-- Lancer -->
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn small primary" id="tr-start-btn" onclick="trainingToggle()">▶ LANCER</button>
+        <span id="tr-status" style="font-size:5px;color:#6040a0;align-self:center"></span>
+      </div>
     </div>
 
     <!-- GRAPHIQUE -->
     <div id="panel-graph" style="display:none">
-      <div style="font-size:5px;color:#6040a0;margin-bottom:6px">Évolution ELO et Fitness par cerveau au fil des rounds</div>
+      <div style="font-size:5px;color:#6040a0;margin-bottom:6px">ELO et Fitness du cerveau entraîné</div>
       <canvas id="evo-canvas" width="600" height="200"></canvas>
       <div class="chart-legend" id="chart-legend"></div>
     </div>
 
-    <!-- PARAMÈTRES -->
+    <!-- PARAMÈTRES ÉVOLUTION -->
     <div id="panel-params" style="display:none">
       <div class="param-group">
         <span class="param-label">ÉVOLUTION</span>
@@ -418,14 +516,6 @@ body:not(.observe-mode) #cam-hint{display:none}
           <span class="param-val" id="v-losspen">3</span>
         </div>
       </div>
-      <div class="param-group">
-        <span class="param-label">TOURNOI</span>
-        <div class="param-row">
-          <span class="param-name">Rounds par match</span>
-          <input type="range" class="param-slider" id="p-matchrounds" min="1" max="9" step="1" oninput="updateParam('matchRounds',this)">
-          <span class="param-val" id="v-matchrounds">3</span>
-        </div>
-      </div>
       <button class="btn small warn param-reset" onclick="resetParams()">↺ Réinitialiser</button>
     </div>
 
@@ -435,6 +525,53 @@ body:not(.observe-mode) #cam-hint{display:none}
       <div id="stats-content"></div>
     </div>
 
+  </div>
+</div>
+
+<!-- =============== MODAL CRÉATION CERVEAU =============== -->
+<div id="brain-create-modal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(13,8,24,0.95);align-items:center;justify-content:center;flex-direction:column">
+  <div style="background:var(--card);border:2px solid var(--border);max-width:340px;width:90%;padding:16px;box-shadow:4px 4px 0 rgba(0,0,0,0.6)">
+    <div style="font-family:'Press Start 2P';font-size:9px;color:var(--gold);margin-bottom:14px;text-shadow:2px 2px 0 #7a4400">NOUVEAU CERVEAU</div>
+
+    <div class="param-group">
+      <span class="param-label">TOPOLOGIE</span>
+      <div class="param-row">
+        <span class="param-name">Taille couche cachée GRU</span>
+        <input type="range" class="param-slider" id="bc-h" min="4" max="24" step="2" value="8" oninput="document.getElementById('bv-h').textContent=this.value;updateBrainPreview()">
+        <span class="param-val" id="bv-h">8</span>
+      </div>
+      <div class="param-row">
+        <span class="param-name">Sortie par expert</span>
+        <input type="range" class="param-slider" id="bc-out" min="2" max="8" step="1" value="4" oninput="document.getElementById('bv-out').textContent=this.value;updateBrainPreview()">
+        <span class="param-val" id="bv-out">4</span>
+      </div>
+      <div class="param-row">
+        <span class="param-name">Couche arbitre</span>
+        <input type="range" class="param-slider" id="bc-arb" min="4" max="16" step="2" value="8" oninput="document.getElementById('bv-arb').textContent=this.value;updateBrainPreview()">
+        <span class="param-val" id="bv-arb">8</span>
+      </div>
+    </div>
+
+    <div class="param-group">
+      <span class="param-label">INITIALISATION</span>
+      <div class="param-row">
+        <span class="param-name">Poids initial (Xavier σ)</span>
+        <input type="range" class="param-slider" id="bc-xavier" min="0.1" max="2.0" step="0.1" value="1.0" oninput="document.getElementById('bv-xavier').textContent=parseFloat(this.value).toFixed(1)">
+        <span class="param-val" id="bv-xavier">1.0</span>
+      </div>
+      <div class="param-row">
+        <span class="param-name">ELO de départ</span>
+        <input type="range" class="param-slider" id="bc-elo" min="800" max="1600" step="50" value="1200" oninput="document.getElementById('bv-elo').textContent=this.value">
+        <span class="param-val" id="bv-elo">1200</span>
+      </div>
+    </div>
+
+    <div id="brain-preview-info" style="font-size:5px;color:#6040a0;background:var(--surface);border:1px solid var(--border);padding:8px;margin-bottom:12px;line-height:2"></div>
+
+    <div style="display:flex;gap:8px">
+      <button class="btn small" onclick="closeBrainModal()">Annuler</button>
+      <button class="btn small primary" onclick="confirmNewBrain()">✓ Créer</button>
+    </div>
   </div>
 </div>
 
@@ -533,12 +670,7 @@ body:not(.observe-mode) #cam-hint{display:none}
   </div>
 </div>
 
-<!-- NAV -->
-<nav id="nav">
-  <button class="nav-btn active" onclick="showScreen('menu')" data-screen="menu"><span class="nav-icon">⚔</span>ARÈNE</button>
-  <button class="nav-btn" onclick="showScreen('lab')" data-screen="lab"><span class="nav-icon">🧠</span>LABO</button>
-  <button class="nav-btn" onclick="showScreen('community')" data-screen="community"><span class="nav-icon">🌐</span>RÉSEAU</button>
-</nav>
+<!-- NAV supprimée — navigation via les boutons du menu -->
 <div id="toast"></div>
 
 <script>
@@ -598,9 +730,9 @@ class Brain {
 //   out = Wo · h + bo           projection linéaire → outSize
 //
 class GRUExpert {
-  constructor(inSize, H=8, outSize=4){
+  constructor(inSize, H=8, outSize=4, xavierScale=1.0){
     this.inSize=inSize; this.H=H; this.outSize=outSize;
-    const s=Math.sqrt(2/(inSize+H));
+    const s=Math.sqrt(2/(inSize+H))*xavierScale;
     // Initialisation Xavier pour Wz, Wr, Wc : shape [H][H+inSize]
     this._init=()=>{
       const mat=(rows,cols,sc)=>Array.from({length:rows},()=>Array.from({length:cols},()=>(Math.random()*2-1)*sc));
@@ -692,8 +824,8 @@ class GRUExpert {
 //  DENSE LAYER — couche dense simple pour l'arbitre
 // ================================================================
 class DenseLayer {
-  constructor(inSize,outSize,activation='sigmoid'){
-    const s=Math.sqrt(2/(inSize+outSize));
+  constructor(inSize,outSize,activation='sigmoid',xavierScale=1.0){
+    const s=Math.sqrt(2/(inSize+outSize))*xavierScale;
     this.W=Array.from({length:outSize},()=>Array.from({length:inSize},()=>(Math.random()*2-1)*s));
     this.b=Array.from({length:outSize},()=>(Math.random()*2-1)*0.05);
     this.act=activation;
@@ -746,16 +878,22 @@ class MultiExpertBrain {
   static H=8;
   static OUT_PER_EXPERT=4;
 
-  constructor(){
+  constructor(H=null, outPerExpert=null, arbSize=null, xavierScale=1.0){
+    // Paramètres configurables avec valeurs par défaut
+    const h   = H            || MultiExpertBrain.H;
+    const out = outPerExpert || MultiExpertBrain.OUT_PER_EXPERT;
+    const arb = arbSize      || 8;
+    this._H=h; this._out=out; this._arb=arb;
+
     this.experts=MultiExpertBrain.EXPERT_INPUTS.map(
-      idx=>new GRUExpert(idx.length, MultiExpertBrain.H, MultiExpertBrain.OUT_PER_EXPERT)
+      idx=>new GRUExpert(idx.length, h, out, xavierScale)
     );
-    const arbIn=this.experts.length*MultiExpertBrain.OUT_PER_EXPERT; // 12
-    this.arb1=new DenseLayer(arbIn,8,'relu');
-    this.arb2=new DenseLayer(8,6,'sigmoid');
+    const arbIn=this.experts.length*out;
+    this.arb1=new DenseLayer(arbIn, arb, 'relu', xavierScale);
+    this.arb2=new DenseLayer(arb, 6, 'sigmoid', xavierScale);
     this.fitness=0; this.elo=1200;
-    this.acts=[];  // pour la visualisation NN
-    this.topo=[16,8,8,8,12,8,6]; // représentation approximative pour affichage
+    this.acts=[];
+    this.topo=[16,h,h,h,arbIn,arb,6];
   }
 
   forward(inp){
@@ -1296,8 +1434,45 @@ function resizeGame(){
 // ================================================================
 //  LOBBY
 // ================================================================
-async function renderLobby(){
-  const container=document.getElementById('lobby-slots');
+// État config PVP (pièges + agents entraîneurs)
+const pvpConfig = {
+  traps: {mine:false,launcher:false,electric:false,teleport:false,collapse:false,wind:false},
+  agents: [],  // [{level:1}] — agents scriptés supplémentaires
+};
+
+function pvpTrapToggle(k, el){ pvpConfig.traps[k]=el.checked; }
+
+function pvpAddAgent(){
+  if(pvpConfig.agents.length>=2){toast('Max 2 entraîneurs');return;}
+  pvpConfig.agents.push({level:1});
+  renderPvpAgents();
+}
+function pvpRemoveAgent(i){ pvpConfig.agents.splice(i,1); renderPvpAgents(); }
+function pvpSetAgentLvl(i,lvl){ pvpConfig.agents[i].level=lvl; renderPvpAgents(); }
+
+function renderPvpAgents(){
+  const el=document.getElementById('pvp-agents');
+  if(!el) return;
+  el.innerHTML=pvpConfig.agents.map((a,i)=>`
+    <div class="tr-agent-row">
+      <span style="font-size:5px;color:#6040a0;flex-shrink:0">ENT${i+1}</span>
+      <div class="tr-agent-lvl">
+        ${['ROOKIE','FIGHTER','VETERAN','MASTER'].map((lbl,li)=>`
+          <button class="tr-agent-lvl-btn ${a.level===li+1?'active':''}"
+            onclick="pvpSetAgentLvl(${i},${li+1})">${lbl}</button>`).join('')}
+      </div>
+      <button class="tr-agent-del" onclick="pvpRemoveAgent(${i})">✕</button>
+    </div>`).join('');
+}
+
+// Variables runtime pour pièges/agents en mode multi
+let multiTraps = [];
+let multiTrapProj = [];
+let multiAgents = [];  // ScriptedAgent[]
+let multiAgentEnts = []; // Ent[] correspondants
+
+async function renderPVP(){
+  const container=document.getElementById('pvp-slots');
   if(!container)return;
   let all=[];
   try{ all=await store.getAll('brains'); }catch(e){ all=[]; }
@@ -1333,13 +1508,14 @@ async function renderLobby(){
   container.innerHTML=html;
 
   const active=lobbySlots.filter(s=>s.type!=='off').length;
-  const btn=document.getElementById('lobby-start-btn');
+  const btn=document.getElementById('pvp-start-btn');
   if(btn)btn.disabled=active<2;
+  renderPvpAgents();
 }
 
 function setSlotType(i,type){
   lobbySlots[i].type=type;
-  renderLobby();
+  renderPVP();
 }
 
 function setSlotBrain(i,brainId){
@@ -1355,7 +1531,7 @@ const SPAWN_POS=[
   {x:WW-180, y:200, face:-1},
 ];
 
-async function startMulti(){
+async function startPVP(){
   const activeSlots=lobbySlots.map((s,i)=>({...s,index:i})).filter(s=>s.type!=='off');
   if(activeSlots.length<2){toast('Il faut au moins 2 joueurs');return;}
 
@@ -1389,6 +1565,22 @@ async function startMulti(){
       playerBrains.push(null); // human
     }
   }
+
+  // Init pièges
+  multiTraps = buildTraps(pvpConfig.traps);
+  multiTrapProj = [];
+
+  // Init agents entraîneurs (entités supplémentaires non-joueurs)
+  multiAgents = pvpConfig.agents.map(a => new ScriptedAgent(a.level));
+  multiAgentEnts = pvpConfig.agents.map((a, i) => {
+    const sp = SPAWN_POS[(activeSlots.length + i) % 4];
+    const ent = new Ent(sp.x, sp.y, '#c060ff', true);
+    ent.face = sp.face;
+    ent._slotIndex = -1;
+    ent._label = `ENT${i+1} ${['ROOKIE','FIGHTER','VETERAN','MASTER'][a.level-1]}`;
+    ent._isTrainer = true;
+    return ent;
+  });
 
   // Show game screen first so canvas has dimensions
   showScreen('game');
@@ -2421,6 +2613,18 @@ function drawGameMulti(){
     if(playerAlive[i])players[i].draw(c);
   }
 
+  // Agents entraîneurs (violet distinctif)
+  for(const ag of multiAgentEnts) ag.draw(c);
+
+  // Pièges
+  for(const t of multiTraps) t.draw(c);
+
+  // Projectiles pièges
+  for(const p of multiTrapProj){
+    c.fillStyle='#ff8020';
+    c.fillRect(Math.round(p.x-3),Math.round(p.y-1),6,2);
+  }
+
   // Particles
   for(const p of particles){
     const alpha=p.life/60;
@@ -2430,7 +2634,7 @@ function drawGameMulti(){
 
   c.restore(); // back to screen space
 
-  // Labels joueurs (screen space)
+  // Labels joueurs + agents (screen space)
   c.font='bold 6px monospace';
   c.textAlign='center';
   for(let i=0;i<players.length;i++){
@@ -2441,6 +2645,13 @@ function drawGameMulti(){
     c.fillStyle=SLOT_COLORS[pl._slotIndex];
     c.globalAlpha=0.9;
     c.fillText(pl._label,Math.round(sx),Math.round(sy));
+  }
+  // Labels agents entraîneurs
+  for(const ag of multiAgentEnts){
+    const sx=(ag.x+ag.w/2-camX)*camZoom+(vW/2)*(1-camZoom);
+    const sy=(ag.y-camY)*camZoom+(vH/2)*(1-camZoom)-8;
+    c.fillStyle='#c060ff'; c.globalAlpha=0.8;
+    c.fillText(sanitize(ag._label||'ENT'),Math.round(sx),Math.round(sy));
   }
   c.globalAlpha=1;
 
@@ -2549,6 +2760,12 @@ function nextRoundMulti(){
   humanDeadShown=false;
   roundTimer=0;
   particles=[];
+  multiTrapProj=[];
+  // Reset pièges
+  multiTraps.forEach(t=>{
+    if(t.type==='collapse'){t.triggered=false;t.fallTimer=0;t.fallen=false;t.y=t.origY;}
+    if(t.type==='mine'){t.triggered=false;t.triggerTimer=0;t.active=true;}
+  });
   playerBrains.forEach(b=>{ if(b) b.resetMemory(); });
   for(let i=0;i<players.length;i++){
     const sp=SPAWN_POS[i%4];
@@ -2558,6 +2775,12 @@ function nextRoundMulti(){
     players[i].face=sp.face;
     playerAlive[i]=true;
   }
+  // Reset agents entraîneurs
+  multiAgentEnts.forEach((ent,i)=>{
+    const sp=SPAWN_POS[(players.length+i)%4];
+    ent.x=sp.x; ent.y=sp.y; ent.vx=0; ent.vy=0;
+    ent.arr=[]; ent.cd=0; ent.aim=0; ent.face=sp.face;
+  });
   // Restaurer les contrôles (joysticks si humain, camlib si full IA)
   updateGameControls();
   resizeGame();
@@ -2580,15 +2803,13 @@ function gameLoop(){
         if(playerBrains[i]!==null){
           // AI: pick nearest alive enemy as target
           let target=null,bestDist=Infinity;
-          for(let j=0;j<players.length;j++){
-            if(j===i||!playerAlive[j])continue;
-            const dx=players[j].x-me.x,dy=players[j].y-me.y;
-            const d=dx*dx+dy*dy;
-            if(d<bestDist){bestDist=d;target=players[j];}
+          const allEnts=[...players.filter((_,j)=>j!==i&&playerAlive[j]),...multiAgentEnts];
+          for(const e of allEnts){
+            const dx=e.x-me.x,dy=e.y-me.y,d=dx*dx+dy*dy;
+            if(d<bestDist){bestDist=d;target=e;}
           }
           if(target){
-            // Collect enemy arrows (all except own)
-            const enemyArrows=players.filter((_,j)=>j!==i).flatMap(p=>p.arr);
+            const enemyArrows=[...players.filter((_,j)=>j!==i).flatMap(p=>p.arr),...multiAgentEnts.flatMap(e=>e.arr)];
             const inp=aiInputsFor(me,target,enemyArrows);
             const out=playerBrains[i].forward(inp);
             aiProcessFor(out,me);
@@ -2602,8 +2823,63 @@ function gameLoop(){
         me.update();
       }
 
-      // Hit detection
-      const eliminated=checkHitsMulti();
+      // Agents entraîneurs scriptés
+      for(let i=0;i<multiAgents.length;i++){
+        const ag=multiAgents[i];
+        const ent=multiAgentEnts[i];
+        // Cible = joueur humain en priorité, sinon le plus proche
+        const humanEnt=players.find((_,j)=>playerBrains[j]===null&&playerAlive[j]);
+        const allTargets=[...players.filter((_,j)=>playerAlive[j]),...multiAgentEnts.filter((_,j)=>j!==i)];
+        const target=humanEnt||allTargets.reduce((b,e)=>{
+          const d=(e.x-ent.x)**2+(e.y-ent.y)**2;
+          const bd=(b.x-ent.x)**2+(b.y-ent.y)**2;
+          return d<bd?e:b;
+        },allTargets[0]||players[0]);
+        if(target){
+          const arrows=[...players.flatMap(p=>p.arr),...multiAgentEnts.filter((_,j)=>j!==i).flatMap(e=>e.arr)];
+          ag.act(ent,target,arrows,multiTraps,roundTimer);
+        }
+        ent.update();
+      }
+
+      // Mise à jour pièges
+      const allGameEnts=[...players.filter((_,i)=>playerAlive[i]),...multiAgentEnts];
+      for(const t of multiTraps) t.update(allGameEnts, multiTrapProj);
+
+      // Mise à jour projectiles pièges
+      for(let i=multiTrapProj.length-1;i>=0;i--){
+        const p=multiTrapProj[i];
+        if(p.st){p.life--;if(p.life<=0){multiTrapProj.splice(i,1);continue;}}
+        else{p.vy+=AGRAV;p.vx*=ADRAG;p.vy*=ADRAG;p.x+=p.vx;p.y+=p.vy;p.life--;}
+        if(p.life<=0||p.x<-50||p.x>WW+50||p.y>WH+50){multiTrapProj.splice(i,1);continue;}
+        // Touche les joueurs
+        for(let j=0;j<players.length;j++){
+          if(!playerAlive[j]) continue;
+          const e=players[j];
+          if(p.x>e.x&&p.x<e.x+e.w&&p.y>e.y&&p.y<e.y+e.h){
+            boom(p.x,p.y,e.col); multiTrapProj.splice(i,1);
+            playerAlive[j]=false; break;
+          }
+        }
+      }
+
+      // Hits entre joueurs
+      checkHitsMulti();
+
+      // Hits agents entraîneurs → joueurs
+      for(const ag of multiAgentEnts){
+        for(let j=ag.arr.length-1;j>=0;j--){
+          const a=ag.arr[j]; if(a.st) continue;
+          for(let k=0;k<players.length;k++){
+            if(!playerAlive[k]) continue;
+            const e=players[k];
+            if(a.x>e.x&&a.x<e.x+e.w&&a.y>e.y&&a.y<e.y+e.h){
+              boom(a.x,a.y,e.col); ag.arr.splice(j,1); playerAlive[k]=false; break;
+            }
+          }
+        }
+      }
+
       const aliveCount=playerAlive.filter(Boolean).length;
 
       // Check if human player just died → show observer overlay
@@ -2726,10 +3002,17 @@ function showScreen(name){
     document.getElementById('game-hud').style.display='';
     document.getElementById('multi-hud').style.display='none';
   }
-  if(name==='menu'){multiMode=false;freeCam=false;camZoom=1;updateMenuUI();}
+  if(name==='menu'){
+    multiMode=false;freeCam=false;camZoom=1;updateMenuUI();
+    // Relancer la simulation de fond (avec le cerveau potentiellement mis à jour)
+    setTimeout(()=>initMenuBg(), 100);
+  } else {
+    // Stopper la simulation quand on quitte le menu
+    stopMenuBg();
+  }
   if(name==='lab')updateLabUI();
-  if(name==='lobby')renderLobby();
-  if(name==='arena'){renderBracket();arenaTab('tourney');}
+  if(name==='pvp')renderPVP();
+  if(name==='training'){renderTraining();}
   if(name==='community'){
     document.getElementById('cfg-repo').value=githubSync.repo;
     document.getElementById('cfg-token').value=githubSync.token;
@@ -2827,10 +3110,21 @@ async function updateLabUI(){
     const eloStr=e.elo?`🏆${e.elo}`:'🏆?';
     const typeTag=e.brain&&e.brain.type==='multi-expert-v1'?'<span style="color:var(--accent)">GRU×3</span>':'<span style="color:#444">legacy</span>';
     const creatorTag=e.creator&&e.creator!==localCreator?`<span style="color:#3a5a6a">📡 ${sanitize(e.creator)}</span>`:'';
-    html+=`<div class="brain-card ${cur?'active-brain':''}" onclick="selectBrain('${e.id}')"><div class="bc-header"><span class="bc-name">${sanitize(e.name||e.id)} ${cur?'● ACTIF':''}</span><span class="bc-gen">Gen ${e.generation||'?'}</span></div><div class="bc-stats"><span>${eloStr}</span><span>⚡${Math.round(e.fitness||0)}</span><span>🎯 ${e.wins||0}W/${e.played||0}P</span><span>🧠 ${e.params||'?'}p</span>${typeTag}${creatorTag}${e.imported?'<span>📥 importé</span>':''}</div></div>`;
+    const delBtn=cur?'':`<button class="btn small warn" style="font-size:5px;padding:3px 7px;margin-left:auto;flex-shrink:0" onclick="event.stopPropagation();deleteBrain('${e.id}')">🗑</button>`;
+    html+=`<div class="brain-card ${cur?'active-brain':''}" onclick="selectBrain('${e.id}')"><div class="bc-header"><span class="bc-name">${sanitize(e.name||e.id)} ${cur?'● ACTIF':''}</span><span class="bc-gen">Gen ${e.generation||'?'}</span>${delBtn}</div><div class="bc-stats"><span>${eloStr}</span><span>⚡${Math.round(e.fitness||0)}</span><span>🎯 ${e.wins||0}W/${e.played||0}P</span><span>🧠 ${e.params||'?'}p</span>${typeTag}${creatorTag}${e.imported?'<span>📥 importé</span>':''}</div></div>`;
   }
-  html+=`<div class="lab-actions"><button class="btn small primary" onclick="newBrain()">+ Nouveau</button><button class="btn small" onclick="duplicateCurrent()">📋 Dupliquer</button><button class="btn small warn" onclick="resetCurrent()">🗑 Reset</button></div>`;
+  html+=`<div class="lab-actions"><button class="btn small primary" onclick="openBrainModal()">+ Nouveau</button><button class="btn small" onclick="duplicateCurrent()">📋 Dupliquer</button><button class="btn small warn" onclick="resetCurrent()">🗑 Reset actif</button></div>`;
   document.getElementById('lab-content').innerHTML=html;
+}
+
+async function deleteBrain(id){
+  const e=await store.get('brains',id);
+  if(!e)return;
+  const name=sanitize(e.name||id).substring(0,20);
+  if(!confirm(`Supprimer "${name}" ?\nCette action est irréversible.`))return;
+  await store.del('brains',id);
+  toast(`"${name}" supprimé`);
+  updateLabUI();
 }
 
 async function selectBrain(id){
@@ -3613,8 +3907,870 @@ function drawStatsHistory(id){
   ctx.fillText(`ELO ${last.elo}`,pad.l+gW+2,pad.t+8);
 }
 // ================================================================
-//
-//  Creator  : mot court mémorable, généré une fois
+//  SCRIPTED AGENT — IA codée à la main (4 niveaux)
+// ================================================================
+class ScriptedAgent {
+  constructor(level=1){
+    this.level = level; // 1=ROOKIE 2=FIGHTER 3=VETERAN 4=MASTER
+    this.mem = { lastEnemyX:0, lastEnemyY:0, jumpCooldown:0,
+                 retreatDir:0, retreatTimer:0, patternBuf:[], lastShot:0 };
+  }
+
+  // Retourne les actions à appliquer sur `me` face à `enemy`
+  act(me, enemy, enemyArrows, traps, timer){
+    const m = this.mem;
+    m.jumpCooldown = Math.max(0, m.jumpCooldown-1);
+    m.retreatTimer = Math.max(0, m.retreatTimer-1);
+
+    const dx = enemy.x - me.x;
+    const dy = enemy.y - me.y;
+    const dist = Math.sqrt(dx*dx+dy*dy);
+    const optDist = this.level >= 3 ? 350 : 250; // distance optimale
+
+    // ── Direction de déplacement ──────────────────────────────
+    let moveX = 0;
+    if(this.level === 1){
+      // ROOKIE : fonce vers l'ennemi
+      moveX = dx > 0 ? 1 : -1;
+    } else {
+      // FIGHTER+ : maintient distance optimale
+      if(dist > optDist + 60) moveX = dx > 0 ? 1 : -1;
+      else if(dist < optDist - 60) moveX = dx > 0 ? -1 : 1;
+      // Retraite forcée si en danger
+      if(m.retreatTimer > 0){ moveX = m.retreatDir; }
+    }
+
+    // ── Esquive flèches ───────────────────────────────────────
+    let dodge = false;
+    if(this.level >= 2){
+      for(const a of enemyArrows){
+        if(a.st) continue;
+        const ax = a.x - me.x, ay = a.y - me.y;
+        const adist = Math.sqrt(ax*ax+ay*ay);
+        if(adist < (this.level >= 3 ? 140 : 90)){
+          // Esquive : sauter si la flèche arrive à hauteur du corps
+          if(Math.abs(ay) < me.h && a.vx * ax > 0){
+            dodge = true;
+            // VETERAN+ : esquive directionnelle
+            if(this.level >= 3) moveX = ay > 0 ? (dx>0?1:-1) : -Math.sign(a.vx);
+          }
+          if(this.level >= 3){
+            m.retreatDir = -Math.sign(a.vx);
+            m.retreatTimer = 18;
+          }
+        }
+      }
+    }
+
+    // ── Saut ──────────────────────────────────────────────────
+    let doJump = false;
+    if(dodge && me.gnd && m.jumpCooldown === 0){
+      doJump = true; m.jumpCooldown = 30;
+    } else if(this.level === 1 && Math.random() < 0.008 && me.gnd){
+      doJump = true; // ROOKIE saute aléatoirement
+    } else if(this.level >= 2 && me.gnd && m.jumpCooldown === 0){
+      // Sauter pour atteindre l'ennemi si plus haut
+      if(enemy.y < me.y - 60 && Math.random() < 0.03){
+        doJump = true; m.jumpCooldown = 40;
+      }
+      // VETERAN+ : utiliser les plateformes intelligemment
+      if(this.level >= 3 && Math.random() < 0.01){
+        doJump = true; m.jumpCooldown = 60;
+      }
+    }
+
+    // ── Visée ─────────────────────────────────────────────────
+    let targetAim = Math.atan2(dy, dx);
+    if(this.level >= 2){
+      // Anticipation : prédire où sera l'ennemi
+      const tof = dist / ASPD; // time of flight approximatif
+      const predX = enemy.x + enemy.vx * tof * (this.level >= 3 ? 1.0 : 0.5);
+      const predY = enemy.y + enemy.vy * tof * (this.level >= 3 ? 0.8 : 0.3);
+      targetAim = Math.atan2(predY - me.y, predX - me.x);
+    }
+    if(this.level >= 4){
+      // MASTER : feinte — rate intentionnellement 20% du temps
+      if(timer % 180 < 36) targetAim += (Math.random()-0.5) * 0.8;
+      // Mémoriser patterns
+      m.patternBuf.push({x:enemy.x,y:enemy.y,t:timer});
+      if(m.patternBuf.length > 60) m.patternBuf.shift();
+    }
+    // Interpolation douce vers la cible
+    const aimSpeed = this.level === 1 ? 0.06 : this.level === 2 ? 0.10 : 0.15;
+    let diff = targetAim - me.aim;
+    while(diff > Math.PI) diff -= Math.PI*2;
+    while(diff < -Math.PI) diff += Math.PI*2;
+    me.aim += diff * aimSpeed;
+
+    // ── Tir ───────────────────────────────────────────────────
+    let doShoot = false;
+    const aimErr = Math.abs(diff);
+    const shootThresh = this.level === 1 ? 0.6 : this.level === 2 ? 0.35 : this.level >= 3 ? 0.2 : 0.15;
+    if(aimErr < shootThresh && dist < 800 && me.cd === 0){
+      if(this.level === 1) doShoot = Math.random() < 0.4;
+      else doShoot = true;
+    }
+
+    // ── Appliquer ─────────────────────────────────────────────
+    if(moveX < 0){ me.vx -= MSPD*0.4; me.face=-1; }
+    if(moveX > 0){ me.vx += MSPD*0.4; me.face=1; }
+    if(doJump && me.gnd) me.vy = JUMP;
+    if(doShoot) me.shoot();
+    me.face = dx > 0 ? 1 : -1;
+
+    m.lastEnemyX = enemy.x;
+    m.lastEnemyY = enemy.y;
+  }
+
+  get label(){ return ['ROOKIE','FIGHTER','VETERAN','MASTER'][this.level-1]; }
+  get color(){ return ['#888888','#60c8ff','#f0c040','#ff4444'][this.level-1]; }
+}
+
+// ELO fictif des agents scriptés par niveau
+const AGENT_ELO = [1100, 1350, 1600, 1900];
+
+// ================================================================
+//  PIÈGES (TRAPS)
+// ================================================================
+class Trap {
+  constructor(type, x, y, config={}){
+    this.type = type; this.x=x; this.y=y;
+    this.active = true; this.timer = 0;
+    this.cfg = config;
+    // État propre selon type
+    switch(type){
+      case 'mine':     this.triggered=false; this.triggerTimer=0; break;
+      case 'launcher': this.cooldown=0; this.buttonX=config.btnX||x+50; this.buttonY=config.btnY||y-20; this.pressed=false; break;
+      case 'electric': this.phase=Math.random()*Math.PI*2; break;
+      case 'teleport': this.partnerX=config.partnerX||x+400; this.partnerY=config.partnerY||y; this.cooldown=0; break;
+      case 'collapse': this.triggered=false; this.fallTimer=0; this.fallen=false; this.origY=y; break;
+      case 'wind':     this.dir=config.dir||1; this.strength=config.strength||3; break;
+    }
+  }
+
+  update(entities, projectiles){
+    this.timer++;
+    switch(this.type){
+      case 'mine': this._updateMine(entities, projectiles); break;
+      case 'launcher': this._updateLauncher(entities, projectiles); break;
+      case 'electric': this._updateElectric(entities); break;
+      case 'teleport': this._updateTeleport(entities); break;
+      case 'collapse': this._updateCollapse(entities); break;
+      case 'wind': this._updateWind(entities, projectiles); break;
+    }
+  }
+
+  _updateMine(entities, proj){
+    if(this.triggered){ this.triggerTimer++; if(this.triggerTimer>8){this.active=false;} return; }
+    for(const e of entities){
+      const dx=e.x+e.w/2-this.x, dy=e.y+e.h-this.y;
+      if(Math.abs(dx)<16&&Math.abs(dy)<14){
+        this.triggered=true;
+        // Explosion : salve de 8 flèches
+        for(let a=0;a<8;a++){
+          const ang=a*Math.PI/4;
+          proj.push({x:this.x,y:this.y,vx:Math.cos(ang)*ASPD*0.7,vy:Math.sin(ang)*ASPD*0.7,
+            life:120,st:false,tr:[],owner:'trap',col:'#ff8020'});
+        }
+        boom(this.x,this.y,'#ff8020');
+      }
+    }
+  }
+
+  _updateLauncher(entities, proj){
+    this.cooldown=Math.max(0,this.cooldown-1);
+    // Bouton : quelqu'un marche dessus ?
+    for(const e of entities){
+      const dx=e.x+e.w/2-this.buttonX, dy=e.y+e.h-this.buttonY;
+      if(Math.abs(dx)<18&&Math.abs(dy)<12&&e.gnd){
+        if(!this.pressed && this.cooldown===0){
+          this.pressed=true; this.cooldown=120;
+          // Salve horizontale depuis le mur
+          const dir=this.cfg.dir||1;
+          for(let i=0;i<5;i++){
+            const vy=(i-2)*1.5;
+            proj.push({x:this.x,y:this.y+i*20,vx:dir*ASPD,vy,life:200,st:false,tr:[],owner:'trap',col:'#ff4444'});
+          }
+        }
+      } else { this.pressed=false; }
+    }
+  }
+
+  _updateElectric(entities){
+    const active = Math.sin(this.timer*0.05+this.phase) > 0.3;
+    if(!active) return;
+    for(const e of entities){
+      if(e.x+e.w>this.x && e.x<this.x+80 && e.y+e.h>this.y && e.y<this.y+8){
+        // Choc : repousse vers le haut
+        e.vy = Math.min(e.vy, JUMP*0.8);
+        e.vx += (Math.random()-0.5)*6;
+      }
+    }
+  }
+
+  _updateTeleport(entities){
+    if(this.cooldown>0){this.cooldown--;return;}
+    for(const e of entities){
+      const dx=e.x+e.w/2-this.x, dy=e.y+e.h/2-this.y;
+      if(Math.abs(dx)<24&&Math.abs(dy)<24){
+        e.x=this.partnerX-e.w/2; e.y=this.partnerY-e.h;
+        e.vx*=0.3; e.vy*=0.3;
+        this.cooldown=60;
+        boom(this.x,this.y,'#a060ff'); boom(this.partnerX,this.partnerY,'#a060ff');
+      }
+    }
+  }
+
+  _updateCollapse(entities){
+    if(this.fallen) return;
+    if(!this.triggered){
+      for(const e of entities){
+        if(e.x+e.w>this.x&&e.x<this.x+this.cfg.w&&Math.abs(e.y+e.h-this.y)<8&&e.gnd){
+          this.triggered=true; break;
+        }
+      }
+    } else {
+      this.fallTimer++;
+      this.y = this.origY + this.fallTimer*this.fallTimer*0.08;
+      if(this.y > WH+50) this.fallen=true;
+    }
+  }
+
+  _updateWind(entities, proj){
+    for(const e of entities){
+      if(e.x+e.w>this.x&&e.x<this.x+this.cfg.w&&e.y+e.h>this.y&&e.y<this.y+(this.cfg.h||WH)){
+        e.vx += this.dir*this.strength*0.04;
+      }
+    }
+    for(const a of proj){
+      if(!a.st&&a.x>this.x&&a.x<this.x+this.cfg.w){
+        a.vx += this.dir*this.strength*0.08;
+      }
+    }
+  }
+
+  draw(ctx){
+    if(!this.active) return;
+    switch(this.type){
+      case 'mine':     this._drawMine(ctx); break;
+      case 'launcher': this._drawLauncher(ctx); break;
+      case 'electric': this._drawElectric(ctx); break;
+      case 'teleport': this._drawTeleport(ctx); break;
+      case 'collapse': this._drawCollapse(ctx); break;
+      case 'wind':     this._drawWind(ctx); break;
+    }
+  }
+
+  _drawMine(ctx){
+    if(this.triggered){
+      ctx.fillStyle=`rgba(255,128,32,${1-this.triggerTimer/8})`;
+      ctx.beginPath();ctx.arc(this.x,this.y,30+this.triggerTimer*4,0,Math.PI*2);ctx.fill();
+      return;
+    }
+    ctx.fillStyle='#cc4400';ctx.fillRect(this.x-8,this.y-8,16,16);
+    ctx.fillStyle='#ff6600';ctx.fillRect(this.x-4,this.y-12,8,6);
+    ctx.fillStyle='#ffaa00';ctx.fillRect(this.x-2,this.y-6,4,4);
+    // Indicateur danger
+    if(Math.floor(this.timer/15)%2===0){
+      ctx.fillStyle='rgba(255,80,0,0.4)';ctx.beginPath();ctx.arc(this.x,this.y,24,0,Math.PI*2);ctx.fill();
+    }
+  }
+
+  _drawLauncher(ctx){
+    // Mur lanceur
+    ctx.fillStyle='#442200';ctx.fillRect(this.x-8,this.y-60,16,120);
+    ctx.fillStyle='#ff4400';ctx.fillRect(this.x-4,this.y-4,8,8);
+    // Bouton
+    ctx.fillStyle=this.pressed?'#ff2200':'#882200';
+    ctx.fillRect(this.buttonX-10,this.buttonY-6,20,12);
+    ctx.fillStyle='#cc4400';ctx.fillRect(this.buttonX-8,this.buttonY-4,16,8);
+    // Label
+    ctx.fillStyle='rgba(255,80,0,0.6)';ctx.font='5px monospace';ctx.textAlign='center';
+    ctx.fillText('BTN',this.buttonX,this.buttonY-10);
+  }
+
+  _drawElectric(ctx){
+    const active=Math.sin(this.timer*0.05+this.phase)>0.3;
+    ctx.fillStyle=active?'#ffff44':'#444420';
+    ctx.fillRect(this.x,this.y,80,8);
+    if(active){
+      ctx.strokeStyle='rgba(255,255,0,0.6)';ctx.lineWidth=1;
+      for(let i=0;i<6;i++){
+        ctx.beginPath();ctx.moveTo(this.x+i*14,this.y);
+        ctx.lineTo(this.x+i*14+(Math.random()-0.5)*8,this.y-8-Math.random()*8);
+        ctx.stroke();
+      }
+    }
+  }
+
+  _drawTeleport(ctx){
+    const pulse=Math.sin(this.timer*0.08)*0.3+0.7;
+    // Portail A
+    ctx.fillStyle=`rgba(160,96,255,${pulse*0.3})`;ctx.beginPath();ctx.arc(this.x,this.y,20,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=`rgba(160,96,255,${pulse})`;ctx.lineWidth=2;ctx.beginPath();ctx.arc(this.x,this.y,20,0,Math.PI*2);ctx.stroke();
+    ctx.fillStyle='rgba(160,96,255,0.8)';ctx.font='6px monospace';ctx.textAlign='center';ctx.fillText('A',this.x,this.y+3);
+    // Portail B
+    ctx.fillStyle=`rgba(96,255,160,${pulse*0.3})`;ctx.beginPath();ctx.arc(this.partnerX,this.partnerY,20,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=`rgba(96,255,160,${pulse})`;ctx.lineWidth=2;ctx.beginPath();ctx.arc(this.partnerX,this.partnerY,20,0,Math.PI*2);ctx.stroke();
+    ctx.fillStyle='rgba(96,255,160,0.8)';ctx.fillText('B',this.partnerX,this.partnerY+3);
+  }
+
+  _drawCollapse(ctx){
+    if(this.fallen) return;
+    const crack=this.triggered?Math.min(this.fallTimer/30,1):0;
+    ctx.fillStyle=`rgb(${Math.round(46+crack*60)},${Math.round(36-crack*30)},${Math.round(72-crack*40)})`;
+    ctx.fillRect(this.x,this.y,this.cfg.w||120,16);
+    if(crack>0){
+      ctx.strokeStyle=`rgba(0,0,0,${crack*0.8})`;ctx.lineWidth=1;
+      for(let i=0;i<3;i++){
+        ctx.beginPath();ctx.moveTo(this.x+30*i,this.y);
+        ctx.lineTo(this.x+30*i+15,this.y+8);ctx.stroke();
+      }
+    }
+    ctx.fillStyle='rgba(255,200,0,0.6)';ctx.font='5px monospace';ctx.textAlign='center';
+    ctx.fillText('⚠',this.x+(this.cfg.w||120)/2,this.y-4);
+  }
+
+  _drawWind(ctx){
+    const alpha=0.07+Math.sin(this.timer*0.04)*0.03;
+    ctx.fillStyle=`rgba(200,220,255,${alpha})`;
+    ctx.fillRect(this.x,this.y,this.cfg.w||100,this.cfg.h||WH);
+    // Lignes de vent
+    ctx.strokeStyle='rgba(150,200,255,0.2)';ctx.lineWidth=1;
+    for(let i=0;i<5;i++){
+      const offset=(this.timer*this.dir*2+i*60)%200;
+      ctx.beginPath();ctx.moveTo(this.x+(this.dir>0?offset:200-offset),this.y+i*40);
+      ctx.lineTo(this.x+(this.dir>0?offset+40:160-offset),this.y+i*40+10);ctx.stroke();
+    }
+  }
+}
+
+// Génère les pièges actifs pour la carte d'entraînement
+function buildTraps(config){
+  const traps=[];
+  if(config.mine){
+    traps.push(new Trap('mine',400,WH-30));
+    traps.push(new Trap('mine',900,WH-30));
+    traps.push(new Trap('mine',650,400));
+  }
+  if(config.launcher){
+    traps.push(new Trap('launcher',12,WH/2,{dir:1,btnX:100,btnY:WH-30}));
+    traps.push(new Trap('launcher',WW-12,WH/2,{dir:-1,btnX:WW-100,btnY:WH-30}));
+  }
+  if(config.electric){
+    traps.push(new Trap('electric',350,WH-30));
+    traps.push(new Trap('electric',900,350));
+  }
+  if(config.teleport){
+    traps.push(new Trap('teleport',200,WH-80,{partnerX:WW-200,partnerY:WH-80}));
+  }
+  if(config.collapse){
+    traps.push(new Trap('collapse',300,310,{w:160}));
+    traps.push(new Trap('collapse',900,430,{w:160}));
+  }
+  if(config.wind){
+    traps.push(new Trap('wind',550,0,{w:200,h:WH,dir:1,strength:2}));
+  }
+  return traps;
+}
+
+// ================================================================
+//  SALLE D'ENTRAÎNEMENT — state & logic
+// ================================================================
+let trConfig = {
+  brainId: null,
+  agents: [{level:1}],
+  traps: {mine:false,launcher:false,electric:false,teleport:false,collapse:false,wind:false},
+  rounds: 50,
+  speed: 1,
+  curriculum: false,
+  objective: 'balanced',
+};
+let trRunning = false;
+let trRoundsDone = 0;
+let trInterval = null;
+let trBrain = null;    // MultiExpertBrain actif
+let trTrainees = [];   // Ent[] (cerveau + agents)
+let trAgentObjs = [];  // ScriptedAgent[]
+let trTraps = [];      // Trap[]
+let trTrapProj = [];   // projectiles des pièges
+let trHof = [];        // Hall of Fame local
+let trBestBrain = null;
+let trStag = 0;
+let trRoundTimer = 0;
+let trRoundOver = false;
+let trEvoHistory = []; // [{round, elo, fitness}]
+
+function trainingTab(name){
+  document.querySelectorAll('.arena-tab').forEach((t,i)=>{
+    const names=['config','graph','params','stats'];
+    t.classList.toggle('active',names[i]===name);
+  });
+  ['config','graph','params','stats'].forEach(n=>{
+    const el=document.getElementById('panel-'+n);
+    if(el) el.style.display=n===name?'':'none';
+  });
+  if(name==='graph') drawTrainGraph();
+  if(name==='stats') renderStats();
+  if(name==='params') initParamSliders();
+}
+
+function renderTraining(){
+  renderTrBrainSel();
+  renderTrAgents();
+}
+
+async function renderTrBrainSel(){
+  const all=await store.getAll('brains');
+  if(!trConfig.brainId && all.length>0) trConfig.brainId=all[0].id;
+  document.getElementById('tr-brain-sel').innerHTML=all.map(e=>`
+    <button class="tr-brain-btn ${e.id===trConfig.brainId?'active':''}"
+      onclick="trSetBrain('${e.id}')">${sanitize((e.name||e.id).substring(0,12))}</button>`).join('');
+}
+
+function trSetBrain(id){ trConfig.brainId=id; renderTrBrainSel(); }
+
+function renderTrAgents(){
+  const el=document.getElementById('tr-agents');
+  el.innerHTML=trConfig.agents.map((a,i)=>`
+    <div class="tr-agent-row">
+      <span style="font-size:5px;color:#6040a0;flex-shrink:0">IA ${i+1}</span>
+      <div class="tr-agent-lvl">
+        ${['ROOKIE','FIGHTER','VETERAN','MASTER'].map((lbl,li)=>`
+          <button class="tr-agent-lvl-btn ${a.level===li+1?'active':''}"
+            onclick="trSetAgentLvl(${i},${li+1})">${lbl}</button>`).join('')}
+      </div>
+      <button class="tr-agent-del" onclick="trRemoveAgent(${i})">✕</button>
+    </div>`).join('');
+}
+
+function trAddAgent(){
+  if(trConfig.agents.length>=3){toast('Max 3 adversaires');return;}
+  trConfig.agents.push({level:1}); renderTrAgents();
+}
+function trRemoveAgent(i){
+  if(trConfig.agents.length<=1){toast('Min 1 adversaire');return;}
+  trConfig.agents.splice(i,1); renderTrAgents();
+}
+function trSetAgentLvl(i,lvl){ trConfig.agents[i].level=lvl; renderTrAgents(); }
+function trTrapToggle(k,el){ trConfig.traps[k]=el.checked; }
+function setTrainSpeed(spd,btn){
+  trConfig.speed=spd;
+  document.querySelectorAll('.speed-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+async function trainingToggle(){
+  if(trRunning){ trainingStop(); return; }
+  await trainingStart();
+}
+
+async function trainingStart(){
+  if(!trConfig.brainId){toast('Choisis un cerveau');return;}
+  const entry=await store.get('brains',trConfig.brainId);
+  if(!entry){toast('Cerveau introuvable');return;}
+
+  trBrain=deserializeBrain(entry.brain);
+  trBrain.fitness=entry.fitness||0;
+  trBrain.elo=entry.elo||ELO_BASE;
+  trBestBrain=null; trHof=[]; trStag=0;
+  trRoundsDone=0; trRunning=true;
+  trEvoHistory=[];
+  trConfig.rounds=parseInt(document.getElementById('tr-rounds').value)||50;
+  trConfig.curriculum=document.getElementById('tr-curriculum').checked;
+  trConfig.objective=document.getElementById('tr-objective').value;
+
+  document.getElementById('tr-start-btn').textContent='■ STOP';
+  document.getElementById('tr-status').textContent='';
+
+  // Init agents selon curriculum
+  trAgentObjs=trConfig.agents.map(a=>{
+    const lvl=trConfig.curriculum?_curriculumLevel(trBrain.elo):a.level;
+    return new ScriptedAgent(lvl);
+  });
+  trTraps=buildTraps(trConfig.traps);
+
+  startTrainRound();
+}
+
+function _curriculumLevel(elo){
+  if(elo<1300) return 1;
+  if(elo<1500) return 2;
+  if(elo<1800) return 3;
+  return 4;
+}
+
+function trainingStop(){
+  trRunning=false;
+  if(trInterval){clearInterval(trInterval);trInterval=null;}
+  document.getElementById('tr-start-btn').textContent='▶ LANCER';
+  document.getElementById('tr-status').textContent='';
+  const cv2=document.getElementById('tr-preview');
+  if(cv2) cv2.style.display='none';
+  saveTrainResults();
+}
+
+async function saveTrainResults(){
+  if(!trConfig.brainId||!trBrain) return;
+  const entry=await store.get('brains',trConfig.brainId);
+  if(!entry) return;
+  entry.brain=trBrain.serialize();
+  entry.fitness=trBrain.fitness;
+  entry.elo=trBrain.elo;
+  entry.generation=(entry.generation||1)+trRoundsDone;
+  await store.put('brains',entry);
+  if(trRoundsDone>0) toast(`${trRoundsDone} rounds sauvegardés`);
+}
+
+function startTrainRound(){
+  if(!trRunning) return;
+  if(trRoundsDone>=trConfig.rounds){ trainingStop(); toast('Entraînement terminé !'); drawTrainGraph(); return; }
+
+  trRoundTimer=0; trRoundOver=false; trTrapProj=[];
+  // Réinitialiser les pièges collapse
+  trTraps.forEach(t=>{ if(t.type==='collapse'){ t.triggered=false;t.fallTimer=0;t.fallen=false;t.y=t.origY; } if(t.type==='mine'){ t.triggered=false;t.triggerTimer=0;t.active=true; } });
+
+  // Créer entités
+  trTrainees=[];
+  const cervEnt=new Ent(160,WH-100,SLOT_COLORS[0],true); cervEnt.face=1;
+  trTrainees.push(cervEnt);
+  trAgentObjs.forEach((ag,i)=>{
+    const spIdx=(i+1)%4;
+    const sp=SPAWN_POS[spIdx];
+    const ent=new Ent(sp.x,sp.y,SLOT_COLORS[i+1],true); ent.face=sp.face;
+    trTrainees.push(ent);
+  });
+  trBrain.resetMemory();
+  trAgentObjs.forEach(a=>{a.mem={lastEnemyX:0,lastEnemyY:0,jumpCooldown:0,retreatDir:0,retreatTimer:0,patternBuf:[],lastShot:0};});
+
+  // Curriculum check
+  if(trConfig.curriculum){
+    const newLvl=_curriculumLevel(trBrain.elo);
+    trAgentObjs.forEach(a=>a.level=newLvl);
+  }
+
+  const stepsPerFrame=trConfig.speed===0?1000:trConfig.speed;
+  if(trInterval){clearInterval(trInterval);trInterval=null;}
+
+  // Stats round
+  const rs={arrowsDodged:0,shotsNearMiss:0,platformChanges:0,lastPlatY:-1};
+
+  function runStep(){
+    if(trRoundOver) return;
+    trRoundTimer++;
+
+    // Cerveau
+    const cervEnt2=trTrainees[0];
+    const nearestEnemy=trTrainees.slice(1).reduce((b,e)=>{
+      const d=(e.x-cervEnt2.x)**2+(e.y-cervEnt2.y)**2;
+      const bd=(b.x-cervEnt2.x)**2+(b.y-cervEnt2.y)**2;
+      return d<bd?e:b;
+    },trTrainees[1]);
+    const enemyArrows=trTrainees.slice(1).flatMap(e=>e.arr);
+    const inp=aiInputsFor(cervEnt2,nearestEnemy,enemyArrows);
+    const out=trBrain.forward(inp);
+    aiProcessFor(out,cervEnt2);
+    cervEnt2.face=nearestEnemy.x<cervEnt2.x?-1:1;
+    cervEnt2.update();
+
+    // Stats comportementales
+    for(const a of enemyArrows){
+      if(a.st) continue;
+      const dx=a.x-(cervEnt2.x+cervEnt2.w/2),dy=a.y-(cervEnt2.y+cervEnt2.h/2);
+      if(Math.sqrt(dx*dx+dy*dy)<80) rs.arrowsDodged+=0.1;
+    }
+    for(const a of cervEnt2.arr){
+      if(a.st) continue;
+      for(const opp of trTrainees.slice(1)){
+        const dx=a.x-(opp.x+opp.w/2),dy=a.y-(opp.y+opp.h/2);
+        if(Math.sqrt(dx*dx+dy*dy)<60) rs.shotsNearMiss+=0.15;
+      }
+    }
+    if(cervEnt2.gnd){
+      const py=Math.round(cervEnt2.y/10)*10;
+      if(py!==rs.lastPlatY&&rs.lastPlatY!==-1) rs.platformChanges++;
+      rs.lastPlatY=py;
+    }
+
+    // Agents scriptés
+    for(let i=0;i<trAgentObjs.length;i++){
+      const ag=trAgentObjs[i];
+      const ent=trTrainees[i+1];
+      const target=i===0?cervEnt2:trTrainees[0];
+      const arrows=trTrainees.filter((_,j)=>j!==i+1).flatMap(e=>e.arr);
+      ag.act(ent,target,arrows,trTraps,trRoundTimer);
+      ent.update();
+    }
+
+    // Mise à jour pièges
+    const allEnts=trTrainees;
+    const allProj=[...trTrainees.flatMap(e=>e.arr),...trTrapProj];
+    for(const t of trTraps) t.update(allEnts,trTrapProj);
+    for(let i=trTrapProj.length-1;i>=0;i--){
+      const p=trTrapProj[i];
+      if(p.st){p.life--;if(p.life<=0){trTrapProj.splice(i,1);continue;}}
+      else{p.vy+=AGRAV;p.vx*=ADRAG;p.vy*=ADRAG;p.x+=p.vx;p.y+=p.vy;p.life--;}
+      if(p.life<=0||p.x<-50||p.x>WW+50||p.y>WH+50){trTrapProj.splice(i,1);continue;}
+      // Hit check (piège ne touche que le cerveau)
+      const ce=trTrainees[0];
+      if(p.x>ce.x&&p.x<ce.x+ce.w&&p.y>ce.y&&p.y<ce.y+ce.h){
+        boom(p.x,p.y,ce.col); trTrapProj.splice(i,1);
+        trRoundOver=true; return; // cerveau touché par piège = perte
+      }
+    }
+
+    // Détection hit
+    const hit=checkTrainHits();
+    if(hit!==null){ trRoundOver=true; return; }
+    if(trRoundTimer>60*35) trRoundOver=true;
+  }
+
+  function checkTrainHits(){
+    const ce=trTrainees[0];
+    // Flèches des agents touchent le cerveau
+    for(let i=1;i<trTrainees.length;i++){
+      for(let j=trTrainees[i].arr.length-1;j>=0;j--){
+        const a=trTrainees[i].arr[j];if(a.st)continue;
+        if(a.x>ce.x&&a.x<ce.x+ce.w&&a.y>ce.y&&a.y<ce.y+ce.h){
+          boom(a.x,a.y,ce.col);trTrainees[i].arr.splice(j,1);return 'lose';
+        }
+      }
+    }
+    // Flèches du cerveau touchent un agent
+    for(let j=ce.arr.length-1;j>=0;j--){
+      const a=ce.arr[j];if(a.st)continue;
+      for(let i=1;i<trTrainees.length;i++){
+        const opp=trTrainees[i];
+        if(a.x>opp.x&&a.x<opp.x+opp.w&&a.y>opp.y&&a.y<opp.y+opp.h){
+          boom(a.x,a.y,opp.col);ce.arr.splice(j,1);return 'win';
+        }
+      }
+    }
+    return null;
+  }
+
+  function onRoundEnd(){
+    const won=trRoundTimer<=60*35 && checkLastHitWon();
+    trRoundsDone++;
+
+    // Pondération fitness selon objectif
+    const objW={dodge:2,aim:0.5,mobility:1,aggro:0.3,balanced:1};
+    const wDodge=trConfig.objective==='dodge'?2:trConfig.objective==='balanced'?1:0.5;
+    const wAim=trConfig.objective==='aim'?2:trConfig.objective==='aggro'?1.5:0.8;
+    const wMob=trConfig.objective==='mobility'?2:1;
+    const gain=Math.min(rs.arrowsDodged*0.8*wDodge,10)
+              +Math.min(rs.shotsNearMiss*0.6*wAim,8)
+              +Math.min(rs.platformChanges*0.5*wMob,5)
+              +Math.min(trRoundTimer/(60*35)*6,6)
+              +(won?evoParams.winBonus:0);
+
+    const prevFit=trBrain.fitness||0;
+    if(won){
+      trBrain.fitness=prevFit+gain;
+      if(!trBestBrain||trBrain.fitness>=(trBestBrain.fitness||0)) trBestBrain=trBrain.clone();
+      trHof.push(trBrain.clone());
+      trHof.sort((a,b)=>(b.elo||0)-(a.elo||0));
+      if(trHof.length>evoParams.hofSize) trHof.length=evoParams.hofSize;
+      trStag=0;
+    } else {
+      const save=Math.min(gain*0.4,4);
+      trBrain.fitness=Math.max(0,prevFit-evoParams.lossPen+save);
+      if(trBrain.fitness<=prevFit) trStag++;
+      else trStag=Math.max(0,trStag-1);
+    }
+
+    // ELO vs niveau de l'agent
+    const agentElo=AGENT_ELO[trAgentObjs[0].level-1];
+    const prevElo=trBrain.elo||ELO_BASE;
+    const exp=eloExpected(prevElo,agentElo);
+    trBrain.elo=Math.max(400,eloUpdate(prevElo,exp,won?1:0,trRoundsDone));
+
+    selectMutationStrategy(trBrain,trStag,won,trHof,trBestBrain);
+
+    trEvoHistory.push({round:trRoundsDone,elo:trBrain.elo,fitness:Math.round(trBrain.fitness)});
+
+    document.getElementById('tr-status').textContent=
+      `Round ${trRoundsDone}/${trConfig.rounds} · ELO ${trBrain.elo} · Fit ${Math.round(trBrain.fitness)}`;
+
+    // Sauvegarde auto toutes les 10 rounds
+    if(trRoundsDone%10===0) saveTrainResults();
+    // Refresh graphe toutes les 5 rounds si sur l'onglet
+    if(trRoundsDone%5===0&&document.getElementById('panel-graph')?.style.display!=='none') drawTrainGraph();
+
+    setTimeout(()=>startTrainRound(), trConfig.speed===0?0:100);
+  }
+
+  // Hack pour savoir qui a gagné en dernier
+  let _lastHitWon=false;
+  function checkLastHitWon(){return _lastHitWon;}
+
+  if(trConfig.speed===0){
+    // MAX speed : tout synchrone
+    const cv2=document.getElementById('tr-preview');
+    if(cv2) cv2.style.display='none';
+    while(!trRoundOver){ runStep(); }
+    _lastHitWon = trRoundTimer<=60*35;
+    onRoundEnd();
+  } else {
+    const cv2=document.getElementById('tr-preview');
+    if(cv2) cv2.style.display='block';
+    trInterval=setInterval(()=>{
+      if(!trRunning||trRoundOver){clearInterval(trInterval);trInterval=null;return;}
+      for(let s=0;s<trConfig.speed;s++){
+        if(trRoundOver) break;
+        runStep();
+      }
+      if(trConfig.speed<=16) drawTrainFrame();
+      if(trRoundOver){
+        clearInterval(trInterval);trInterval=null;
+        _lastHitWon=trRoundTimer<=60*35;
+        onRoundEnd();
+      }
+    },1000/60);
+  }
+}
+
+function drawTrainFrame(){
+  const cv2=document.getElementById('tr-preview');
+  if(!cv2) return;
+  const ctx=cv2.getContext('2d');
+  const W=cv2.width,H=cv2.height;
+  const sc=Math.min(W/WW,H/WH)*0.9;
+  const offX=(W-WW*sc)/2,offY=(H-WH*sc)/2;
+
+  ctx.fillStyle='#0d0818';ctx.fillRect(0,0,W,H);
+  ctx.save();ctx.translate(offX,offY);ctx.scale(sc,sc);
+
+  // Plateformes
+  for(const p of platforms){
+    if(p.w<=12||p.h>=WH-40){ctx.fillStyle='#1e1630';ctx.fillRect(p.x,p.y,p.w,p.h);continue;}
+    ctx.fillStyle='#2e2448';ctx.fillRect(p.x,p.y,p.w,p.h);
+    ctx.fillStyle='#5a4e80';ctx.fillRect(p.x,p.y,p.w,2);
+  }
+
+  // Pièges
+  for(const t of trTraps) t.draw(ctx);
+
+  // Projectiles pièges
+  for(const p of trTrapProj){
+    ctx.fillStyle='#ff8020';ctx.fillRect(Math.round(p.x-3),Math.round(p.y-1),6,2);
+  }
+
+  // Entités
+  for(const e of trTrainees) e.draw(ctx);
+
+  ctx.restore();
+
+  // Overlay infos
+  ctx.fillStyle='rgba(13,8,24,0.7)';ctx.fillRect(0,0,W,24);
+  ctx.font='bold 7px monospace';ctx.textAlign='left';
+  ctx.fillStyle=SLOT_COLORS[0];ctx.fillText(`CERVEAU ELO ${trBrain?.elo||'?'}`,6,15);
+  ctx.fillStyle='#8060c0';ctx.textAlign='right';
+  ctx.fillText(`Round ${trRoundsDone+1}/${trConfig.rounds}`,W-6,15);
+  // Niveaux agents
+  trAgentObjs.forEach((ag,i)=>{
+    ctx.fillStyle=ag.color;ctx.textAlign='center';
+    ctx.fillText(ag.label,(i+1)*W/(trAgentObjs.length+1),15);
+  });
+}
+
+function drawTrainGraph(){
+  const cv2=document.getElementById('evo-canvas');
+  if(!cv2||trEvoHistory.length<2) return;
+  const ctx=cv2.getContext('2d');
+  const W=cv2.width,H=cv2.height;
+  ctx.fillStyle='#10081e';ctx.fillRect(0,0,W,H);
+
+  const elos=trEvoHistory.map(p=>p.elo);
+  const fits=trEvoHistory.map(p=>p.fitness);
+  const minE=Math.min(...elos)-20,maxE=Math.max(...elos)+20;
+  const maxF=Math.max(...fits)+10;
+  const pad={l:40,r:10,t:10,b:20};
+  const gW=W-pad.l-pad.r,gH=H-pad.t-pad.b;
+
+  // Grille
+  ctx.strokeStyle='#2a1a3a';ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    const y=pad.t+gH*(1-i/4);
+    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+gW,y);ctx.stroke();
+    ctx.fillStyle='#6040a0';ctx.font='8px monospace';ctx.textAlign='right';
+    ctx.fillText(Math.round(minE+(maxE-minE)*(i/4)),pad.l-3,y+3);
+  }
+
+  const N=trEvoHistory.length;
+  // Courbe ELO
+  ctx.strokeStyle=GRAPH_COLORS[0];ctx.lineWidth=2;ctx.beginPath();
+  trEvoHistory.forEach((pt,i)=>{
+    const x=pad.l+gW*(i/(N-1));
+    const y=pad.t+gH*(1-(pt.elo-minE)/(maxE-minE));
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+
+  // Courbe Fitness (normalisée)
+  ctx.strokeStyle=GRAPH_COLORS[2];ctx.lineWidth=1;ctx.setLineDash([3,3]);ctx.beginPath();
+  trEvoHistory.forEach((pt,i)=>{
+    const x=pad.l+gW*(i/(N-1));
+    const y=pad.t+gH*(1-pt.fitness/Math.max(maxF,1));
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.stroke();ctx.setLineDash([]);
+
+  // Légende
+  const legend=document.getElementById('chart-legend');
+  if(legend) legend.innerHTML=`
+    <div class="legend-item"><div class="legend-dot" style="background:${GRAPH_COLORS[0]}"></div><span style="color:${GRAPH_COLORS[0]};font-size:5px">ELO (${trBrain?.elo||'?'})</span></div>
+    <div class="legend-item"><div class="legend-dot" style="background:${GRAPH_COLORS[2]}"></div><span style="color:${GRAPH_COLORS[2]};font-size:5px">Fitness (${Math.round(trBrain?.fitness||0)})</span></div>`;
+}
+
+// ================================================================
+//  MODAL CRÉATION CERVEAU
+// ================================================================
+function openBrainModal(){
+  updateBrainPreview();
+  document.getElementById('brain-create-modal').classList.add('open');
+}
+function closeBrainModal(){
+  document.getElementById('brain-create-modal').classList.remove('open');
+}
+
+function updateBrainPreview(){
+  const H=parseInt(document.getElementById('bc-h').value)||8;
+  const out=parseInt(document.getElementById('bc-out').value)||4;
+  const arb=parseInt(document.getElementById('bc-arb').value)||8;
+  // Calcul params
+  const gruParams=(H*(H+6)*3+out*H)*3; // 3 experts
+  const arbParams=(3*out)*arb+arb+arb*6+6;
+  const total=gruParams+arbParams;
+  document.getElementById('brain-preview-info').innerHTML=
+    `Topologie : GRU(H=${H}) × 3 experts → dense(${3*out}→${arb}→6)\n`+
+    `Paramètres : ${total}\n`+
+    `Mémoire par round : ${H*3} valeurs GRU`;
+}
+
+async function confirmNewBrain(){
+  const H=parseInt(document.getElementById('bc-h').value)||8;
+  const outSize=parseInt(document.getElementById('bc-out').value)||4;
+  const arbSize=parseInt(document.getElementById('bc-arb').value)||8;
+  const xavierScale=parseFloat(document.getElementById('bc-xavier').value)||1.0;
+  const startElo=parseInt(document.getElementById('bc-elo').value)||ELO_BASE;
+
+  // Créer le MultiExpertBrain avec les paramètres choisis
+  const b=new MultiExpertBrain(H,outSize,arbSize,xavierScale);
+  b.elo=startElo;
+
+  const id='brain_'+Date.now();
+  const name=await nextBrainName();
+  await store.put('brains',{id,name,creator:localCreator,brain:b.serialize(),
+    generation:1,fitness:0,elo:startElo,wins:0,played:0,
+    timestamp:Date.now(),game:'arena-archer',
+    topology:`GRU(H=${H})×3+ARB(${arbSize})`,params:b.paramCount()});
+  currentBrainId=id;activeBrain=b;generation=1;bestBrain=null;
+  totalWins=0;totalPlayed=0;
+  closeBrainModal();
+  toast(`Créé : ${name} (${b.paramCount()} params)`);
+  updateLabUI();
+}
 //             ex: "darknode"
 //
 //  Cerveau  : [creator]#[NNN]   numéro séquentiel
@@ -3666,6 +4822,213 @@ async function cloneBrainName(sourceName){
 }
 
 // ================================================================
+// ================================================================
+//  SIMULATION DE FOND — MENU SCREEN
+// ================================================================
+//  Le meilleur cerveau disponible joue en boucle contre un MASTER.
+//  Rendu sur #menu-bg-canvas, sans interaction.
+// ================================================================
+
+const menuBg = {
+  cv: null, ctx: null,
+  W: 0, H: 0,
+  // Entités simulées
+  entA: null, entB: null,
+  brainA: null, agentB: null,
+  timer: 0, interval: null,
+  particles: [],
+  // Map simplifiée (sous-ensemble des vraies plateformes)
+  active: false,
+};
+
+async function initMenuBg(){
+  menuBg.cv = document.getElementById('menu-bg-canvas');
+  if(!menuBg.cv) return;
+  menuBg.ctx = menuBg.cv.getContext('2d');
+  _resizeMenuBg();
+  window.addEventListener('resize', _resizeMenuBg);
+
+  // Charger le meilleur cerveau (ELO max)
+  let all = [];
+  try { all = await store.getAll('brains'); } catch(e){}
+  let bestEntry = all.sort((a,b)=>(b.elo||0)-(a.elo||0))[0] || null;
+
+  menuBg.brainA = bestEntry ? deserializeBrain(bestEntry.brain) : new MultiExpertBrain();
+  if(bestEntry){ menuBg.brainA.fitness=bestEntry.fitness||0; menuBg.brainA.elo=bestEntry.elo||ELO_BASE; }
+  menuBg.agentB = new ScriptedAgent(4); // MASTER
+
+  // Label
+  const lbl = document.getElementById('menu-bg-label');
+  if(lbl) lbl.textContent = bestEntry
+    ? `EN DIRECT · ${sanitize((bestEntry.name||'').substring(0,16))} vs MASTER`
+    : 'EN DIRECT · CERVEAU DÉBUTANT vs MASTER';
+
+  menuBg.active = true;
+  _startMenuBgRound();
+}
+
+function _resizeMenuBg(){
+  if(!menuBg.cv) return;
+  const r = menuBg.cv.getBoundingClientRect();
+  menuBg.W = r.width || window.innerWidth;
+  menuBg.H = r.height || window.innerHeight;
+  menuBg.cv.width  = menuBg.W;
+  menuBg.cv.height = menuBg.H;
+}
+
+function _startMenuBgRound(){
+  if(!menuBg.active) return;
+  menuBg.timer = 0;
+  menuBg.particles = [];
+  menuBg.entA = new Ent(160, WH-100, SLOT_COLORS[0], true); menuBg.entA.face=1;
+  menuBg.entB = new Ent(WW-180, WH-100, SLOT_COLORS[1], true); menuBg.entB.face=-1;
+  menuBg.brainA?.resetMemory();
+  menuBg.agentB.mem = {lastEnemyX:0,lastEnemyY:0,jumpCooldown:0,retreatDir:0,retreatTimer:0,patternBuf:[],lastShot:0};
+
+  if(menuBg.interval){ clearInterval(menuBg.interval); menuBg.interval=null; }
+  menuBg.interval = setInterval(_stepMenuBg, 1000/60);
+}
+
+function stopMenuBg(){
+  menuBg.active = false;
+  if(menuBg.interval){ clearInterval(menuBg.interval); menuBg.interval=null; }
+  if(menuBg.ctx) menuBg.ctx.clearRect(0,0,menuBg.W,menuBg.H);
+}
+
+function _stepMenuBg(){
+  if(!menuBg.active || !menuBg.ctx) return;
+
+  // Simuler 2 steps par frame (légèrement accéléré pour plus d'action)
+  for(let s=0;s<2;s++){
+    menuBg.timer++;
+    const A=menuBg.entA, B=menuBg.entB;
+
+    // Cerveau
+    if(menuBg.brainA){
+      const inp = aiInputsFor(A, B, B.arr);
+      const out = menuBg.brainA.forward(inp);
+      aiProcessFor(out, A);
+      A.face = B.x < A.x ? -1 : 1;
+    }
+    A.update();
+
+    // Agent MASTER
+    menuBg.agentB.act(B, A, A.arr, [], menuBg.timer);
+    B.update();
+
+    // Particules
+    for(let i=menuBg.particles.length-1;i>=0;i--){
+      const p=menuBg.particles[i];
+      p.x+=p.vx; p.y+=p.vy; p.vy+=0.12; p.life--;
+      if(p.life<=0) menuBg.particles.splice(i,1);
+    }
+
+    // Détection hit — relancer le round après explosion
+    let roundOver = false;
+    for(let i=A.arr.length-1;i>=0;i--){
+      const a=A.arr[i]; if(a.st)continue;
+      if(a.x>B.x&&a.x<B.x+B.w&&a.y>B.y&&a.y<B.y+B.h){
+        _menuBoom(a.x,a.y,B.col); A.arr.splice(i,1); roundOver=true; break;
+      }
+    }
+    for(let i=B.arr.length-1;i>=0;i--){
+      const a=B.arr[i]; if(a.st)continue;
+      if(a.x>A.x&&a.x<A.x+A.w&&a.y>A.y&&a.y<A.y+A.h){
+        _menuBoom(a.x,a.y,A.col); B.arr.splice(i,1); roundOver=true; break;
+      }
+    }
+    if(menuBg.timer>60*25) roundOver=true; // max 25s par round
+
+    if(roundOver){
+      clearInterval(menuBg.interval); menuBg.interval=null;
+      // Pause courte puis nouveau round
+      setTimeout(()=>{ if(menuBg.active) _startMenuBgRound(); }, 1200);
+      break;
+    }
+  }
+
+  _drawMenuBg();
+}
+
+function _menuBoom(x,y,col){
+  for(let i=0;i<18;i++){
+    const a=Math.random()*Math.PI*2, s=1+Math.random()*5;
+    menuBg.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:25+Math.random()*20,col,sz:2});
+  }
+  for(let i=0;i<8;i++){
+    const a=Math.random()*Math.PI*2, s=2+Math.random()*6;
+    menuBg.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-3,life:15,col:'#f0c040',sz:1});
+  }
+}
+
+function _drawMenuBg(){
+  const ctx=menuBg.ctx, W=menuBg.W, H=menuBg.H;
+  if(!ctx||!W||!H) return;
+
+  // Scale world → screen
+  const sc = Math.max(W/WW, H/WH);
+  const offX=(W-WW*sc)/2, offY=(H-WH*sc)/2;
+
+  ctx.clearRect(0,0,W,H);
+
+  // Fond pierre
+  ctx.fillStyle='#0d0818';
+  ctx.fillRect(0,0,W,H);
+
+  ctx.save();
+  ctx.translate(offX, offY);
+  ctx.scale(sc, sc);
+
+  // Briques arrière-plan (simplifié)
+  const bW=64,bH=32;
+  for(let by=0;by<WH+bH;by+=bH){
+    const row=Math.floor(by/bH);
+    const ox=(row%2)*bW/2;
+    for(let bx=-ox;bx<WW+bW;bx+=bW){
+      ctx.fillStyle='#110a1e';
+      ctx.fillRect(bx+1,by+1,bW-2,bH-2);
+      ctx.fillStyle='#0a0814';
+      ctx.fillRect(bx,by,bW,1);
+      ctx.fillRect(bx,by,1,bH);
+    }
+  }
+
+  // Torches animées
+  const t=menuBg.timer;
+  [[200,WH-30],[600,WH-30],[1000,WH-30],[400,350],[900,260]].forEach(([tx,ty])=>{
+    drawTorch(ctx,tx,ty,t);
+  });
+
+  // Plateformes
+  for(const p of platforms){
+    if(p.w<=12||p.h>=WH-40){
+      ctx.fillStyle='#1e1630'; ctx.fillRect(p.x,p.y,p.w,p.h); continue;
+    }
+    ctx.fillStyle='#2e2448'; ctx.fillRect(p.x,p.y,p.w,p.h);
+    ctx.fillStyle='#5a4e80'; ctx.fillRect(p.x,p.y,p.w,2);
+    ctx.fillStyle='#1a1430'; ctx.fillRect(p.x,p.y+p.h-3,p.w,3);
+  }
+
+  // Entités
+  if(menuBg.entA) menuBg.entA.draw(ctx);
+  if(menuBg.entB) menuBg.entB.draw(ctx);
+
+  // Particules
+  for(const p of menuBg.particles){
+    const a=p.life/45;
+    ctx.fillStyle=p.col+(Math.round(a*255).toString(16).padStart(2,'0'));
+    ctx.fillRect(Math.round(p.x),Math.round(p.y),p.sz,p.sz);
+  }
+
+  ctx.restore();
+
+  // Label niveau MASTER en coin
+  ctx.fillStyle='rgba(255,68,68,0.5)';
+  ctx.font='bold 7px monospace';
+  ctx.textAlign='left';
+  ctx.fillText('MASTER', offX+12, offY+24);
+}
+
 async function init(){
   await loadCreator();
   await loadBrains();
@@ -3674,6 +5037,9 @@ async function init(){
 
   if(githubSync.repo){ setTimeout(()=>githubSync.sync(),800); }
   if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+
+  // Lancer la simulation de fond du menu après un court délai
+  setTimeout(()=>initMenuBg(), 300);
 }
 init();
 </script>
