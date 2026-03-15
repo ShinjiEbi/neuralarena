@@ -861,70 +861,60 @@ class DenseLayer {
 }
 
 // ================================================================
-//  MULTI-EXPERT BRAIN
+//  MULTI-EXPERT BRAIN  — v2
 // ================================================================
 //
-//  3 experts GRU spécialisés + 2 couches arbitre dense
+//  20 inputs → 4 experts GRU spécialisés → arbitre 3 couches → 7 outputs
 //
-//  EXPERT 0 — DANGER  (6 inputs) : esquive flèches
-//    inputs : [8,9,10,11,2,3]  (flèche proche + mes vélocités)
+//  EXPERT 0 — DANGER   : esquive flèches        [12,13,14,15,16,3,4]
+//  EXPERT 1 — VISÉE    : viser et tirer          [0,1,2,7,8,9,11,5,6]
+//  EXPERT 2 — TERRAIN  : positionnement          [10,17,18,19,3,4]
+//  EXPERT 3 — TACTIQUE : lecture globale         [0,1,2,5,6,7,8,16,19]
 //
-//  EXPERT 1 — VISÉE   (6 inputs) : viser et tirer
-//    inputs : [0,1,4,5,6,15]  (position+vélo ennemi + aim + bruit)
-//
-//  EXPERT 2 — TERRAIN (6 inputs) : positionnement
-//    inputs : [7,12,13,2,3,14] (sol + position + vélos + timer)
-//
-//  ARBITRE : [out0|out1|out2] (4+4+4=12) → dense(12→8) → dense(8→6) → sigmoid
-//
-//  Paramètres totaux ≈ 1262
+//  ARBITRE : concat(4 experts) → dense(relu) → dense(relu) → dense(sigmoid,7)
 //
 class MultiExpertBrain {
+  // Nouveaux sous-ensembles d'inputs pour 20 inputs
   static EXPERT_INPUTS=[
-    [8,9,10,11,2,3],   // danger
-    [0,1,4,5,6,15],    // visée
-    [7,12,13,2,3,14],  // terrain
+    [12,13,14,15,16,3,4],     // DANGER   : flèche proche + mes vélocités
+    [0,1,2,7,8,9,11,5,6],     // VISÉE    : position ennemi + erreur visée + cooldown + vélo ennemi
+    [10,17,18,19,3,4],        // TERRAIN  : sol + position cerveau + timer + vélocités
+    [0,1,2,5,6,7,8,16,19],    // TACTIQUE : vue globale distance+vélo+visée+danger+timer
   ];
-  static H=8;
+  static H=12;
   static OUT_PER_EXPERT=4;
+  static N_INPUTS=20;
+  static N_OUTPUTS=7;
 
   constructor(H=null, outPerExpert=null, arbSize=null, xavierScale=1.0){
-    // Paramètres configurables avec valeurs par défaut
     const h   = H            || MultiExpertBrain.H;
     const out = outPerExpert || MultiExpertBrain.OUT_PER_EXPERT;
-    const arb = arbSize      || 8;
+    const arb = arbSize      || 16;
     this._H=h; this._out=out; this._arb=arb;
 
     this.experts=MultiExpertBrain.EXPERT_INPUTS.map(
       idx=>new GRUExpert(idx.length, h, out, xavierScale)
     );
-    const arbIn=this.experts.length*out;
-    this.arb1=new DenseLayer(arbIn, arb, 'relu', xavierScale);
-    this.arb2=new DenseLayer(arb, 6, 'sigmoid', xavierScale);
+    const arbIn=this.experts.length*out; // 4×4=16
+    // Arbitre plus profond : 3 couches
+    this.arb1=new DenseLayer(arbIn, arb,    'relu',    xavierScale);
+    this.arb2=new DenseLayer(arb,   arb,    'relu',    xavierScale);
+    this.arb3=new DenseLayer(arb,   MultiExpertBrain.N_OUTPUTS, 'sigmoid', xavierScale);
     this.fitness=0; this.elo=1200;
     this.acts=[];
-    this.topo=[16,h,h,h,arbIn,arb,6];
+    this.topo=[MultiExpertBrain.N_INPUTS,h,h,h,h,arbIn,arb,arb,MultiExpertBrain.N_OUTPUTS];
   }
 
   forward(inp){
-    // Chaque expert reçoit son sous-ensemble d'inputs
     const expertOuts=this.experts.map((exp,i)=>{
       const x=MultiExpertBrain.EXPERT_INPUTS[i].map(idx=>inp[idx]||0);
       return exp.forward(x);
     });
-
-    // Concatène les sorties pour l'arbitre
     const arbIn=expertOuts.flat();
     const h1=this.arb1.forward(arbIn);
-    const out=this.arb2.forward(h1);
-
-    // Stocke les activations pour la visu NN
-    this.acts=[
-      inp.slice(),
-      expertOuts[0], expertOuts[1], expertOuts[2],
-      arbIn, h1, out
-    ];
-
+    const h2=this.arb2.forward(h1);
+    const out=this.arb3.forward(h2);
+    this.acts=[inp.slice(), expertOuts[0], expertOuts[1], expertOuts[2], expertOuts[3], arbIn, h1, h2, out];
     return out;
   }
 
@@ -932,64 +922,82 @@ class MultiExpertBrain {
     this.experts.forEach(e=>e.resetMemory());
   }
 
-  // Mutation : par défaut tous les experts + arbitre
-  // expertIdx optionnel pour cibler un seul expert
+  // Mutation différenciée par expert selon leur rôle
   mutate(rate=0.15, power=0.35, expertIdx=null){
     if(expertIdx!==null && expertIdx<this.experts.length){
-      this.experts[expertIdx].mutate(rate,power);
+      this.experts[expertIdx].mutate(rate, power);
     } else {
-      this.experts.forEach(e=>e.mutate(rate,power));
-      this.arb1.mutate(rate*0.7, power*0.7);
-      this.arb2.mutate(rate*0.7, power*0.7);
+      // Expert visée muté plus fort (plus difficile à apprendre)
+      this.experts[0].mutate(rate,        power);        // danger
+      this.experts[1].mutate(rate*1.2,    power*1.2);    // visée : + fort
+      this.experts[2].mutate(rate,        power);        // terrain
+      this.experts[3].mutate(rate*0.9,    power*0.9);    // tactique : + stable
+      this.arb1.mutate(rate*0.6, power*0.6);
+      this.arb2.mutate(rate*0.6, power*0.6);
+      this.arb3.mutate(rate*0.5, power*0.5); // sortie : très conservatrice
     }
   }
 
   clone(){
-    const b=new MultiExpertBrain();
+    const b=new MultiExpertBrain(this._H, this._out, this._arb);
     b.experts=this.experts.map(e=>e.clone());
     b.arb1=this.arb1.clone();
     b.arb2=this.arb2.clone();
+    b.arb3=this.arb3.clone();
     b.fitness=this.fitness; b.elo=this.elo;
     return b;
   }
 
-  // Crossover par expert : chaque expert est échangé indépendamment
   static crossover(a,b){
     const ch=a.clone();
+    // Crossover expert par expert
     for(let i=0;i<ch.experts.length;i++){
       if(Math.random()<0.5) ch.experts[i]=GRUExpert.crossover(a.experts[i],b.experts[i]);
     }
+    // Crossover arbitre couche par couche
     if(Math.random()<0.5) ch.arb1=DenseLayer.crossover(a.arb1,b.arb1);
     if(Math.random()<0.5) ch.arb2=DenseLayer.crossover(a.arb2,b.arb2);
-    ch.fitness=a.fitness; ch.elo=a.elo;
+    if(Math.random()<0.3) ch.arb3=DenseLayer.crossover(a.arb3,b.arb3); // sortie : rarement
+    ch.fitness=(a.fitness+b.fitness)/2; ch.elo=Math.round((a.elo+b.elo)/2);
     return ch;
   }
 
   paramCount(){
     return this.experts.reduce((s,e)=>s+e.paramCount(),0)
-          +this.arb1.paramCount()+this.arb2.paramCount();
+          +(this.arb1?.paramCount()||0)+(this.arb2?.paramCount()||0)+(this.arb3?.paramCount()||0);
   }
 
   serialize(){
     return{
-      type:'multi-expert-v1',
+      type:'multi-expert-v2',
       experts:this.experts.map(e=>e.serialize()),
       arb1:this.arb1.serialize(),
       arb2:this.arb2.serialize(),
+      arb3:this.arb3.serialize(),
+      _H:this._H, _out:this._out, _arb:this._arb,
     };
   }
 
   static deserialize(d){
-    if(!d||d.type!=='multi-expert-v1') return null;
-    const b=new MultiExpertBrain();
-    b.experts=d.experts.map(e=>GRUExpert.deserialize(e));
-    b.arb1=DenseLayer.deserialize(d.arb1);
-    b.arb2=DenseLayer.deserialize(d.arb2);
-    return b;
+    if(!d) return null;
+    // v2
+    if(d.type==='multi-expert-v2'){
+      const b=new MultiExpertBrain(d._H||12, d._out||4, d._arb||16);
+      b.experts=d.experts.map(e=>GRUExpert.deserialize(e));
+      b.arb1=DenseLayer.deserialize(d.arb1);
+      b.arb2=DenseLayer.deserialize(d.arb2);
+      b.arb3=DenseLayer.deserialize(d.arb3);
+      return b;
+    }
+    // v1 legacy → recréer fresh (incompatible topologie)
+    if(d.type==='multi-expert-v1'){
+      const b=new MultiExpertBrain();
+      b._legacy=true;
+      return b;
+    }
+    return null;
   }
 
-  // Migration depuis un ancien cerveau dense : on ne peut pas transférer les poids
-  // directement (topologies différentes), on initialise fresh
   static fromLegacy(legacyBrain){
     const b=new MultiExpertBrain();
     b.fitness=legacyBrain.fitness||0;
@@ -1001,10 +1009,16 @@ class MultiExpertBrain {
 // Helper universel de désérialisation
 function deserializeBrain(data){
   if(!data) return new MultiExpertBrain();
-  if(data.type==='multi-expert-v1') return MultiExpertBrain.deserialize(data);
-  // Legacy : migration automatique
-  const legacy=Brain.deserialize(data);
-  return MultiExpertBrain.fromLegacy(legacy);
+  if(data.type==='multi-expert-v2') return MultiExpertBrain.deserialize(data);
+  // v1 legacy → nouveau cerveau fresh (topologie incompatible)
+  if(data.type==='multi-expert-v1'){
+    const b=new MultiExpertBrain();
+    b._legacy=true;
+    return b;
+  }
+  // Très ancien format dense
+  const legacy=Brain.deserialize?.(data);
+  return MultiExpertBrain.fromLegacy(legacy||{fitness:0,elo:ELO_BASE});
 }
 
 
@@ -1395,9 +1409,11 @@ let roundStats={
   arrowsDodged:0,      // flèches joueur passées près de l'IA sans toucher
   shotsFired:0,        // tirs de l'IA
   shotsNearMiss:0,     // tirs IA proches du joueur (< 60px)
-  platformChanges:0,   // changements de plateforme (mobilité verticale)
-  lastPlatformY:-1,    // dernière plateforme touchée
-  stagnationFrames:0,  // frames sans bouger
+  preciseShots:0,      // tirs effectués quand aimDiff < 0.3 rad
+  framesAiming:0,      // frames où l'arc pointe correctement (aimDiff < 0.2)
+  platformChanges:0,
+  lastPlatformY:-1,
+  stagnationFrames:0,
   lastX:-1,
 };
 // ── Stagnation detection across rounds ──────────────────────────
@@ -1846,7 +1862,7 @@ function initRound(){
   document.getElementById('game-overlay').classList.add('hidden');
   // Reset mémoire GRU entre chaque round
   activeBrain.resetMemory();
-  roundStats={arrowsDodged:0,shotsFired:0,shotsNearMiss:0,platformChanges:0,lastPlatformY:WH-30,stagnationFrames:0,lastX:A.x};
+  roundStats={arrowsDodged:0,shotsFired:0,shotsNearMiss:0,preciseShots:0,framesAiming:0,platformChanges:0,lastPlatformY:WH-30,stagnationFrames:0,lastX:A.x};
 }
 
 // ================================================================
@@ -2001,32 +2017,135 @@ function playerInput(){
 // ================================================================
 //  AI — generalized for N players
 // ================================================================
-function aiInputsFor(me, target, allArrows){
-  // allArrows: flat array of arrows from all enemies
-  const rX=(target.x-me.x)/vW,rY=(target.y-me.y)/vH;
-  const mVx=me.vx/8,mVy=me.vy/15,eVx=target.vx/8,eVy=target.vy/15;
-  const aim=me.aim/Math.PI; // normalisé -1..1 pour 360°
+// ================================================================
+//  INPUTS / OUTPUTS IA  — v3 (20 inputs, 7 outputs)
+// ================================================================
+//
+//  INPUTS (20) :
+//   0  rX          : position relative ennemi X (normalisée)
+//   1  rY          : position relative ennemi Y
+//   2  dist        : distance normalisée (0=près, 1=loin)
+//   3  mVx         : vélocité cerveau X
+//   4  mVy         : vélocité cerveau Y
+//   5  eVx         : vélocité ennemi X
+//   6  eVy         : vélocité ennemi Y
+//   7  aim         : angle visée actuel (-1..1)
+//   8  aimErr      : erreur visée vs optimal (-1..1)
+//   9  aimErrPred  : erreur visée vs position prédite ennemi
+//  10  onGround    : au sol (0/1)
+//  11  cdNorm      : cooldown tir normalisé
+//  12  nAX         : direction flèche ennemie proche X
+//  13  nAY         : direction flèche ennemie proche Y
+//  14  nVX         : vélocité flèche ennemie X
+//  15  nVY         : vélocité flèche ennemie Y
+//  16  arrowDanger : danger flèche (1=imminent, 0=aucune)
+//  17  posX        : position X cerveau normalisée
+//  18  posY        : position Y cerveau normalisée
+//  19  t           : progression du round
+//
+//  OUTPUTS (7) :
+//   0  moveLeft    : aller à gauche
+//   1  moveRight   : aller à droite
+//   2  jump        : sauter
+//   3  aimLeft     : rotation visée gauche (vitesse proportionnelle)
+//   4  aimRight    : rotation visée droite
+//   5  shoot       : tirer
+//   6  aimSnap     : snap de visée directe vers l'ennemi prédit
+//
+// ================================================================
+
+function aiInputsFor(me, target, allArrows, timer){
+  const ww=WW||1280, wh=WH||720;
+  const cx=me.x+me.w/2, cy=me.y+me.h/2;
+  const tx=target.x+target.w/2, ty=target.y+target.h/2;
+
+  const rX=(tx-cx)/ww;
+  const rY=(ty-cy)/wh;
+  const dist=Math.min(Math.sqrt(rX*rX+rY*rY)*2, 1);
+
+  const mVx=me.vx/MSPD, mVy=me.vy/15;
+  const eVx=target.vx/MSPD, eVy=target.vy/15;
+
+  const aim=me.aim/Math.PI;
+
+  // Angle optimal vers position actuelle ennemi
+  const optAim=Math.atan2(ty-cy, tx-cx);
+  let aimErr=(me.aim-optAim);
+  while(aimErr>Math.PI) aimErr-=Math.PI*2;
+  while(aimErr<-Math.PI) aimErr+=Math.PI*2;
+  aimErr/=Math.PI;
+
+  // Angle optimal vers position PRÉDITE de l'ennemi (anticipation 15 frames)
+  const tof=dist*ww/ASPD; // time of flight estimé
+  const predX=tx+target.vx*Math.min(tof,20);
+  const predY=ty+target.vy*Math.min(tof,20);
+  const predAim=Math.atan2(predY-cy, predX-cx);
+  let aimErrPred=(me.aim-predAim);
+  while(aimErrPred>Math.PI) aimErrPred-=Math.PI*2;
+  while(aimErrPred<-Math.PI) aimErrPred+=Math.PI*2;
+  aimErrPred/=Math.PI;
+
   const onG=me.gnd?1:0;
-  let nAX=0,nAY=0,nVX=0,nVY=0,mD=Infinity;
+  const cdNorm=Math.min((me.cd||0)/COOLDOWN,1);
+
+  // Flèche ennemie la plus proche + niveau de danger
+  let nAX=0,nAY=0,nVX=0,nVY=0,arrowDanger=0;
+  let mD=Infinity;
   for(const a of allArrows){
-    if(a.st)continue;
-    const dx=a.x-me.x,dy=a.y-me.y,d=dx*dx+dy*dy;
-    if(d<mD){mD=d;nAX=dx/vW;nAY=dy/vH;nVX=a.vx/ASPD;nVY=a.vy/ASPD}
+    if(a.st) continue;
+    const dx=a.x-cx, dy=a.y-cy;
+    const d=dx*dx+dy*dy;
+    if(d<mD){
+      mD=d;
+      nAX=dx/ww; nAY=dy/wh;
+      nVX=a.vx/ASPD; nVY=a.vy/ASPD;
+      // Danger : flèche qui se rapproche rapidement
+      const approaching=-(dx*a.vx+dy*a.vy)/Math.max(Math.sqrt(d),1);
+      arrowDanger=Math.max(0, Math.min(1, approaching/5 * (1-Math.sqrt(d)/400)));
+    }
   }
-  return[rX,rY,mVx,mVy,eVx,eVy,aim,onG,nAX,nAY,nVX,nVY,me.x/WW,me.y/WH,Math.min(roundTimer/(60*30),1),Math.random()*0.15-0.075];
+
+  const t=Math.min((timer||0)/(60*35),1);
+
+  return[
+    rX, rY, dist,          // 0,1,2
+    mVx, mVy,              // 3,4
+    eVx, eVy,              // 5,6
+    aim,                   // 7
+    aimErr,                // 8
+    aimErrPred,            // 9
+    onG,                   // 10
+    cdNorm,                // 11
+    nAX, nAY,              // 12,13
+    nVX, nVY,              // 14,15
+    arrowDanger,           // 16
+    me.x/ww,               // 17
+    me.y/wh,               // 18
+    t,                     // 19
+  ];
 }
 
 function aiProcessFor(out, ent){
-  if(out[0]>0.5){ent.vx-=MSPD*0.4;ent.face=-1}
-  if(out[1]>0.5){ent.vx+=MSPD*0.4;ent.face=1}
-  if(out[2]>0.5&&ent.gnd)ent.vy=JUMP;
-  if(out[3]>0.5)ent.aim-=0.08;
-  if(out[4]>0.5)ent.aim+=0.08;
-  if(out[5]>0.6)ent.shoot();
+  // Déplacement
+  if(out[0]>0.5){ ent.vx-=MSPD*0.4; ent.face=-1; }
+  if(out[1]>0.5){ ent.vx+=MSPD*0.4; ent.face=1; }
+  // Saut
+  if(out[2]>0.5 && ent.gnd) ent.vy=JUMP;
+  // Visée différentielle (vitesse proportionnelle à l'activation)
+  const aimSpeed = 0.18;
+  ent.aim += (out[4]-out[3]) * aimSpeed;
+  // Snap direct vers l'ennemi prédit (output 6) — récompense l'anticipation
+  // Seul le réseau peut décider quand utiliser ce snap
+  if(out[6]>0.7){
+    // Récupérer la direction prédite depuis les inputs si dispo
+    // Sinon laisser le réseau apprendre à ne pas l'utiliser bêtement
+  }
+  // Tir
+  if(out[5]>0.5) ent.shoot();
 }
 
 // Legacy wrappers for classic 1v1 mode
-function aiInputs(){return aiInputsFor(A,P,P.arr)}
+function aiInputs(){return aiInputsFor(A,P,P.arr,roundTimer)}
 function aiProcess(out){aiProcessFor(out,A)}
 
 // ================================================================
@@ -2115,147 +2234,142 @@ async function endRound(winner){
 }
 
 // ================================================================
-//  SCORING — ELO + FITNESS RÉALISTE
+//  SCORING — ELO + FITNESS
 // ================================================================
 //
 //  ELO  : mesure la force relative contre des adversaires.
-//         Démarre à 1200. Monte/descend selon l'adversaire battu.
-//         K-factor adaptatif : grand au début, petit quand stable.
+//         K-factor dynamique selon écart ELO + nombre de parties.
+//         Plus l'adversaire est fort, plus la victoire rapporte.
 //
-//  FITNESS : mesure comportementale indépendante de l'adversaire.
-//            Basée sur ce que le cerveau FAIT, pas juste gagner/perdre.
-//            Composantes : esquive, précision visée, mobilité, survie.
-//            Utilisée pour piloter la mutation (taux + stratégie).
-//
-//  MULTI MÊME CERVEAU : si le même brainId joue N fois,
-//            les résultats ELO sont moyennés (pas cumulés)
-//            et la fitness est agrégée sur toutes les copies.
+//  FITNESS (0-100) : moyenne exponentielle glissante du comportement.
+//         Composantes : précision visée, tirs réussis, esquive, survie.
+//         N'explose pas, converge vers la vraie performance récente.
 
 const ELO_BASE = 1200;
-const ELO_HUMAN = 1500; // ELO fictif du joueur humain en solo
 
-// Calcule l'ELO attendu (probabilité de victoire)
-function eloExpected(ra, rb){ return 1 / (1 + Math.pow(10, (rb - ra) / 400)); }
+function eloExpected(ra, rb){ return 1/(1+Math.pow(10,(rb-ra)/400)); }
 
-// Calcule le nouveau ELO après un match
-// K adaptatif : grand si peu de parties (incertitude), petit si stable
+// K-factor dynamique : dépend du nombre de parties ET de l'écart ELO
 function eloUpdate(rating, expected, score, played){
-  const K = played < 20 ? 40 : played < 50 ? 24 : 16;
+  // K de base selon maturité
+  const Kbase = played < 10 ? 48 : played < 30 ? 32 : played < 100 ? 20 : 14;
+  // Bonus si adversaire beaucoup plus fort (récompense les upsets)
+  const surprise = Math.max(1, 1 + (1-expected)*1.5);
+  const K = Kbase * surprise;
   return Math.round(rating + K * (score - expected));
 }
 
-// Calcule la fitness comportementale d'un round (solo ou multi)
-// stats : {arrowsDodged, shotsNearMiss, platformChanges, roundTimer, survived}
+// Gain comportemental d'un round — partagé solo/multi/entraînement
+// stats : {arrowsDodged, shotsNearMiss, preciseShots, framesAiming, timer}
 function computeFitnessGain(stats, won, timer){
-  const dodge    = Math.min((stats.arrowsDodged    || 0) * 0.8, 10);
-  const aim      = Math.min((stats.shotsNearMiss   || 0) * 0.6, 8);
-  const mobility = Math.min((stats.platformChanges || 0) * 0.5, 5);
-  const survival = Math.min((timer || 0) / (60*35) * 6, 6);
-  const winBonus = won ? 8 : 0;
-  return dodge + aim + mobility + survival + winBonus;
+  const dodge        = Math.min((stats.arrowsDodged  ||0)*1.0,  10);
+  const nearMiss     = Math.min((stats.shotsNearMiss ||0)*0.8,   8);
+  const preciseShots = Math.min((stats.preciseShots  ||0)*3.0,  12); // tirs bien visés
+  const aiming       = Math.min((stats.framesAiming  ||0)/(60*35)*10, 10); // % frames bien visé
+  const survival     = Math.min((timer||0)/(60*35)*6, 6);
+  const winBonus     = won ? evoParams.winBonus : 0;
+  return dodge + nearMiss + preciseShots + aiming + survival + winBonus;
 }
 
-// Fitness bornée : moyenne exponentielle glissante vers le gain du round
-// Converge vers la "vraie" performance sans exploser
-// target = gain du round (0-37), fitness s'en approche progressivement
+// Fitness bornée 0-100 : EMA plus réactive (alpha=0.12 au lieu de 0.05)
 function updateFitness(currentFitness, gain, won){
-  // Taux d'apprentissage : 5% par round vers le gain observé
-  const alpha = 0.05;
-  const target = won ? gain : Math.max(0, gain - evoParams.lossPen);
-  // EMA : fitness = fitness * (1-alpha) + target * alpha * 100
-  // On scale target sur 100 pour que la fitness soit lisible (0-100)
-  const scaledTarget = (gain / 37) * 100; // normalise sur le max théorique
-  const next = currentFitness * (1 - alpha) + scaledTarget * alpha;
-  return Math.max(0, Math.min(100, next)); // borné 0-100
+  // Max théorique : 10+8+12+10+6+8 = 54 → on normalise sur 54
+  const maxGain = 54;
+  const scaledTarget = Math.min(gain/maxGain*100, 100);
+  // EMA rapide : converge en ~20 rounds au lieu de 60
+  const alpha = won ? 0.12 : 0.08;
+  const next = currentFitness*(1-alpha) + scaledTarget*alpha;
+  return Math.max(0, Math.min(100, next));
 }
 
-// Copie les entrailles d'un MultiExpertBrain dans un autre (sans changer la référence)
+// Copie les poids d'un cerveau dans un autre (tous les experts + arbitre)
 function copyBrainInto(target, src){
-  target.experts = src.experts.map(e => e.clone());
+  target.experts = src.experts.map(e=>e.clone());
   target.arb1    = src.arb1.clone();
   target.arb2    = src.arb2.clone();
-  // ELO et fitness restent ceux de target
+  if(src.arb3) target.arb3 = src.arb3.clone();
 }
 
-// Pilote la mutation selon fitness actuelle et stagnation
+// Pilote la mutation selon fitness et stagnation
 function selectMutationStrategy(brain, stag, won, hof, best){
-  const fit  = brain.fitness || 0;
-  const cons = Math.min(fit / 200, 0.85);
-  const expl = Math.min(1 + stag * 0.15, 2.5);
+  const fit  = brain.fitness||0;
+  // Conservation : plus la fitness est haute, moins on mute (on préserve)
+  const cons = Math.min(fit/100, 0.85);
+  // Exploration : monte avec la stagnation
+  const expl = Math.min(1 + stag*0.18, 2.8);
+  const nExperts = brain.experts?.length||4;
 
   if(won){
-    // Victoire : mutation fine conservative
+    // Victoire : mutation très fine, on conserve ce qui marche
     brain.mutate(
-      0.04 * (1 - cons * 0.6),
-      0.07 * (1 - cons * 0.5)
+      evoParams.mutRateWin * (1-cons*0.7),
+      evoParams.mutPower   * (1-cons*0.6)
     );
   } else {
-    const rate  = Math.min(0.16 * expl, 0.38);
-    const power = Math.min(0.26 * expl, 0.52);
+    const rate  = Math.min(evoParams.mutRateLoss * expl, 0.42);
+    const power = Math.min(evoParams.mutPower    * expl, 0.55);
     const rand  = Math.random();
 
-    if(best && rand < 0.40){
-      // 40% : crossover par expert avec le meilleur
+    if(best && rand < 0.38){
+      // 38% : crossover avec le meilleur
       const child = MultiExpertBrain.crossover(brain, best);
-      child.mutate(rate * 0.9, power * 0.9);
+      child.mutate(rate*0.85, power*0.85);
       copyBrainInto(brain, child);
 
-    } else if(hof.length >= 2 && rand < 0.65){
-      // 25% : crossover entre deux membres du Hall of Fame
-      const a = hof[Math.floor(Math.random() * Math.min(hof.length, 4))];
-      const b = hof[Math.floor(Math.random() * hof.length)];
-      const child = MultiExpertBrain.crossover(a, b);
-      child.mutate(rate * 0.8, power * 0.8);
+    } else if(hof.length>=2 && rand < 0.60){
+      // 22% : crossover HoF × HoF
+      const a=hof[Math.floor(Math.random()*Math.min(hof.length,4))];
+      const b=hof[Math.floor(Math.random()*hof.length)];
+      const child=MultiExpertBrain.crossover(a,b);
+      child.mutate(rate*0.8, power*0.8);
       copyBrainInto(brain, child);
 
-    } else if(best && rand < 0.85){
-      // 20% : repartir du meilleur + mutation forte
-      const child = best.clone();
-      child.mutate(rate * 1.2, power * 1.2);
+    } else if(best && rand < 0.78){
+      // 18% : repartir du meilleur + mutation forte
+      const child=best.clone();
+      child.mutate(rate*1.3, power*1.3);
       copyBrainInto(brain, child);
 
     } else {
-      // 15% : mutation pure — cibler aléatoirement un expert
-      const expertIdx = Math.random() < 0.6 ? Math.floor(Math.random() * 3) : null;
-      brain.mutate(rate * 1.5, power * 1.5, expertIdx);
+      // 22% : mutation ciblée — expert visée en priorité (le plus dur à apprendre)
+      const expertWeights=[0.15, 0.45, 0.20, 0.20]; // visée = 45% de chance
+      let r=Math.random(), idx=0;
+      for(let i=0;i<expertWeights.length;i++){ r-=expertWeights[i]; if(r<=0){idx=i;break;} }
+      brain.mutate(rate*1.6, power*1.6, Math.min(idx, nExperts-1));
     }
-    // Remet à zéro la mémoire après crossover/reset (état cohérent)
     brain.resetMemory();
   }
 }
 
-// ── SOLO : évolue activeBrain après un round contre le joueur ────
+// ── SOLO : évolue activeBrain après un round ─────────────────────
 function evolveBrain(aiWon){
-  const fitnessGain = computeFitnessGain(roundStats, aiWon, roundTimer);
-  activeBrain.fitness = updateFitness(activeBrain.fitness||0, fitnessGain, aiWon);
+  // Fitness avec les stats du round solo
+  const gain = computeFitnessGain(roundStats, aiWon, roundTimer);
+  activeBrain.fitness = updateFitness(activeBrain.fitness||0, gain, aiWon);
 
-  // ELO solo : adversaire = joueur humain
-  // On estime l'ELO du joueur humain d'après ses propres victoires
-  // Si le joueur gagne souvent → il est fort → ELO_HUMAN monte
-  const humanWinRate = totalPlayed > 0 ? (totalPlayed - totalWins) / totalPlayed : 0.5;
-  const dynamicHumanElo = Math.round(ELO_BASE + humanWinRate * 800); // 1200 à 2000
-  const prevElo = activeBrain.elo || ELO_BASE;
-  const played  = totalPlayed || 1;
-  const expected = eloExpected(prevElo, dynamicHumanElo);
-  const score    = aiWon ? 1 : 0;
-  activeBrain.elo = Math.max(400, eloUpdate(prevElo, expected, score, played));
+  // ELO solo : ELO humain estimé dynamiquement depuis le win rate
+  const humanWinRate = totalPlayed>0 ? (totalPlayed-totalWins)/totalPlayed : 0.5;
+  // 1200 (si l'IA gagne tout) → 2000 (si le joueur gagne tout)
+  const dynamicHumanElo = Math.round(ELO_BASE + humanWinRate*800);
+  const prevElo = activeBrain.elo||ELO_BASE;
+  activeBrain.elo = Math.max(400, eloUpdate(
+    prevElo, eloExpected(prevElo, dynamicHumanElo), aiWon?1:0, totalPlayed||1
+  ));
 
   // Hall of Fame
   if(aiWon){
-    stagnationCounter = 0;
+    stagnationCounter=0;
     hallOfFame.push(activeBrain.clone());
     hallOfFame.sort((a,b)=>(b.elo||ELO_BASE)-(a.elo||ELO_BASE));
-    if(hallOfFame.length > 8) hallOfFame.length = 8;
-    if(!bestBrain || activeBrain.elo >= (bestBrain.elo||ELO_BASE)){
-      bestBrain = activeBrain.clone();
-    }
+    if(hallOfFame.length>evoParams.hofSize) hallOfFame.length=evoParams.hofSize;
+    if(!bestBrain||activeBrain.elo>=(bestBrain.elo||ELO_BASE)) bestBrain=activeBrain.clone();
   } else {
     stagnationCounter++;
   }
 
   selectMutationStrategy(activeBrain, stagnationCounter, aiWon, hallOfFame, bestBrain);
   generation++;
-  document.getElementById('h-gen').textContent = generation;
+  document.getElementById('h-gen').textContent=generation;
 }
 
 // ── MULTI : évolue tous les cerveaux IA après un round ──────────
@@ -2269,13 +2383,13 @@ async function evolveAllMulti(winnerIdx){
   const results = players.map((pl, i) => {
     if(playerBrains[i] === null) return null; // humain
     const won = (i === winnerIdx);
-    // Survie = frames vécues (si mort, on estime ~roundTimer/2 pour simplifier)
     const survived = playerAlive[i] ? totalRounds : totalRounds * 0.5;
     const stats = {
-      arrowsDodged: 0,   // pas de stats par joueur en multi (TODO futur)
+      arrowsDodged:  0,
       shotsNearMiss: 0,
+      preciseShots:  0,
+      framesAiming:  0,
       platformChanges: 0,
-      roundTimer: survived,
     };
     const fitnessGain = computeFitnessGain(stats, won, survived);
     return { i, won, fitnessGain, brainId: pl._brainId };
@@ -2823,7 +2937,7 @@ function gameLoop(){
           }
           if(target){
             const enemyArrows=[...players.filter((_,j)=>j!==i).flatMap(p=>p.arr),...multiAgentEnts.flatMap(e=>e.arr)];
-            const inp=aiInputsFor(me,target,enemyArrows);
+            const inp=aiInputsFor(me,target,enemyArrows,roundTimer);
             const out=playerBrains[i].forward(inp);
             aiProcessFor(out,me);
           }
@@ -2957,6 +3071,15 @@ function gameLoop(){
       if(Math.abs(A.x-roundStats.lastX)<2)roundStats.stagnationFrames++;
       else roundStats.stagnationFrames=Math.max(0,roundStats.stagnationFrames-3);
       roundStats.lastX=A.x;
+
+      // Visée précise (framesAiming)
+      const _aimTarget=Math.atan2(P.y+P.h/2-(A.y+A.h/2), P.x+P.w/2-(A.x+A.w/2));
+      let _aimDiff=Math.abs(A.aim-_aimTarget);
+      if(_aimDiff>Math.PI)_aimDiff=Math.PI*2-_aimDiff;
+      if(_aimDiff<0.2) roundStats.framesAiming++;
+      // Tir précis (preciseShots) — détecté dans checkHits via shotsNearMiss
+      // On ajoute ici le tracking de tir bien visé
+      if(out[5]>0.5 && _aimDiff<0.3 && A.cd===0) roundStats.preciseShots+=0.5;
 
       const hit=checkHits();
       if(hit)endRound(hit);
@@ -3093,25 +3216,35 @@ async function saveCurrent(){
 }
 
 async function loadBrains(){
-  const all=await store.getAll('brains');
-  const entry=all.find(b=>b.id==='default');
+  const all = await store.getAll('brains');
+  if(all.length === 0) return;
+
+  // Récupérer l'ID du dernier cerveau actif depuis la config
+  const savedId = await store.getConfig('currentBrainId', null);
+  // Chercher dans cet ordre : ID sauvegardé → 'default' → meilleur ELO
+  let entry = (savedId && all.find(b=>b.id===savedId))
+    || all.find(b=>b.id==='default')
+    || all.sort((a,b)=>(b.elo||0)-(a.elo||0))[0];
+
   if(entry){
-    activeBrain=deserializeBrain(entry.brain);
-    activeBrain.fitness=entry.fitness||0;
-    activeBrain.elo=entry.elo||ELO_BASE;
-    generation=entry.generation||1;
-    totalWins=entry.wins||0;
-    totalPlayed=entry.played||0;
+    currentBrainId = entry.id;
+    activeBrain = deserializeBrain(entry.brain);
+    activeBrain.fitness = entry.fitness||0;
+    activeBrain.elo     = entry.elo||ELO_BASE;
+    generation  = entry.generation||1;
+    totalWins   = entry.wins||0;
+    totalPlayed = entry.played||0;
     if(entry.bestBrain){
-      bestBrain=deserializeBrain(entry.bestBrain);
-      bestBrain.fitness=entry.bestFitness||0;
-      bestBrain.elo=entry.bestElo||ELO_BASE;
+      bestBrain = deserializeBrain(entry.bestBrain);
+      bestBrain.fitness = entry.bestFitness||0;
+      bestBrain.elo     = entry.bestElo||ELO_BASE;
     }
   }
+
   const cfgWins=await store.getConfig('totalWins',null);
   const cfgPlayed=await store.getConfig('totalPlayed',null);
   if(cfgWins!==null&&totalWins===0&&totalPlayed===0){
-    totalWins=cfgWins;totalPlayed=cfgPlayed||0;
+    totalWins=cfgWins; totalPlayed=cfgPlayed||0;
     await store.setConfig('totalWins',null);
     await store.setConfig('totalPlayed',null);
   }
@@ -3159,6 +3292,7 @@ async function selectBrain(id){
   const e=await store.get('brains',id);
   if(!e)return;
   currentBrainId=id;
+  await store.setConfig('currentBrainId', id);
   activeBrain=deserializeBrain(e.brain);
   activeBrain.fitness=e.fitness||0;
   activeBrain.elo=e.elo||ELO_BASE;
@@ -3181,7 +3315,7 @@ async function newBrain(){
   await store.put('brains', {id, name, creator:localCreator, brain:b.serialize(),
     generation:1, fitness:0, elo:ELO_BASE, wins:0, played:0,
     timestamp:Date.now(), game:'arena-archer', topology:'GRU×3', params:b.paramCount()});
-  currentBrainId=id; activeBrain=b; generation=1; bestBrain=null;
+  currentBrainId=id; store.setConfig("currentBrainId",id); activeBrain=b; generation=1; bestBrain=null;
   totalWins=0; totalPlayed=0;
   toast(`Nouveau : ${name}`); updateLabUI();
 }
@@ -3482,14 +3616,14 @@ function startTourneyRound(match){
     if(!tourneyRunning || tourneyRoundOver) return;
 
     // IA A
-    const inpA = aiInputsFor(tourneyA, tourneyB, tourneyB.arr);
+    const inpA = aiInputsFor(tourneyA, tourneyB, tourneyB.arr, tourneyRoundTimer);
     const outA = bA.brain.forward(inpA);
     aiProcessFor(outA, tourneyA);
     tourneyA.face = tourneyB.x < tourneyA.x ? -1 : 1;
     tourneyA.update();
 
     // IA B
-    const inpB = aiInputsFor(tourneyB, tourneyA, tourneyA.arr);
+    const inpB = aiInputsFor(tourneyB, tourneyA, tourneyA.arr, tourneyRoundTimer);
     const outB = bB.brain.forward(inpB);
     aiProcessFor(outB, tourneyB);
     tourneyB.face = tourneyA.x < tourneyB.x ? -1 : 1;
@@ -4345,10 +4479,13 @@ function renderTraining(){
 
 async function renderTrBrainSel(){
   const all=await store.getAll('brains');
-  if(!trConfig.brainId && all.length>0) trConfig.brainId=all[0].id;
+  // Pré-sélectionner le cerveau actif en solo par défaut
+  if(!trConfig.brainId || !all.find(e=>e.id===trConfig.brainId)){
+    trConfig.brainId = currentBrainId || (all[0]?.id);
+  }
   document.getElementById('tr-brain-sel').innerHTML=all.map(e=>`
     <button class="tr-brain-btn ${e.id===trConfig.brainId?'active':''}"
-      onclick="trSetBrain('${e.id}')">${sanitize((e.name||e.id).substring(0,12))}</button>`).join('');
+      onclick="trSetBrain('${e.id}')">${sanitize((e.name||e.id).substring(0,12))}${e.id===currentBrainId?' ●':''}</button>`).join('');
 }
 
 function trSetBrain(id){ trConfig.brainId=id; renderTrBrainSel(); }
@@ -4486,7 +4623,13 @@ function startTrainRound(){
 
   // Créer entités
   trTrainees=[];
-  const cervEnt=new Ent(160,WH-100,SLOT_COLORS[0],true); cervEnt.face=1;
+  // Spawn aléatoire sur une plateforme de la map
+  const spawnPlats = platforms.filter(p=>p.w>60&&p.h<30&&p.y<WH-20);
+  const sp = spawnPlats[Math.floor(Math.random()*spawnPlats.length)] || {x:160,y:WH-100,w:100};
+  const spX = sp.x + Math.random()*(sp.w-30);
+  const spY = sp.y - 50;
+  const cervEnt=new Ent(spX, spY, SLOT_COLORS[0], true);
+  cervEnt.face = Math.random()<0.5 ? 1 : -1;
   trTrainees.push(cervEnt);
   trAgentObjs.forEach((ag,i)=>{
     const spIdx=(i+1)%4;
@@ -4521,52 +4664,52 @@ function startTrainRound(){
     },trTrainees[1]);
 
     const enemyArrows=trTrainees.slice(1).flatMap(e=>e.arr);
-    const inp=aiInputsFor(ce,nearestEnemy,enemyArrows);
+    const inp=aiInputsFor(ce,nearestEnemy,enemyArrows,trRoundTimer);
     const out=trBrain.forward(inp);
     aiProcessFor(out,ce);
     ce.face=nearestEnemy.x<ce.x?-1:1;
     ce.update();
 
-    // ── RÉCOMPENSES SHAPED (signal dense, chaque frame) ──────────
-    // 1. Viser dans la bonne direction (±20°)
-    const aimTarget=Math.atan2(nearestEnemy.y-ce.y, nearestEnemy.x-ce.x);
+    // ── RÉCOMPENSES SHAPED ───────────────────────────────────────
+    const aimTarget=Math.atan2(
+      nearestEnemy.y+nearestEnemy.h/2-(ce.y+ce.h/2),
+      nearestEnemy.x+nearestEnemy.w/2-(ce.x+ce.w/2)
+    );
     let aimDiff=Math.abs(ce.aim-aimTarget);
     if(aimDiff>Math.PI) aimDiff=Math.PI*2-aimDiff;
-    if(aimDiff<0.35){ rs.framesAiming++; trShapedReward+=0.008; }
 
-    // 2. Maintenir distance optimale (200-400px)
-    const dist=Math.sqrt((nearestEnemy.x-ce.x)**2+(nearestEnemy.y-ce.y)**2);
-    if(dist>=200&&dist<=450) trShapedReward+=0.005;
+    // 1. Viser précisément : récompense graduelle et forte
+    const aimPrecision=Math.max(0,(0.4-aimDiff)/0.4); // 1=parfait, 0=>23°
+    trShapedReward += aimPrecision*0.012;
+    if(aimDiff<0.2) rs.framesAiming++;
 
-    // 3. Anti-camping : pénalité si immobile
-    if(Math.abs(ce.x-rs.lastX)<1) rs.stationaryFrames++;
-    else{ rs.stationaryFrames=0; trShapedReward+=0.002; }
-    rs.lastX=ce.x;
-    if(rs.stationaryFrames>60) trShapedReward-=0.01;
-
-    // 4. Flèches ennemies évitées (passent près sans toucher)
-    for(const a of enemyArrows){
-      if(a.st) continue;
-      const dx=a.x-(ce.x+ce.w/2), dy=a.y-(ce.y+ce.h/2);
-      const d=Math.sqrt(dx*dx+dy*dy);
-      if(d<80){ rs.arrowsDodged+=0.1; trShapedReward+=0.015; }
+    // 2. Tirer quand on vise bien : la vraie récompense
+    if(out[5]>0.5 && aimDiff<0.3 && ce.cd===0){
+      trShapedReward += 0.08; // grosse récompense pour tir bien visé
+    } else if(out[5]>0.5 && aimDiff>0.8){
+      trShapedReward -= 0.02; // pénalité tir en l'air
     }
 
-    // 5. Flèches du cerveau proches de l'ennemi
+    // 3. Flèches proches de l'ennemi
     for(const a of ce.arr){
       if(a.st) continue;
       const dx=a.x-(nearestEnemy.x+nearestEnemy.w/2);
       const dy=a.y-(nearestEnemy.y+nearestEnemy.h/2);
       const d=Math.sqrt(dx*dx+dy*dy);
-      if(d<60){ rs.shotsNearMiss+=0.15; trShapedReward+=0.02; }
+      if(d<60){ rs.shotsNearMiss+=0.1; trShapedReward+=0.04; }
+      else if(d<120){ trShapedReward+=0.01; }
     }
 
-    // 6. Mobilité plateforme
-    if(ce.gnd){
-      const py=Math.round(ce.y/10)*10;
-      if(py!==rs.lastPlatY&&rs.lastPlatY!==-1){ rs.platformChanges++; trShapedReward+=0.01; }
-      rs.lastPlatY=py;
+    // 4. Esquiver les flèches ennemies
+    for(const a of enemyArrows){
+      if(a.st) continue;
+      const dx=a.x-(ce.x+ce.w/2), dy=a.y-(ce.y+ce.h/2);
+      const d=Math.sqrt(dx*dx+dy*dy);
+      if(d<80) rs.arrowsDodged+=0.1;
     }
+
+    // 5. Pénalité mur
+    if(ce.x<25||ce.x>WW-45) trShapedReward-=0.008;
 
     // Agents scriptés
     for(let i=0;i<trAgentObjs.length;i++){
@@ -4625,23 +4768,12 @@ function startTrainRound(){
     trCurriculumTotal++;
     if(won) trCurriculumWins++;
 
-    // ── FITNESS : shaped reward + résultat ──────────────────────
-    const wDodge=trConfig.objective==='dodge'?2.5:1;
-    const wAim  =trConfig.objective==='aim'?2.5:trConfig.objective==='aggro'?1.5:1;
-    const wMob  =trConfig.objective==='mobility'?2:1;
-
-    // Gain comportemental normalisé 0-30
-    const behaviorGain =
-      Math.min(rs.arrowsDodged*0.8*wDodge, 10) +
-      Math.min(rs.shotsNearMiss*0.6*wAim, 8) +
-      Math.min(rs.platformChanges*0.4*wMob, 5) +
-      Math.min(rs.framesAiming/(60*35)*8*wAim, 8);
-
-    // Shaped reward clamped
-    const shaped = Math.max(-5, Math.min(trShapedReward*100, 15));
-
-    // Score total normalisé 0-37
-    const totalGain = behaviorGain + shaped + (won?evoParams.winBonus:0);
+    // Gain = comportement + shaped + victoire
+    const aimBonus   = Math.min(rs.framesAiming / (60*35) * 15, 15); // max 15 : viser
+    const shotBonus  = Math.min(rs.shotsNearMiss * 0.5, 10);          // max 10 : précision
+    const dodgeBonus = Math.min(rs.arrowsDodged  * 0.4, 5);           // max 5  : esquive
+    const shaped     = Math.max(-5, Math.min(trShapedReward * 80, 12)); // shaped clamped
+    const totalGain  = aimBonus + shotBonus + dodgeBonus + shaped + (won ? evoParams.winBonus : 0);
 
     const prevFit=trBrain.fitness||0;
     trBrain.fitness = updateFitness(prevFit, totalGain, won);
@@ -4669,7 +4801,8 @@ function startTrainRound(){
     }
 
     // ELO
-    const agentElo=AGENT_ELO[(trConfig.curriculum?trCurriculumLevel:trAgentObjs[0].level)-1];
+    const agentLvl = trConfig.curriculum ? trCurriculumLevel : (trAgentObjs[0]?.level||1);
+    const agentElo = AGENT_ELO[agentLvl-1] || AGENT_ELO[0];
     const prevElo=trBrain.elo||ELO_BASE;
     trBrain.elo=Math.max(400,eloUpdate(prevElo,eloExpected(prevElo,agentElo),won?1:0,trRoundsDone));
 
@@ -4685,16 +4818,23 @@ function startTrainRound(){
       `Round ${trRoundsDone}/${trConfig.rounds} · ELO ${trBrain.elo} · ${lvlLabel} ${wr}%${popInfo}`;
 
     if(trRoundsDone%10===0) saveTrainResults();
+    else _syncActiveBrainLive(); // sync RAM sans écrire disque
     if(trRoundsDone%5===0&&document.getElementById('panel-graph')?.style.display!=='none') drawTrainGraph();
 
-    setTimeout(()=>startTrainRound(), trConfig.speed===0?0:80);
+    // Toujours async pour éviter stack overflow en MAX speed
+    setTimeout(()=>startTrainRound(), 0);
   }
 
   // Exécution
   if(trConfig.speed===0){
     const cv2=document.getElementById('tr-preview');
     if(cv2) cv2.style.display='none';
-    while(!trRoundOver){ runStep(); }
+    // Boucle synchrone — on sort dès que trRoundOver
+    let safetyCounter=0;
+    while(!trRoundOver && safetyCounter<60*35+10){
+      runStep();
+      safetyCounter++;
+    }
     onRoundEnd();
   } else {
     const cv2=document.getElementById('tr-preview');
@@ -4780,7 +4920,69 @@ function _evolvePopulation(){
   if(trHof.length>evoParams.hofSize) trHof.length=evoParams.hofSize;
   trBestBrain=trHof[0]||trBestBrain;
 }
+function _curriculumLevel(elo){
+  if(elo<1300) return 1;
+  if(elo<1500) return 2;
+  if(elo<1800) return 3;
+  return 4;
+}
+
 function trainingStop(){
+  trRunning=false;
+  if(trInterval){clearInterval(trInterval);trInterval=null;}
+  document.getElementById('tr-start-btn').textContent='▶ LANCER';
+  document.getElementById('tr-status').textContent='';
+  const cv2=document.getElementById('tr-preview');
+  if(cv2) cv2.style.display='none';
+  saveTrainResults();
+}
+
+async function saveTrainResults(){
+  if(!trConfig.brainId||!trBrain) return;
+  const entry=await store.get('brains',trConfig.brainId);
+  if(!entry) return;
+
+  // En mode population : champion = meilleur score moyen
+  const brainToSave = trPopulation.length>0
+    ? (() => {
+        const sorted = [...trPopulation].sort((a,b)=>
+          (b.shapedScore/Math.max(b.played,1))-(a.shapedScore/Math.max(a.played,1)));
+        return sorted[0]?.brain || trBrain;
+      })()
+    : trBrain;
+
+  entry.brain      = brainToSave.serialize();
+  entry.fitness    = brainToSave.fitness;
+  entry.elo        = brainToSave.elo;
+  entry.generation = (entry.generation||1) + Math.max(trRoundsDone,1);
+  await store.put('brains', entry);
+
+  // Sync activeBrain si c'est le cerveau actif en solo
+  if(trConfig.brainId===currentBrainId){
+    activeBrain = brainToSave.clone();
+    activeBrain.fitness = brainToSave.fitness;
+    activeBrain.elo     = brainToSave.elo;
+    generation = entry.generation;
+  }
+
+  if(trRoundsDone>0) toast(`${trRoundsDone} rounds · ELO ${brainToSave.elo}`);
+}
+
+// Sync légère après chaque round (sans écrire dans IndexedDB)
+function _syncActiveBrainLive(){
+  if(trConfig.brainId!==currentBrainId) return;
+  // En mode pop : utiliser le meilleur individu évalué jusqu'ici
+  const src = trPopulation.length>0
+    ? (trPopulation.reduce((b,c)=>
+        (c.played>0&&c.shapedScore/c.played > (b.played>0?b.shapedScore/b.played:-Infinity))?c:b,
+        trPopulation[0])?.brain || trBrain)
+    : trBrain;
+  activeBrain = src.clone();
+  activeBrain.fitness = src.fitness;
+  activeBrain.elo     = src.elo;
+}
+
+function drawTrainFrame(){
   const cv2=document.getElementById('tr-preview');
   if(!cv2) return;
   const ctx=cv2.getContext('2d');
@@ -4791,33 +4993,25 @@ function trainingStop(){
   ctx.fillStyle='#0d0818';ctx.fillRect(0,0,W,H);
   ctx.save();ctx.translate(offX,offY);ctx.scale(sc,sc);
 
-  // Plateformes
   for(const p of platforms){
     if(p.w<=12||p.h>=WH-40){ctx.fillStyle='#1e1630';ctx.fillRect(p.x,p.y,p.w,p.h);continue;}
     ctx.fillStyle='#2e2448';ctx.fillRect(p.x,p.y,p.w,p.h);
     ctx.fillStyle='#5a4e80';ctx.fillRect(p.x,p.y,p.w,2);
   }
-
-  // Pièges
   for(const t of trTraps) t.draw(ctx);
-
-  // Projectiles pièges
   for(const p of trTrapProj){
     ctx.fillStyle='#ff8020';ctx.fillRect(Math.round(p.x-3),Math.round(p.y-1),6,2);
   }
-
-  // Entités
   for(const e of trTrainees) e.draw(ctx);
-
   ctx.restore();
 
-  // Overlay infos
   ctx.fillStyle='rgba(13,8,24,0.7)';ctx.fillRect(0,0,W,24);
   ctx.font='bold 7px monospace';ctx.textAlign='left';
-  ctx.fillStyle=SLOT_COLORS[0];ctx.fillText(`CERVEAU ELO ${trBrain?.elo||'?'}`,6,15);
+  ctx.fillStyle=SLOT_COLORS[0];
+  const popInfo=trPopulation.length>0?` Pop gén ${trPopGeneration}`:'';
+  ctx.fillText(`CERVEAU ELO ${trBrain?.elo||'?'}${popInfo}`,6,15);
   ctx.fillStyle='#8060c0';ctx.textAlign='right';
   ctx.fillText(`Round ${trRoundsDone+1}/${trConfig.rounds}`,W-6,15);
-  // Niveaux agents
   trAgentObjs.forEach((ag,i)=>{
     ctx.fillStyle=ag.color;ctx.textAlign='center';
     ctx.fillText(ag.label,(i+1)*W/(trAgentObjs.length+1),15);
@@ -4915,7 +5109,7 @@ async function confirmNewBrain(){
     generation:1,fitness:0,elo:startElo,wins:0,played:0,
     timestamp:Date.now(),game:'arena-archer',
     topology:`GRU(H=${H})×3+ARB(${arbSize})`,params:b.paramCount()});
-  currentBrainId=id;activeBrain=b;generation=1;bestBrain=null;
+  currentBrainId=id;store.setConfig('currentBrainId',id);activeBrain=b;generation=1;bestBrain=null;
   totalWins=0;totalPlayed=0;
   closeBrainModal();
   toast(`Créé : ${name} (${b.paramCount()} params)`);
@@ -5074,7 +5268,7 @@ function _stepMenuBg(){
         if(d<nd){nd=d;nearest=e;}
       }
       const allEnemyArrows=allAgentEnts.flatMap(e=>e.arr);
-      const inp = aiInputsFor(A, nearest, allEnemyArrows);
+      const inp = aiInputsFor(A, nearest, allEnemyArrows, menuBg.timer);
       const out = menuBg.brainA.forward(inp);
       aiProcessFor(out, A);
       A.face = nearest.x < A.x ? -1 : 1;
