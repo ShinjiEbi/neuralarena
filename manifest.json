@@ -2,7 +2,7 @@
   "name": "Neural Arena — IA Gaming Distribuée",
   "short_name": "NeuralArena",
   "description": "Entraîne une IA de combat par le jeu. Partage les cerveaux avec la communauté.",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "orientation": "landscape",
   "background_color": "#060810",
