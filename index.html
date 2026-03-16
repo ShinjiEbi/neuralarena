@@ -36,7 +36,6 @@ html,body{background:var(--bg);color:var(--text);font-family:'Press Start 2P',mo
 #menu-screen::after{content:'';position:absolute;inset:0;background:
   radial-gradient(ellipse 60% 80% at 50% 50%, rgba(13,8,24,0.35) 0%, rgba(13,8,24,0.70) 100%);
   pointer-events:none;z-index:0}
-/* Supprime l'ancien ::before grille */
 #menu-screen::before{display:none}
 .menu-logo{font-family:'Press Start 2P',monospace;font-size:clamp(12px,3.5vw,22px);color:var(--gold);letter-spacing:2px;text-shadow:3px 3px 0 #7a4400,0 0 20px rgba(240,160,48,0.5);margin-bottom:6px;text-align:center;image-rendering:pixelated}
 .menu-sub{font-size:6px;color:#6040a0;letter-spacing:3px;text-transform:uppercase;margin-bottom:28px}
@@ -60,17 +59,7 @@ html,body{background:var(--bg);color:var(--text);font-family:'Press Start 2P',mo
 #game-screen{background:#0d0818;flex-direction:column}
 #game-area{position:relative;flex:1;overflow:hidden;min-height:0}
 canvas#game{display:block;width:100%;height:100%;position:absolute;top:0;left:0;image-rendering:pixelated;image-rendering:crisp-edges}
-#game-hud{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:6px 10px;z-index:15;background:rgba(13,8,24,0.93);border-bottom:2px solid rgba(240,160,48,0.25)}
-.hud-score{display:flex;align-items:center;gap:6px;font-size:7px}
-.hud-score .num{font-size:13px;color:var(--gold);text-shadow:2px 2px 0 #7a4400}
-.hud-player{color:var(--accent2)}
-.hud-ai{color:var(--warn)}
-.hud-center{font-size:5px;color:#5040a0;letter-spacing:1px;text-align:center;line-height:1.8}
-.hud-center .gen-val{color:var(--gold);font-size:6px}
-.hud-quit{width:22px;height:22px;border:2px solid rgba(240,160,48,0.3);background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:9px;color:rgba(240,160,48,0.5);cursor:pointer;-webkit-tap-highlight-color:transparent}
-.hud-quit:active{background:rgba(255,68,68,0.2);color:var(--warn)}
-#game-nn{position:absolute;top:44px;right:6px;opacity:0.55;z-index:14;pointer-events:none}
-/* Joysticks sous le canvas — dans le flux normal */
+/* JOYSTICKS */
 #touch-pad{display:none;flex-direction:row;justify-content:space-between;align-items:flex-end;height:150px;flex-shrink:0;position:relative;background:rgba(13,8,24,0.97);border-top:2px solid rgba(240,160,48,0.12);pointer-events:none}
 #touch-pad.on{display:flex}
 .joy-zone{position:relative;width:50%;height:150px;pointer-events:auto;-webkit-tap-highlight-color:transparent;flex-shrink:0}
@@ -83,7 +72,7 @@ canvas#game{display:block;width:100%;height:100%;position:absolute;top:0;left:0;
 .joy-label.right-label{left:auto;right:95px}
 .jump-btn{position:absolute;bottom:18px;right:16px;width:52px;height:52px;border:2px solid rgba(240,160,48,0.3);background:rgba(240,160,48,0.08);display:flex;align-items:center;justify-content:center;font-family:'Press Start 2P',monospace;font-size:6px;color:rgba(240,160,48,0.5);pointer-events:auto;-webkit-tap-highlight-color:transparent;transition:all 0.08s}
 .jump-btn.held{background:rgba(240,160,48,0.2);border-color:rgba(240,160,48,0.6);color:var(--gold);transform:scale(0.92)}
-#game-overlay{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(13,8,24,0.92);z-index:20;transition:opacity 0.2s}
+#game-overlay{position:fixed;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(13,8,24,0.92);z-index:100;transition:opacity 0.2s}
 #game-overlay.hidden{opacity:0;pointer-events:none}
 #game-overlay h2{font-family:'Press Start 2P',monospace;font-size:13px;margin-bottom:10px;color:var(--gold);text-shadow:3px 3px 0 #7a4400,0 0 20px rgba(240,160,48,0.4)}
 #game-overlay .ov-sub{font-size:6px;color:#6040a0;margin-bottom:18px;text-align:center;line-height:2.2}
@@ -150,19 +139,11 @@ canvas#game{display:block;width:100%;height:100%;position:absolute;top:0;left:0;
 .empty-state{text-align:center;padding:30px 20px;color:#333;font-size:11px;line-height:1.7}
 
 /* NAV */
-#nav{position:fixed;bottom:0;left:0;right:0;display:flex;z-index:50;background:var(--surface);border-top:1px solid var(--border)}
-.nav-btn{flex:1;padding:10px 0 12px;display:flex;flex-direction:column;align-items:center;gap:3px;font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:1px;color:#333;background:none;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color 0.15s}
-.nav-btn.active{color:var(--accent)}
-.nav-icon{font-size:16px}
-
-body.in-game #nav{display:none}
-.hud-quit{width:32px;height:32px;border-radius:50%;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);display:flex;align-items:center;justify-content:center;font-size:14px;color:rgba(255,255,255,0.35);cursor:pointer;-webkit-tap-highlight-color:transparent;flex-shrink:0;transition:all 0.15s}
-.hud-quit:active{background:rgba(255,50,80,0.15);border-color:rgba(255,50,80,0.3);color:var(--warn)}
 
 #toast{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 24px;font-size:11px;color:var(--bright);z-index:200;opacity:0;pointer-events:none;transition:opacity 0.3s;text-align:center;max-width:300px}
 #toast.show{opacity:1}
 
-/* ── LOBBY ───────────────────────────────────────── */
+/* LOBBY */
 #pvp-screen{background:var(--bg);overflow-y:auto;flex-direction:column;align-items:center;justify-content:flex-start;padding-bottom:60px}
 .lobby-title{font-family:'Anybody',sans-serif;font-weight:900;font-size:18px;color:var(--accent);letter-spacing:3px;padding:18px 0 6px;text-align:center}
 .lobby-sub{font-size:9px;color:#3a3d50;letter-spacing:3px;text-transform:uppercase;margin-bottom:20px}
@@ -177,7 +158,7 @@ body.in-game #nav{display:none}
 .slot-brain-sel{font-family:'JetBrains Mono',monospace;font-size:9px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--accent);padding:4px 6px;max-width:120px;cursor:pointer}
 .lobby-actions{display:flex;gap:8px;margin-top:16px;padding:0 16px;width:100%;max-width:380px}
 
-/* ── MULTI HUD ───────────────────────────────────── */
+/* MULTI HUD */
 #multi-hud{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;gap:4px;padding:4px 8px;z-index:15;background:rgba(6,8,16,0.88);backdrop-filter:blur(6px);border-bottom:1px solid var(--border);flex-wrap:nowrap;height:36px;overflow:hidden}
 #mhud-players{display:flex;gap:4px;flex:1;overflow:hidden}
 .mhud-player{display:flex;align-items:center;gap:3px;font-size:9px;font-weight:600;letter-spacing:0.5px;padding:2px 6px;border-radius:4px;border:1px solid transparent;white-space:nowrap}
@@ -190,19 +171,18 @@ body.in-game #nav{display:none}
 #mhud-center{font-size:8px;color:#333;letter-spacing:1px;text-align:center;flex-shrink:0}
 #mhud-center .gen-val{color:var(--accent);font-size:9px}
 
-/* ── FREE CAMERA ─────────────────────────────────── */
+/* FREE CAMERA */
 #cam-hint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:8px;color:#2a2d3a;letter-spacing:2px;z-index:15;pointer-events:none;text-align:center}
 body.observe-mode #cam-hint{display:block}
 body:not(.observe-mode) #cam-hint{display:none}
 
-/* ── ARÈNE ───────────────────────────────────────── */
+/* SALLE ENTRAINEMENT */
 #training-screen{background:var(--bg);flex-direction:column;overflow:hidden}
 .arena-tabs{display:flex;border-bottom:2px solid var(--border);flex-shrink:0}
 .arena-tab{font-family:'Press Start 2P',monospace;font-size:6px;padding:8px 10px;border:none;background:none;color:#6040a0;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;-webkit-tap-highlight-color:transparent;letter-spacing:0.5px}
 .arena-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
 .arena-panels{flex:1;overflow-y:auto;padding:12px}
 
-/* Salle d'entraînement */
 .trap-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:4px}
 .trap-toggle{display:flex;align-items:center;gap:6px;font-size:6px;color:#8060c0;cursor:pointer;padding:5px 8px;background:var(--card);border:2px solid var(--border)}
 .trap-toggle input{cursor:pointer;accent-color:var(--gold)}
@@ -259,6 +239,10 @@ body:not(.observe-mode) #cam-hint{display:none}
 .stats-bar-bg{background:#1a0e2e;border:1px solid var(--border);height:8px;position:relative}
 .stats-bar-fill{height:100%;background:var(--gold);transition:width 0.3s}
 #stats-history-canvas{width:100%;height:140px;background:var(--card);border:2px solid var(--border);display:block;margin-top:8px;image-rendering:pixelated}
+/* TRAINING CONFIG */
+.param-section-title{font-size:6px;color:var(--gold);letter-spacing:1px;margin-bottom:6px;display:block}
+.pvp-section{width:100%;max-width:380px;padding:0 16px;margin-top:10px}
+.pvp-section-title{font-size:6px;color:var(--gold);letter-spacing:1px;margin-bottom:6px}
 </style>
 </head>
 <body>
@@ -279,7 +263,6 @@ body:not(.observe-mode) #cam-hint{display:none}
       <div class="brain-meta" id="m-brain-meta">Nouveau — aucun entraînement</div>
     </div>
     <div class="menu-btns">
-      <button class="btn primary" onclick="startArena()">⚔ JOUER ARENA ARCHER</button>
       <button class="btn" onclick="showScreen('pvp')">⚔ ARÈNE PVP</button>
       <button class="btn" onclick="showScreen('training')">🎯 SALLE D'ENTRAÎNEMENT</button>
       <button class="btn" onclick="showScreen('lab')">🧠 Laboratoire IA</button>
@@ -297,15 +280,15 @@ body:not(.observe-mode) #cam-hint{display:none}
   <div class="lobby-slots" id="pvp-slots"></div>
 
   <!-- Agents entraîneurs -->
-  <div style="width:100%;max-width:380px;padding:0 16px;margin-top:8px">
-    <div style="font-size:6px;color:var(--gold);letter-spacing:1px;margin-bottom:6px">ENTRAÎNEURS IA (optionnel)</div>
+  <div class="pvp-section">
+    <div class="pvp-section-title">ENTRAÎNEURS IA (optionnel)</div>
     <div id="pvp-agents"></div>
     <button class="btn small" onclick="pvpAddAgent()" style="margin-top:4px;font-size:5px">+ Entraîneur</button>
   </div>
 
   <!-- Pièges -->
-  <div style="width:100%;max-width:380px;padding:0 16px;margin-top:10px">
-    <div style="font-size:6px;color:var(--gold);letter-spacing:1px;margin-bottom:6px">PIÈGES</div>
+  <div class="pvp-section">
+    <div class="pvp-section-title">PIÈGES</div>
     <div class="trap-grid">
       <label class="trap-toggle"><input type="checkbox" id="pvp-trap-mine" onchange="pvpTrapToggle('mine',this)"> 💣 Mines</label>
       <label class="trap-toggle"><input type="checkbox" id="pvp-trap-launcher" onchange="pvpTrapToggle('launcher',this)"> 🏹 Lanceurs</label>
@@ -326,25 +309,18 @@ body:not(.observe-mode) #cam-hint{display:none}
 <div id="game-screen" class="screen">
   <div id="game-area">
     <canvas id="game"></canvas>
-    <div id="game-hud">
-      <button class="hud-quit" onclick="quitGame()" title="Quitter">✕</button>
-      <div class="hud-score hud-player">JOU <span class="num" id="h-pscore">0</span></div>
-      <div class="hud-center">GEN <span class="gen-val" id="h-gen">1</span><br><span id="h-round">Round 1</span><br><span id="h-timer" style="color:var(--warn);font-size:5px">0:35</span></div>
-      <div class="hud-score hud-ai"><span class="num" id="h-ascore">0</span> IA</div>
-    </div>
-    <div id="multi-hud" style="display:none">
+    <div id="multi-hud">
       <button class="mhud-quit" onclick="quitGame()">✕</button>
       <div id="mhud-players"></div>
       <div id="mhud-center"><span class="gen-val" id="mh-round">Round 1</span> · <span id="mh-timer" style="color:var(--warn)">0:40</span></div>
     </div>
-    <canvas id="game-nn" width="130" height="65"></canvas>
     <div id="cam-hint">ZQSD · DRAG · SCROLL = zoom · ESPACE = reset</div>
     <div id="game-overlay" class="hidden">
       <h2 id="ov-title"></h2>
       <div class="ov-sub" id="ov-sub"></div>
       <div id="ov-btns" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
         <button class="btn small" onclick="quitGame()">✕ Quitter</button>
-        <button class="btn small primary" onclick="multiMode?nextRoundMulti():nextRound()">▶ CONTINUER</button>
+        <button class="btn small primary" onclick="nextRoundMulti()">▶ CONTINUER</button>
       </div>
     </div>
   </div>
@@ -689,14 +665,12 @@ body:not(.observe-mode) #cam-hint{display:none}
 // ================================================================
 // ================================================================
 //  UTILS
-// ================================================================
 function sanitize(str){
   return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 // ================================================================
 //  LEGACY BRAIN — conservé pour désérialisation d'anciens cerveaux
-// ================================================================
 class Brain {
   constructor(topo=[16,20,14,6]){
     this.topo=topo;this.w=[];this.b=[];this.acts=[];this.fitness=0;this.elo=ELO_BASE||1200;
@@ -832,7 +806,6 @@ class GRUExpert {
 
 // ================================================================
 //  DENSE LAYER — couche dense simple pour l'arbitre
-// ================================================================
 class DenseLayer {
   constructor(inSize,outSize,activation='sigmoid',xavierScale=1.0){
     const s=Math.sqrt(2/(inSize+outSize))*xavierScale;
@@ -862,7 +835,6 @@ class DenseLayer {
 
 // ================================================================
 //  MULTI-EXPERT BRAIN  — v2
-// ================================================================
 //
 //  20 inputs → 4 experts GRU spécialisés → arbitre 3 couches → 7 outputs
 //
@@ -1021,10 +993,8 @@ function deserializeBrain(data){
   return MultiExpertBrain.fromLegacy(legacy||{fitness:0,elo:ELO_BASE});
 }
 
-
 // ================================================================
 //  INDEXEDDB STORE
-// ================================================================
 class Store {
   constructor(){this.db=null;this.ready=this._init()}
   _init(){return new Promise((res,rej)=>{const r=indexedDB.open('NeuralArena',3);r.onupgradeneeded=e=>{const db=e.target.result;if(!db.objectStoreNames.contains('brains'))db.createObjectStore('brains',{keyPath:'id'});if(!db.objectStoreNames.contains('config'))db.createObjectStore('config',{keyPath:'key'})};r.onsuccess=e=>{this.db=e.target.result;res()};r.onerror=e=>rej(e)})}
@@ -1040,7 +1010,6 @@ const store=new Store();
 
 // ================================================================
 //  GITHUB SYNC
-// ================================================================
 class GitHubSync {
   constructor(){
     this.repo='';this.token='';this.pseudo='';
@@ -1319,7 +1288,12 @@ async function downloadCommunityBrain(index){
 
 async function challengeCommunityBrain(index){
   await downloadCommunityBrain(index);
-  startArena();
+  // Préparer un slot PVP : joueur vs cerveau téléchargé
+  lobbySlots[0]={type:'human', brainId:'default'};
+  lobbySlots[1]={type:'ai', brainId:currentBrainId};
+  lobbySlots[2]={type:'off', brainId:'default'};
+  lobbySlots[3]={type:'off', brainId:'default'};
+  showScreen('pvp');
 }
 
 async function uploadBrain(){
@@ -1345,45 +1319,22 @@ async function uploadBrain(){
 
 // ================================================================
 //  GAME STATE
-// ================================================================
 let currentBrainId='default';
 let activeBrain=new MultiExpertBrain();
 let bestBrain=null;
 let hallOfFame=[];
 let generation=1;
-// ================================================================
-//  COMPTEURS — système unifié propre
-// ================================================================
-//
-//  SOLO
-//    session    : remis à zéro à chaque startArena()
-//    brain.wins / brain.played : cumulés, persistés dans le store
-//    → totalWins/totalPlayed = stats du cerveau IA (pas du joueur)
-//
-//  MULTI
-//    playerWins[] : victoires de session par slot (affiché HUD)
-//    brain.wins/played via evolveAllMulti : cumulés, persistés
-//
-//  Affiché dans le menu : wins/played du cerveau IA actif
-
-// Stats de session solo — remises à zéro à chaque partie
-let session = {
-  playerWins : 0,   // victoires du joueur humain cette session
-  aiWins     : 0,   // victoires de l'IA cette session
-  round      : 1,   // numéro de round actuel
-};
 
 // Stats cumulées du cerveau IA actif — persistées dans le store
-let totalWins   = 0;   // rounds gagnés par l'IA (vs joueur)
-let totalPlayed = 0;   // rounds joués total
-let gameActive=false,roundOver=false,roundTimer=0;
+let totalWins   = 0;
+let totalPlayed = 0;
+let gameActive=false, roundTimer=0;
 
-// ── Multi / Lobby state ─────────────────────────────────────────
-// Couleurs TowerFall par slot : Bleu, Rouge, Vert, Jaune
+// Couleurs par slot : Bleu, Rouge, Vert, Jaune
 const SLOT_COLORS=['#60c8ff','#ff4444','#60ff80','#f0c040'];
 const SLOT_NAMES=['P1','P2','P3','P4'];
 
-// lobbySlots: array of 4 {type:'human'|'ai'|'off', brainId:string}
+// Slots lobby
 let lobbySlots=[
   {type:'human', brainId:'default'},
   {type:'ai',    brainId:'default'},
@@ -1391,33 +1342,22 @@ let lobbySlots=[
   {type:'off',   brainId:'default'},
 ];
 
-// Multi-game state
-let multiMode=false;       // true when a multi-game is running
-let players=[];            // array of Ent
-let playerBrains=[];       // array of Brain|null (null = human)
-let playerAlive=[];        // array of bool
-let playerWins=[];         // array of int (session)
+// Game state
+let players=[];
+let playerBrains=[];
+let playerAlive=[];
+let playerWins=[];
 let multiRoundOver=false;
-let humanDeadShown=false;  // prevent repeated dead overlay
+let multiRound=1;
+let humanDeadShown=false;
 
 // Free camera state
 let freeCam=false;
 let freeCamVx=0,freeCamVy=0;
 let camZoom=1;
 let dragCam={active:false,startX:0,startY:0,startCamX:0,startCamY:0};
-let roundStats={
-  arrowsDodged:0,      // flèches joueur passées près de l'IA sans toucher
-  shotsFired:0,        // tirs de l'IA
-  shotsNearMiss:0,     // tirs IA proches du joueur (< 60px)
-  preciseShots:0,      // tirs effectués quand aimDiff < 0.3 rad
-  framesAiming:0,      // frames où l'arc pointe correctement (aimDiff < 0.2)
-  platformChanges:0,
-  lastPlatformY:-1,
-  stagnationFrames:0,
-  lastX:-1,
-};
-// ── Stagnation detection across rounds ──────────────────────────
-let stagnationCounter=0;  // rounds consécutifs sans amélioration de fitness
+// ── Stagnation detection ──────────────────────────────────────────
+let stagnationCounter=0;
 
 const WW=1400,WH=700;
 const GRAV=0.38,FRIC=0.82,JUMP=-10,MSPD=3.5;
@@ -1444,8 +1384,6 @@ let particles=[],camX=0,camY=0;
 
 const cv=document.getElementById('game');
 const c=cv.getContext('2d');
-const nnCv=document.getElementById('game-nn');
-const nnC=nnCv.getContext('2d');
 let vW,vH,dpr;
 
 function resizeGame(){
@@ -1549,34 +1487,66 @@ function setSlotBrain(i,brainId){
   // No re-render needed — just update state silently
 }
 
-// Spawn positions for 4 corners (keeping away from walls)
-const SPAWN_POS=[
-  {x:160, y:WH-100, face:1},
-  {x:WW-180, y:WH-100, face:-1},
-  {x:160, y:200, face:1},
-  {x:WW-180, y:200, face:-1},
-];
+// Plateformes jouables (assez larges, pas les murs/sol)
+function getSpawnPlatforms(){
+  return platforms.filter(p=>p.w>=80&&p.h<=20&&p.y>30&&p.y<WH-40);
+}
+
+// Génère N positions de spawn aléatoires sur des plateformes, sans superposition
+function randomSpawns(n){
+  const plats=getSpawnPlatforms();
+  const positions=[];
+  const minDist=200; // distance minimum entre deux spawns
+
+  let attempts=0;
+  while(positions.length<n && attempts<500){
+    attempts++;
+    const p=plats[Math.floor(Math.random()*plats.length)];
+    const x=p.x+30+Math.random()*(p.w-60);
+    const y=p.y-38; // au dessus de la plateforme
+    // Vérifier distance avec les spawns déjà placés
+    const tooClose=positions.some(sp=>{
+      const dx=sp.x-x, dy=sp.y-y;
+      return Math.sqrt(dx*dx+dy*dy)<minDist;
+    });
+    if(!tooClose) positions.push({x, y, face: Math.random()<0.5?1:-1});
+  }
+  // Si on n'a pas assez (cas rare), compléter avec des positions forcées
+  while(positions.length<n){
+    const p=plats[positions.length%plats.length];
+    positions.push({x:p.x+p.w/2-10, y:p.y-38, face:positions.length%2===0?1:-1});
+  }
+  return positions;
+}
 
 async function startPVP(){
   const activeSlots=lobbySlots.map((s,i)=>({...s,index:i})).filter(s=>s.type!=='off');
   if(activeSlots.length<2){toast('Il faut au moins 2 joueurs');return;}
 
-  multiMode=true;
-  freeCam=false;
-  camZoom=1;
-  const isObserve=activeSlots.every(s=>s.type==='ai');
+  freeCam=false; camZoom=1.0;
 
-  // Load brains for AI slots
-  players=[];playerBrains=[];playerAlive=[];playerWins=[];
+  // Compter tous les participants (joueurs + entraîneurs)
+  const trainerCount=pvpConfig.agents.length;
+  const totalCount=activeSlots.length+trainerCount;
+
+  // Spawns aléatoires pour tout le monde
+  const spawns=randomSpawns(totalCount);
+
+  // Init joueurs (humains + cerveaux)
+  players=[]; playerBrains=[]; playerAlive=[]; playerWins=[];
+  // On ajoute aussi les entraîneurs dans players[] directement
+  multiAgents=[]; // ScriptedAgent[] pour les entraîneurs
+  multiAgentEnts=[]; // plus utilisé — les entraîneurs sont dans players[]
+
   for(let si=0;si<activeSlots.length;si++){
     const s=activeSlots[si];
-    const spawnIdx=si%4;
-    const sp=SPAWN_POS[spawnIdx];
+    const sp=spawns[si];
     const ent=new Ent(sp.x, sp.y, SLOT_COLORS[s.index], s.type==='ai');
     ent.face=sp.face;
     ent._slotIndex=s.index;
     ent._label=SLOT_NAMES[s.index]+(s.type==='ai'?' IA':' JOU');
-    ent._brainId=s.type==='ai'?s.brainId:null;  // store for evolution save
+    ent._brainId=s.type==='ai'?s.brainId:null;
+    ent._isTrainer=false;
     players.push(ent);
     playerAlive.push(true);
     playerWins.push(0);
@@ -1587,42 +1557,53 @@ async function startPVP(){
       brain.elo=entry?.elo||ELO_BASE;
       brain.resetMemory();
       playerBrains.push(brain);
-    }else{
-      playerBrains.push(null); // human
+    } else {
+      playerBrains.push(null);
     }
   }
 
+  // Entraîneurs scriptés — intégrés comme vrais joueurs
+  const trainerColors=['#c060ff','#ff9020','#20ffc0','#ff60c0'];
+  for(let ti=0;ti<pvpConfig.agents.length;ti++){
+    const a=pvpConfig.agents[ti];
+    const sp=spawns[activeSlots.length+ti];
+    const col=trainerColors[ti%trainerColors.length];
+    const ent=new Ent(sp.x, sp.y, col, true);
+    ent.face=sp.face;
+    ent._slotIndex=4+ti; // index virtuel hors SLOT_COLORS
+    ent._col=col;
+    ent._label=`${['ROOKIE','FIGHTER','VETERAN','MASTER'][a.level-1]} ${ti+1}`;
+    ent._brainId=null;
+    ent._isTrainer=true;
+    players.push(ent);
+    playerAlive.push(true);
+    playerWins.push(0);
+    // ScriptedAgent stocké en parallèle, indexé comme players[activeSlots.length+ti]
+    const ag=new ScriptedAgent(a.level);
+    playerBrains.push(ag); // on stocke l'agent scripted à la place du brain
+    multiAgents.push(ag);
+  }
+
   // Init pièges
-  multiTraps = buildTraps(pvpConfig.traps);
-  multiTrapProj = [];
+  multiTraps=buildTraps(pvpConfig.traps);
+  multiTrapProj=[];
 
-  // Init agents entraîneurs (entités supplémentaires non-joueurs)
-  multiAgents = pvpConfig.agents.map(a => new ScriptedAgent(a.level));
-  multiAgentEnts = pvpConfig.agents.map((a, i) => {
-    const sp = SPAWN_POS[(activeSlots.length + i) % 4];
-    const ent = new Ent(sp.x, sp.y, '#c060ff', true);
-    ent.face = sp.face;
-    ent._slotIndex = -1;
-    ent._label = `ENT${i+1} ${['ROOKIE','FIGHTER','VETERAN','MASTER'][a.level-1]}`;
-    ent._isTrainer = true;
-    return ent;
-  });
-
-  // Show game screen first so canvas has dimensions
   showScreen('game');
   resizeGame();
-  document.getElementById('game-hud').style.display='none';
   document.getElementById('multi-hud').style.display='flex';
-  // freeCam + joysticks gérés par updateGameControls selon les slots
   updateGameControls();
   setupFreeCam();
-  session={playerWins:0, aiWins:0, round:1};
+  multiRound=1;
   updateMultiHUD();
   multiRoundOver=false;
   humanDeadShown=false;
   roundTimer=0;
   particles=[];
   document.getElementById('game-overlay').classList.add('hidden');
+  // Initialiser la caméra sur le joueur humain
+  const hi=playerBrains.findIndex(b=>b===null);
+  if(hi>=0){ camX=players[hi].x-vW/2; camY=players[hi].y-vH/2; }
+  else { camX=WW/2-vW/2; camY=WH/2-vH/2; }
   gameActive=true;
   requestAnimationFrame(gameLoop);
 }
@@ -1631,19 +1612,18 @@ function updateMultiHUD(){
   let html='';
   for(let i=0;i<players.length;i++){
     const p=players[i];
-    const col=SLOT_COLORS[p._slotIndex];
+    const col=p._isTrainer?(p._col||'#c060ff'):SLOT_COLORS[p._slotIndex];
     html+=`<div class="mhud-player ${playerAlive[i]?'alive':'dead'}" style="color:${col}">
       <span class="mhud-num">${playerWins[i]}</span>
       <span class="mhud-label">${sanitize(p._label)}</span>
     </div>`;
   }
   document.getElementById('mhud-players').innerHTML=html;
-  document.getElementById('mh-round').textContent=`Round ${session.round}`;
+  document.getElementById('mh-round').textContent=`Round ${multiRound}`;
 }
 
 // ================================================================
 //  FREE CAMERA
-// ================================================================
 function setupFreeCam(){
   const canvas=document.getElementById('game');
 
@@ -1693,15 +1673,14 @@ function freeCamKeyboard(){
 
 // ================================================================
 //  ENTITIES
-// ================================================================
 class Ent {
-  constructor(x,y,col,isAI){this.x=x;this.y=y;this.vx=0;this.vy=0;this.w=20;this.h=32;this.col=col;this.ai=isAI;this.gnd=false;this.aim=0;this.face=isAI?-1:1;this.arr=[];this.cd=0;this.ht=0}
+  constructor(x,y,col,isAI){this.x=x;this.y=y;this.vx=0;this.vy=0;this.w=20;this.h=32;this.col=col;this.ai=isAI;this.gnd=false;this.aim=0;this.face=isAI?-1:1;this.arr=[];this.cd=0;this.ht=0;this.hp=3;this.hitFlash=0;}
   update(){
     this.vy+=GRAV;this.vx*=this.gnd?FRIC:0.96;
     this.vx=Math.max(-8,Math.min(8,this.vx));this.vy=Math.max(-15,Math.min(15,this.vy));
     this.x+=this.vx;this.y+=this.vy;this.gnd=false;
     for(const p of platforms){if(this.x+this.w>p.x&&this.x<p.x+p.w&&this.y+this.h>p.y&&this.y<p.y+p.h){const oL=(this.x+this.w)-p.x,oR=(p.x+p.w)-this.x,oT=(this.y+this.h)-p.y,oB=(p.y+p.h)-this.y,m=Math.min(oL,oR,oT,oB);if(m===oT&&this.vy>=0){this.y=p.y-this.h;this.vy=0;this.gnd=true}else if(m===oB&&this.vy<0){this.y=p.y+p.h;this.vy=0}else if(m===oL){this.x=p.x-this.w;this.vx=0}else{this.x=p.x+p.w;this.vx=0}}}
-    if(this.cd>0)this.cd--;if(this.ht>0)this.ht--;
+    if(this.cd>0)this.cd--;if(this.ht>0)this.ht--;if(this.hitFlash>0)this.hitFlash--;
     for(let i=this.arr.length-1;i>=0;i--){const a=this.arr[i];if(a.st){a.life--;if(a.life<=0)this.arr.splice(i,1);continue}a.vy+=AGRAV;a.vx*=ADRAG;a.vy*=ADRAG;a.x+=a.vx;a.y+=a.vy;a.life--;a.tr.push({x:a.x,y:a.y});if(a.tr.length>8)a.tr.shift();if(a.x<-30||a.x>WW+30||a.y<-60||a.y>WH+30||a.life<=0){this.arr.splice(i,1);continue}for(const p of platforms)if(a.x>p.x&&a.x<p.x+p.w&&a.y>p.y&&a.y<p.y+p.h){a.st=true;a.vx=0;a.vy=0;a.life=Math.min(a.life,50);break}}
   }
   shoot(){
@@ -1720,7 +1699,8 @@ class Ent {
     ctx.save();
     if(this.ht>0) ctx.globalAlpha=0.3+Math.sin(this.ht*0.8)*0.4;
 
-    // Couleurs selon le slot/équipe
+    // Flash rouge dégât (humain seulement)
+    const flashAlpha = !this.ai && this.hitFlash>0 ? (this.hitFlash/20)*0.55 : 0;
     const C = this.col;          // couleur principale ex: '#00b4ff'
     const Cd = this._darken(C);  // ombre
 
@@ -1840,6 +1820,35 @@ class Ent {
       ctx.fillRect(-14, 1, 4, 2);
       ctx.restore();
     }
+
+    // ── FLASH ROUGE DÉGÂT ────────────────────────────────────────
+    if(flashAlpha > 0){
+      ctx.save();
+      ctx.globalAlpha = flashAlpha;
+      ctx.fillStyle = '#ff2020';
+      ctx.fillRect(px-2, py-2, this.w+4, this.h+4);
+      ctx.restore();
+    }
+
+    // ── CŒURS HP ─────────────────────────────────────────────────
+    const heartSize = 6;
+    const totalW = this.hp * (heartSize+2) - 2;
+    const hx = cx - Math.floor(totalW/2);
+    const hy = py - 14;
+    for(let h=0;h<3;h++){
+      const full = h < this.hp;
+      ctx.fillStyle = full ? '#ff3344' : 'rgba(80,40,40,0.6)';
+      const hbx = hx + h*(heartSize+2);
+      // Cœur pixel art simple (2 carrés + triangle)
+      ctx.fillRect(hbx,   hy+1, 2, 2);
+      ctx.fillRect(hbx+3, hy+1, 2, 2);
+      ctx.fillRect(hbx,   hy+3, 5, 2);
+      ctx.fillRect(hbx+1, hy+5, 3, 1);
+      if(full){
+        ctx.fillStyle='rgba(255,180,180,0.6)';
+        ctx.fillRect(hbx+1,hy+1,1,1);
+      }
+    }
   }
 
   // Helpers couleur pixel art
@@ -1853,21 +1862,11 @@ class Ent {
   }
 }
 
-let P,A;
-function initRound(){
-  P=new Ent(200,WH-100,'#60c8ff',false); P.face=1;
-  A=new Ent(WW-220,WH-100,'#ff4444',true); A.face=-1;
-  roundOver=false;roundTimer=0;particles=[];
-  camX=P.x-vW/2;camY=P.y-vH/2;
-  document.getElementById('game-overlay').classList.add('hidden');
-  // Reset mémoire GRU entre chaque round
-  activeBrain.resetMemory();
-  roundStats={arrowsDodged:0,shotsFired:0,shotsNearMiss:0,preciseShots:0,framesAiming:0,platformChanges:0,lastPlatformY:WH-30,stagnationFrames:0,lastX:A.x};
-}
+// ================================================================
+//  DRAWING
 
 // ================================================================
 //  INPUT — Dual Joystick + Keyboard
-// ================================================================
 const keys={};
 
 // Joystick state
@@ -1971,55 +1970,11 @@ setupJumpButton();
 // Dead zone threshold
 const DEADZONE = 0.18;
 
-function playerInput(){
-  if(!P)return;
-
-  // === Keyboard input (unchanged) ===
-  if(keys['KeyA']||keys['ArrowLeft']){P.vx-=MSPD*0.4;P.face=-1}
-  if(keys['KeyD']||keys['ArrowRight']){P.vx+=MSPD*0.4;P.face=1}
-  if((keys['KeyW']||keys['KeyZ'])&&P.gnd)P.vy=JUMP;
-  if(keys['ArrowUp'])P.aim-=0.05;
-  if(keys['ArrowDown'])P.aim+=0.05;
-  if(keys['Space'])P.shoot();
-
-  // === Left joystick: horizontal movement ===
-  if(joyState.left.active){
-    const lx = joyState.left.x;
-    const ly = joyState.left.y;
-    if(Math.abs(lx) > DEADZONE){
-      P.vx += lx * MSPD * 0.5;
-      P.face = lx > 0 ? 1 : -1;
-    }
-    // Up on left stick also jumps
-    if(ly < -0.6 && P.gnd) P.vy = JUMP;
-  }
-
-  // === Jump button ===
-  if(joyState.jump && P.gnd) P.vy = JUMP;
-
-  // === Right joystick: aim direction + auto-fire ===
-  if(joyState.right.active){
-    const rx = joyState.right.x;
-    const ry = joyState.right.y;
-    const mag = Math.sqrt(rx*rx + ry*ry);
-    if(mag > DEADZONE){
-      // Calculate aim angle from joystick direction
-      const aimAngle = Math.atan2(ry, rx);
-      P.aim = aimAngle;
-      // Face direction of aim
-      if(Math.abs(rx) > 0.15) P.face = rx > 0 ? 1 : -1;
-      // Auto-fire when stick is pushed enough
-      if(mag > 0.35) P.shoot();
-    }
-  }
-}
-
 // ================================================================
 //  AI — generalized for N players
 // ================================================================
 // ================================================================
 //  INPUTS / OUTPUTS IA  — v3 (20 inputs, 7 outputs)
-// ================================================================
 //
 //  INPUTS (20) :
 //   0  rX          : position relative ennemi X (normalisée)
@@ -2052,7 +2007,6 @@ function playerInput(){
 //   5  shoot       : tirer
 //   6  aimSnap     : snap de visée directe vers l'ennemi prédit
 //
-// ================================================================
 
 function aiInputsFor(me, target, allArrows, timer){
   const ww=WW||1280, wh=WH||720;
@@ -2134,41 +2088,8 @@ function aiProcessFor(out, ent){
   // Visée différentielle (vitesse proportionnelle à l'activation)
   const aimSpeed = 0.18;
   ent.aim += (out[4]-out[3]) * aimSpeed;
-  // Snap direct vers l'ennemi prédit (output 6) — récompense l'anticipation
-  // Seul le réseau peut décider quand utiliser ce snap
-  if(out[6]>0.7){
-    // Récupérer la direction prédite depuis les inputs si dispo
-    // Sinon laisser le réseau apprendre à ne pas l'utiliser bêtement
-  }
   // Tir
   if(out[5]>0.5) ent.shoot();
-}
-
-// Legacy wrappers for classic 1v1 mode
-function aiInputs(){return aiInputsFor(A,P,P.arr,roundTimer)}
-function aiProcess(out){aiProcessFor(out,A)}
-
-// ================================================================
-//  GAME LOGIC
-// ================================================================
-function checkHits(){
-  // Check player arrows hitting AI
-  for(let i=P.arr.length-1;i>=0;i--){
-    const a=P.arr[i];if(a.st)continue;
-    if(a.x>A.x&&a.x<A.x+A.w&&a.y>A.y&&a.y<A.y+A.h){boom(a.x,a.y,A.col);P.arr.splice(i,1);return'player'}
-    // Near-miss dodge detection: arrow passed close but didn't hit
-    const dx=a.x-(A.x+A.w/2),dy=a.y-(A.y+A.h/2);
-    if(Math.sqrt(dx*dx+dy*dy)<80)roundStats.arrowsDodged+=0.1; // incremental reward
-  }
-  // Check AI arrows hitting player
-  for(let i=A.arr.length-1;i>=0;i--){
-    const a=A.arr[i];if(a.st)continue;
-    if(a.x>P.x&&a.x<P.x+P.w&&a.y>P.y&&a.y<P.y+P.h){boom(a.x,a.y,P.col);A.arr.splice(i,1);return'ai'}
-    // Near-miss shot: AI arrow passed close to player (aiming quality)
-    const dx=a.x-(P.x+P.w/2),dy=a.y-(P.y+P.h/2);
-    if(Math.sqrt(dx*dx+dy*dy)<60)roundStats.shotsNearMiss+=0.15;
-  }
-  return null;
 }
 
 function boom(x,y,col){
@@ -2176,66 +2097,15 @@ function boom(x,y,col){
     const a=Math.random()*Math.PI*2, s=1+Math.random()*5;
     particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:25+Math.random()*20,col,sz:2+Math.random()*2});
   }
-  // Étincelles dorées (style TowerFall)
   for(let i=0;i<10;i++){
     const a=Math.random()*Math.PI*2, s=2+Math.random()*7;
     particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-3,life:15+Math.random()*15,col:'#f0c040',sz:1});
   }
 }
 function updateParticles(){for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.x+=p.vx;p.y+=p.vy;p.vy+=0.1;p.life--;if(p.life<=0)particles.splice(i,1)}}
-function updateCamera(){if(!P)return;let tx=P.x+P.w/2-vW/2+P.vx*18,ty=P.y+P.h/2-vH/2+P.vy*6;tx=Math.max(0,Math.min(WW-vW,tx));ty=Math.max(0,Math.min(WH-vH,ty));camX+=(tx-camX)*0.08;camY+=(ty-camY)*0.1}
-
-async function endRound(winner){
-  // winner : 'player' | 'ai' | null (timeout)
-  roundOver = true;
-  totalPlayed++;
-
-  const aiWon = (winner === 'ai');
-  const playerWon = (winner === 'player');
-
-  // Stats cumulées du cerveau IA
-  if(aiWon) totalWins++;
-
-  // Stats de session (HUD)
-  if(playerWon) session.playerWins++;
-  else if(aiWon) session.aiWins++;
-
-  // Évolution + sauvegarde
-  evolveBrain(aiWon);
-  await saveCurrent();
-
-  // Mise à jour HUD scores
-  document.getElementById('h-pscore').textContent = session.playerWins;
-  document.getElementById('h-ascore').textContent = session.aiWins;
-
-  // Overlay
-  const ov=document.getElementById('game-overlay');
-  const title=document.getElementById('ov-title');
-  const sub=document.getElementById('ov-sub');
-  const btns=document.getElementById('ov-btns');
-
-  if(playerWon){
-    title.textContent='TOUCHÉ !';
-    title.className='winner-p';
-    title.style.color='';
-  } else if(aiWon){
-    title.textContent='IA GAGNE';
-    title.className='winner-a';
-    title.style.color='';
-  } else {
-    title.textContent='TEMPS ÉCOULÉ';
-    title.className='';
-    title.style.color='var(--gold)';
-  }
-
-  sub.textContent=`Round ${session.round}  ·  Joueur ${session.playerWins} - IA ${session.aiWins}  ·  ELO ${activeBrain.elo||ELO_BASE}`;
-  btns.innerHTML=`<button class="btn small" onclick="quitGame()">✕ Quitter</button><button class="btn small primary" onclick="nextRound()">▶ Suite</button>`;
-  ov.classList.remove('hidden');
-}
 
 // ================================================================
 //  SCORING — ELO + FITNESS
-// ================================================================
 //
 //  ELO  : mesure la force relative contre des adversaires.
 //         K-factor dynamique selon écart ELO + nombre de parties.
@@ -2341,37 +2211,6 @@ function selectMutationStrategy(brain, stag, won, hof, best){
   }
 }
 
-// ── SOLO : évolue activeBrain après un round ─────────────────────
-function evolveBrain(aiWon){
-  // Fitness avec les stats du round solo
-  const gain = computeFitnessGain(roundStats, aiWon, roundTimer);
-  activeBrain.fitness = updateFitness(activeBrain.fitness||0, gain, aiWon);
-
-  // ELO solo : ELO humain estimé dynamiquement depuis le win rate
-  const humanWinRate = totalPlayed>0 ? (totalPlayed-totalWins)/totalPlayed : 0.5;
-  // 1200 (si l'IA gagne tout) → 2000 (si le joueur gagne tout)
-  const dynamicHumanElo = Math.round(ELO_BASE + humanWinRate*800);
-  const prevElo = activeBrain.elo||ELO_BASE;
-  activeBrain.elo = Math.max(400, eloUpdate(
-    prevElo, eloExpected(prevElo, dynamicHumanElo), aiWon?1:0, totalPlayed||1
-  ));
-
-  // Hall of Fame
-  if(aiWon){
-    stagnationCounter=0;
-    hallOfFame.push(activeBrain.clone());
-    hallOfFame.sort((a,b)=>(b.elo||ELO_BASE)-(a.elo||ELO_BASE));
-    if(hallOfFame.length>evoParams.hofSize) hallOfFame.length=evoParams.hofSize;
-    if(!bestBrain||activeBrain.elo>=(bestBrain.elo||ELO_BASE)) bestBrain=activeBrain.clone();
-  } else {
-    stagnationCounter++;
-  }
-
-  selectMutationStrategy(activeBrain, stagnationCounter, aiWon, hallOfFame, bestBrain);
-  generation++;
-  document.getElementById('h-gen').textContent=generation;
-}
-
 // ── MULTI : évolue tous les cerveaux IA après un round ──────────
 // Gère proprement le cas où le même brainId joue plusieurs fois :
 // les deltas ELO et fitness sont moyennés avant application.
@@ -2430,8 +2269,8 @@ async function evolveAllMulti(winnerIdx){
         eloNew = Math.max(400, eloUpdate(eloNew, exp, score, played));
       }
     } else {
-      // Seul cerveau (ou que des clones) : ELO contre ELO_HUMAN
-      const exp = eloExpected(eloNew, ELO_HUMAN);
+      // Seul cerveau (ou clones) : ELO contre base
+      const exp = eloExpected(eloNew, ELO_BASE);
       eloNew = Math.max(400, eloUpdate(eloNew, exp, score, played));
     }
     brain.elo = eloNew;
@@ -2460,38 +2299,65 @@ async function evolveAllMulti(winnerIdx){
   }
 }
 
-function nextRound(){
-  session.round++;
-  document.getElementById('h-round').textContent='Round '+session.round;
-  initRound();
-}
-
 // ================================================================
 //  DRAWING
 // ── Dessine une plateforme style pierre pixel art ─────────────────
 function drawPlatform(ctx, p, camX, camY){
   const x=Math.round(p.x), y=Math.round(p.y), w=p.w, h=p.h;
-  // Murs et sol : pierre sombre massive
-  if(p.w<=12||p.h>=WH-40){
-    // Mur latéral
+
+  // ── MURS LATÉRAUX ET PLAFOND (bordure de l'arène) ──────────────
+  if(p.w<=12||p.h<=12){
+    const isLeft  = p.x===0;
+    const isTop   = p.y===0;
+    const isRight = p.x>=WW-14;
+
+    // Pierre de base
     ctx.fillStyle='#1e1630';
     ctx.fillRect(x,y,w,h);
-    // Joints de pierre verticaux
-    ctx.fillStyle='#12102a';
-    for(let sy=y;sy<y+h;sy+=32) ctx.fillRect(x,sy,w,2);
-    // Bord lumineux intérieur
-    ctx.fillStyle='rgba(255,200,100,0.04)';
-    ctx.fillRect(x+(p.x===0?w-2:0),y,2,h);
+
+    // Texture pierres en blocs
+    ctx.fillStyle='#16112a';
+    const bSz = isTop ? 48 : 32;
+    if(isLeft||isRight){
+      for(let by2=y;by2<y+h;by2+=bSz){
+        const row=Math.floor((by2-y)/bSz);
+        ctx.fillRect(x, by2, w, 2);
+        // Pierre individuelle
+        ctx.fillStyle='#241c3c';
+        ctx.fillRect(x+(row%2===0?2:0), by2+2, w-2, bSz-4);
+        ctx.fillStyle='#16112a';
+      }
+    } else {
+      for(let bx2=x;bx2<x+w;bx2+=bSz){
+        ctx.fillRect(bx2, y, 2, h);
+      }
+    }
+
+    // Bord intérieur lumineux (face vers l'arène)
+    const edgeCol='rgba(120,80,200,0.18)';
+    ctx.fillStyle=edgeCol;
+    if(isLeft)  ctx.fillRect(x+w-3, y, 3, h);
+    if(isRight) ctx.fillRect(x,     y, 3, h);
+    if(isTop)   ctx.fillRect(x, y+h-3, w, 3);
+
+    // Reflet top pour les murs latéraux
+    ctx.fillStyle='rgba(255,200,120,0.06)';
+    if(isLeft)  ctx.fillRect(x+w-1, y, 1, h);
+    if(isRight) ctx.fillRect(x,     y, 1, h);
     return;
   }
+
+  // ── SOL ──────────────────────────────────────────────────────
   if(p.h>=WH-40){
-    // Sol du bas
-    ctx.fillStyle='#1e1630';
+    ctx.fillStyle='#1a1230';
     ctx.fillRect(x,y,w,h);
-    ctx.fillStyle='#2a2040';
+    // Ligne de surface
+    ctx.fillStyle='#2e2448';
     ctx.fillRect(x,y,w,4);
-    // Motif pierre
-    for(let sx=x;sx<x+w;sx+=48){
+    ctx.fillStyle='#3e3460';
+    ctx.fillRect(x,y,w,2);
+    // Dalles
+    for(let sx=x;sx<x+w;sx+=64){
       ctx.fillStyle='#12102a';
       ctx.fillRect(sx,y,2,h);
     }
@@ -2551,172 +2417,175 @@ function drawTorch(ctx, x, y, t){
   ctx.fillRect(x-20, y-20, 40, 40);
 }
 
-// ── Fond de donjon ────────────────────────────────────────────────
+// ── Fond de donjon avec fenêtres parallaxe ───────────────────────
 function drawDungeonBG(ctx, camX, camY){
-  // Fond de base
-  ctx.fillStyle='#0d0818';
+  const t = Date.now();
+
+  // ── 1. FOND DE BASE (pierre sombre) ──────────────────────────
+  ctx.fillStyle='#0a0614';
   ctx.fillRect(0,0,vW,vH);
 
-  // Briques du mur en arrière plan
+  // ── 2. BRIQUES (tile en screen-space avec parallaxe légère) ──
+  // Dessinées EN PREMIER pour que les fenêtres soient par-dessus
   const bW=64, bH=32;
-  const startX=Math.floor(camX/bW)*bW;
-  const startY=Math.floor(camY/bH)*bH;
-  for(let by2=startY-bH;by2<camY+vH+bH;by2+=bH){
+  const bpx = camX * 0.95;
+  const bpy = camY * 0.95;
+  const startX=Math.floor(bpx/bW)*bW;
+  const startY=Math.floor(bpy/bH)*bH;
+  for(let by2=startY-bH;by2<bpy+vH+bH;by2+=bH){
     const row=Math.floor(by2/bH);
-    const offsetX = (row%2)*bW/2;
-    for(let bx2=startX-bW-offsetX;bx2<camX+vW+bW;bx2+=bW){
-      const bx_s=Math.round(bx2-camX), by_s=Math.round(by2-camY);
-      // Brique
-      ctx.fillStyle='#130e22';
+    const offsetX=(row%2)*bW/2;
+    for(let bx2=startX-bW-offsetX;bx2<bpx+vW+bW;bx2+=bW){
+      const bx_s=Math.round(bx2-bpx), by_s=Math.round(by2-bpy);
+      ctx.fillStyle='#110c1e';
       ctx.fillRect(bx_s+1, by_s+1, bW-2, bH-2);
-      // Joint
-      ctx.fillStyle='#0a0814';
+      ctx.fillStyle='#090712';
       ctx.fillRect(bx_s, by_s, bW, 1);
       ctx.fillRect(bx_s, by_s, 1, bH);
     }
   }
 
-  // Colonnes décoratives en arrière plan
-  const colPositions=[200,500,900,1200];
-  for(const colX of colPositions){
-    const sx=Math.round(colX-camX);
-    if(sx<-40||sx>vW+40) continue;
-    // Fût de colonne
+  // ── 3. FENÊTRES PARALLAXE (par-dessus les briques) ───────────
+  const pxOff = camX * 0.15;
+  const pyOff = camY * 0.1;
+
+  // Fenêtres — positions world-space dans les murs
+  const windows = [
+    // Mur gauche (x~12) : fenêtres sur toute la hauteur
+    {wx:12, wy:80,  ww:0,  wh:160},
+    {wx:12, wy:300, ww:0,  wh:160},
+    {wx:12, wy:500, ww:0,  wh:120},
+    // Mur droit (x~WW-12)
+    {wx:WW-12, wy:80,  ww:0, wh:160},
+    {wx:WW-12, wy:300, ww:0, wh:160},
+    {wx:WW-12, wy:500, ww:0, wh:120},
+    // Plafond (y~10) : grandes fenêtres horizontales
+    {wx:200,  wy:10, ww:200, wh:0},
+    {wx:600,  wy:10, ww:200, wh:0},
+    {wx:1000, wy:10, ww:200, wh:0},
+  ];
+
+  // Positions des étoiles (déterministes)
+  const stars = [];
+  for(let i=0;i<120;i++){
+    const seed=i*7919;
+    stars.push({
+      x: (seed*131)%2800 - 400,
+      y: (seed*97) %1400 - 200,
+      r: (i%4===0)?2:1,
+      b: 0.4+((seed*37)%60)/100,
+    });
+  }
+
+  // Pour chaque fenêtre, dessiner le ciel extérieur en screen-space
+  for(const win of windows){
+    // Convertir world → screen
+    const sx = (win.wx - camX - vW/2)*camZoom + vW/2;
+    const sy = (win.wy - camY - vH/2)*camZoom + vH/2;
+
+    let rx, ry, rw, rh;
+    if(win.wx <= 12){
+      // Mur gauche : fenêtre de largeur 60, hauteur wh
+      rw = 60*camZoom; rh = win.wh*camZoom;
+      rx = sx - rw/2 + 6*camZoom; ry = sy;
+    } else if(win.wx >= WW-12){
+      // Mur droit
+      rw = 60*camZoom; rh = win.wh*camZoom;
+      rx = sx - rw/2 - 6*camZoom; ry = sy;
+    } else {
+      // Plafond : fenêtre de hauteur 60
+      rw = win.ww*camZoom; rh = 60*camZoom;
+      rx = sx; ry = sy - rh/2 + 6*camZoom;
+    }
+
+    // Clip à la fenêtre
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(rx, ry, rw, rh);
+    ctx.clip();
+
+    // Fond ciel nocturne (bleu très sombre)
+    const grad = ctx.createLinearGradient(rx,ry,rx,ry+rh);
+    grad.addColorStop(0,'#04081a');
+    grad.addColorStop(1,'#080c28');
+    ctx.fillStyle=grad;
+    ctx.fillRect(rx,ry,rw,rh);
+
+    // Lune (une seule, cohérente)
+    const moonX = (400 - pxOff*0.5) % (vW+200) - 100;
+    const moonY = 60 - pyOff*0.3;
+    ctx.fillStyle='#d8d4b0';
+    ctx.beginPath();
+    ctx.arc(moonX, moonY, 18, 0, Math.PI*2);
+    ctx.fill();
+    // Ombre de lune
+    ctx.fillStyle='#04081a';
+    ctx.beginPath();
+    ctx.arc(moonX+8, moonY-4, 16, 0, Math.PI*2);
+    ctx.fill();
+
+    // Étoiles avec parallaxe lente
+    ctx.fillStyle='#ffffff';
+    for(const s of stars){
+      const ex = (s.x - pxOff*0.08) % (vW*3);
+      const ey = (s.y - pyOff*0.05) % (vH*2);
+      const esx = rx + (ex / (vW*3)) * rw * 3;
+      const esy = ry + (ey / (vH*2)) * rh * 2;
+      if(esx<rx||esx>rx+rw||esy<ry||esy>ry+rh) continue;
+      ctx.globalAlpha = s.b;
+      ctx.fillRect(Math.round(esx), Math.round(esy), s.r, s.r);
+    }
+    ctx.globalAlpha = 1;
+
+    // Lueur de lumière de ville en bas des fenêtres
+    const cityGrad = ctx.createLinearGradient(rx,ry+rh-rh*0.3,rx,ry+rh);
+    cityGrad.addColorStop(0,'rgba(60,40,80,0)');
+    cityGrad.addColorStop(1,'rgba(80,40,120,0.35)');
+    ctx.fillStyle=cityGrad;
+    ctx.fillRect(rx,ry,rw,rh);
+
+    // Encadrement de la fenêtre (pierre)
+    ctx.strokeStyle='#2a2040';
+    ctx.lineWidth=4;
+    ctx.strokeRect(rx+1,ry+1,rw-2,rh-2);
+    // Barre centrale (croisillon)
     ctx.fillStyle='#1e1630';
-    ctx.fillRect(sx-12, Math.round(-camY), 24, WH);
-    ctx.fillStyle='#2a2040';
-    ctx.fillRect(sx-10, Math.round(-camY), 4, WH);
-    // Chapiteaux
-    ctx.fillStyle='#241c3a';
-    ctx.fillRect(sx-16, Math.round(80-camY), 32, 12);
-    ctx.fillRect(sx-16, Math.round(WH-92-camY), 32, 12);
+    if(rw>rh){
+      ctx.fillRect(rx, ry+rh/2-2, rw, 4); // horizontale
+      ctx.fillRect(rx+rw/3, ry, 4, rh);
+      ctx.fillRect(rx+rw*2/3, ry, 4, rh);
+    } else {
+      ctx.fillRect(rx+rw/2-2, ry, 4, rh); // verticale
+      ctx.fillRect(rx, ry+rh/3, rw, 4);
+      ctx.fillRect(rx, ry+rh*2/3, rw, 4);
+    }
+
+    ctx.restore();
   }
 }
 
 // ================================================================
-function drawGame(){
-  if(!vW||!vH) return;
-  const t=Date.now();
-
-  c.save();
-  c.translate(-camX,-camY);
-
-  // Fond donjon
-  c.restore();
-  drawDungeonBG(c, camX, camY);
-  c.save();
-  c.translate(-camX,-camY);
-
-  // Torches sur certaines plateformes
-  const torchPlats=[4,8,14,18]; // indices de plateformes avec torches
-  for(const ti of torchPlats){
-    if(ti>=platforms.length) continue;
-    const p=platforms[ti];
-    if(p.w<=12||p.h>=WH-40) continue;
-    if(p.x+p.w<camX-60||p.x>camX+vW+60) continue;
-    drawTorch(c, p.x+20, p.y-12, t);
-    if(p.w>100) drawTorch(c, p.x+p.w-20, p.y-12, t);
-  }
-
-  // Plateformes
-  for(const p of platforms){
-    if(p.x+p.w<camX-20||p.x>camX+vW+20||p.y+p.h<camY-20||p.y>camY+vH+20) continue;
-    drawPlatform(c, p, camX, camY);
-  }
-
-  // Entités
-  if(P) P.draw(c);
-  if(A) A.draw(c);
-
-  // Particules (pixel art)
-  for(const p of particles){
-    const alpha=p.life/60;
-    c.fillStyle=p.col+(Math.round(alpha*255).toString(16).padStart(2,'0'));
-    c.fillRect(Math.round(p.x), Math.round(p.y), Math.ceil(p.sz), Math.ceil(p.sz));
-  }
-
-  c.restore();
-
-  // Indicateur hors-écran (style TowerFall — flèche pixel)
-  if(A&&P){
-    const sx2=Math.round(A.x+A.w/2-camX), sy2=Math.round(A.y+A.h/2-camY);
-    if(sx2<-30||sx2>vW+30||sy2<-30||sy2>vH+30){
-      const ang=Math.atan2(sy2-vH/2,sx2-vW/2),mg=40;
-      let ix=vW/2+Math.cos(ang)*(vW/2-mg), iy=vH/2+Math.sin(ang)*(vH/2-mg);
-      ix=Math.max(mg,Math.min(vW-mg,ix)); iy=Math.max(mg,Math.min(vH-mg,iy));
-      c.save(); c.translate(Math.round(ix),Math.round(iy)); c.rotate(ang);
-      c.fillStyle=A.col;
-      // Flèche pixelisée
-      c.fillRect(-8,-3,14,6); c.fillRect(-8,-5,4,10);
-      c.fillStyle='rgba(0,0,0,0.5)';
-      c.fillRect(-8,3,14,2); c.fillRect(2,-3,2,6);
-      c.restore();
-    }
-  }
-
-  // NN viz
-  if(activeBrain.acts && activeBrain.acts.length >= 6){
-    const w=nnCv.width, h=nnCv.height;
-    nnC.clearRect(0,0,w,h);
-    const EXPERT_COLS=['rgba(240,160,48,','rgba(96,200,255,','rgba(160,100,255,'];
-    const layers=[
-      {data:activeBrain.acts[0], label:'IN',  col:'rgba(80,70,120,'},
-      {data:activeBrain.acts[1], label:'DNG', col:EXPERT_COLS[0]},
-      {data:activeBrain.acts[2], label:'AIM', col:EXPERT_COLS[1]},
-      {data:activeBrain.acts[3], label:'TRN', col:EXPERT_COLS[2]},
-      {data:activeBrain.acts[5], label:'ARB', col:'rgba(220,180,80,'},
-      {data:activeBrain.acts[6], label:'OUT', col:'rgba(255,100,100,'},
-    ];
-    const mx=8, pad=8;
-    layers.forEach((layer,li)=>{
-      const lx=pad+(li/(layers.length-1))*(w-pad*2);
-      const nd=Math.min(layer.data.length,mx);
-      layer.data.slice(0,nd).forEach((v,ni)=>{
-        const ny=5+(nd>1?(ni/(nd-1))*(h-14):h/2-5);
-        if(li<layers.length-1){
-          const next=layers[li+1], nlx=pad+((li+1)/(layers.length-1))*(w-pad*2);
-          const nd2=Math.min(next.data.length,mx);
-          next.data.slice(0,nd2).forEach((_,nni)=>{
-            const nny=5+(nd2>1?(nni/(nd2-1))*(h-14):h/2-5);
-            nnC.strokeStyle=`${layer.col}${Math.min(Math.abs(v)*0.3,0.2)})`;
-            nnC.lineWidth=0.5; nnC.beginPath(); nnC.moveTo(lx,ny); nnC.lineTo(nlx,nny); nnC.stroke();
-          });
-        }
-        const abs=Math.min(Math.abs(v),1);
-        // Pixel art : carré au lieu de cercle
-        nnC.fillStyle=`${layer.col}${0.3+abs*0.7})`;
-        const sz=Math.round(2+abs*2);
-        nnC.fillRect(Math.round(lx-sz/2), Math.round(ny-sz/2), sz, sz);
-      });
-      nnC.fillStyle=`${layer.col}0.6)`;
-      nnC.font='5px monospace';
-      nnC.textAlign='center';
-      nnC.fillText(layer.label,lx,h-1);
-    });
-  }
-}
-
+// ================================================================
+// ================================================================
+//  DRAWING MULTI
 // ── Multi-player draw ─────────────────────────────────────────────
 function drawGameMulti(){
   if(!vW||!vH)return;
   const t=Date.now();
 
-  c.save();
-  c.translate(vW/2,vH/2);
-  c.scale(camZoom,camZoom);
-  c.translate(-vW/2,-vH/2);
-  c.translate(-camX,-camY);
+  // Reset transform au dpr de base, puis effacer
+  c.setTransform(dpr,0,0,dpr,0,0);
+  c.clearRect(0,0,vW,vH);
 
-  // Fond donjon (dans l'espace caméra)
-  c.restore();
-  c.save();
-  c.translate(vW/2,vH/2);
-  c.scale(camZoom,camZoom);
-  c.translate(-vW/2,-vH/2);
+  // ── 1. FOND (screen-space) ────────────────────────────────────
   drawDungeonBG(c, camX, camY);
 
-  // On translate maintenant en espace world
-  c.translate(-camX,-camY);
+  // ── 2. WORLD-SPACE avec zoom ──────────────────────────────────
+  c.save();
+  c.translate(vW/2, vH/2);
+  c.scale(camZoom, camZoom);
+  c.translate(-vW/2, -vH/2);
+  c.translate(-camX, -camY);
 
   // Torches
   const torchPlats=[4,8,14,18];
@@ -2724,27 +2593,17 @@ function drawGameMulti(){
     if(ti>=platforms.length)continue;
     const p=platforms[ti];
     if(p.w<=12||p.h>=WH-40)continue;
-    if(p.x+p.w<camX-60||p.x>camX+vW+60)continue;
     drawTorch(c, p.x+20, p.y-12, t);
     if(p.w>100) drawTorch(c, p.x+p.w-20, p.y-12, t);
   }
 
   // Plateformes
   for(const p of platforms){
-    if(p.x+p.w<camX-20||p.x>camX+vW+20||p.y+p.h<camY-20||p.y>camY+vH+20)continue;
     drawPlatform(c, p, camX, camY);
   }
 
-  // Players
-  for(let i=0;i<players.length;i++){
-    if(playerAlive[i])players[i].draw(c);
-  }
-
-  // Agents entraîneurs (violet distinctif)
-  for(const ag of multiAgentEnts) ag.draw(c);
-
   // Pièges
-  for(const t of multiTraps) t.draw(c);
+  for(const trap of multiTraps) trap.draw(c);
 
   // Projectiles pièges
   for(const p of multiTrapProj){
@@ -2752,33 +2611,33 @@ function drawGameMulti(){
     c.fillRect(Math.round(p.x-3),Math.round(p.y-1),6,2);
   }
 
-  // Particles
+  // Joueurs vivants
+  for(let i=0;i<players.length;i++){
+    if(playerAlive[i]) players[i].draw(c);
+  }
+
+  // Particules
   for(const p of particles){
     const alpha=p.life/60;
     c.fillStyle=p.col+(Math.round(alpha*255).toString(16).padStart(2,'0'));
     c.fillRect(Math.round(p.x), Math.round(p.y), Math.ceil(p.sz), Math.ceil(p.sz));
   }
 
-  c.restore(); // back to screen space
+  c.restore();
 
-  // Labels joueurs + agents (screen space)
+  // ── 3. SCREEN-SPACE (labels, indicateurs) ────────────────────
   c.font='bold 6px monospace';
   c.textAlign='center';
+  c.globalAlpha=0.9;
   for(let i=0;i<players.length;i++){
     if(!playerAlive[i])continue;
     const pl=players[i];
-    const sx=(pl.x+pl.w/2-camX)*camZoom+(vW/2)*(1-camZoom);
-    const sy=(pl.y-camY)*camZoom+(vH/2)*(1-camZoom)-8;
-    c.fillStyle=SLOT_COLORS[pl._slotIndex];
-    c.globalAlpha=0.9;
-    c.fillText(pl._label,Math.round(sx),Math.round(sy));
-  }
-  // Labels agents entraîneurs
-  for(const ag of multiAgentEnts){
-    const sx=(ag.x+ag.w/2-camX)*camZoom+(vW/2)*(1-camZoom);
-    const sy=(ag.y-camY)*camZoom+(vH/2)*(1-camZoom)-8;
-    c.fillStyle='#c060ff'; c.globalAlpha=0.8;
-    c.fillText(sanitize(ag._label||'ENT'),Math.round(sx),Math.round(sy));
+    const col=pl._isTrainer?(pl._col||'#c060ff'):SLOT_COLORS[pl._slotIndex];
+    // world → screen
+    const sx=(pl.x+pl.w/2-camX-vW/2)*camZoom+vW/2;
+    const sy=(pl.y-camY-vH/2)*camZoom+vH/2-8;
+    c.fillStyle=col;
+    c.fillText(sanitize(pl._label), Math.round(sx), Math.round(sy));
   }
   c.globalAlpha=1;
 
@@ -2786,18 +2645,24 @@ function drawGameMulti(){
   for(let i=0;i<players.length;i++){
     if(!playerAlive[i])continue;
     const pl=players[i];
-    const sx=(pl.x+pl.w/2-camX)*camZoom+(vW/2)*(1-camZoom);
-    const sy=(pl.y+pl.h/2-camY)*camZoom+(vH/2)*(1-camZoom);
+    const col=pl._isTrainer?(pl._col||'#c060ff'):SLOT_COLORS[pl._slotIndex];
+    const sx=(pl.x+pl.w/2-camX-vW/2)*camZoom+vW/2;
+    const sy=(pl.y+pl.h/2-camY-vH/2)*camZoom+vH/2;
     if(sx>-30&&sx<vW+30&&sy>-30&&sy<vH+30)continue;
-    const ang=Math.atan2(sy-vH/2,sx-vW/2),mg=32;
-    let ix=vW/2+Math.cos(ang)*(vW/2-mg), iy=vH/2+Math.sin(ang)*(vH/2-mg);
-    ix=Math.max(mg,Math.min(vW-mg,ix)); iy=Math.max(mg,Math.min(vH-mg,iy));
-    c.save(); c.translate(Math.round(ix),Math.round(iy)); c.rotate(ang);
-    c.fillStyle=SLOT_COLORS[pl._slotIndex];
+    const ang=Math.atan2(sy-vH/2, sx-vW/2), mg=32;
+    let ix=vW/2+Math.cos(ang)*(vW/2-mg);
+    let iy=vH/2+Math.sin(ang)*(vH/2-mg);
+    ix=Math.max(mg,Math.min(vW-mg,ix));
+    iy=Math.max(mg,Math.min(vH-mg,iy));
+    c.save();
+    c.translate(Math.round(ix),Math.round(iy));
+    c.rotate(ang);
+    c.fillStyle=col;
     c.fillRect(-8,-3,14,6); c.fillRect(-8,-5,4,10);
     c.restore();
   }
 }
+
 function checkHitsMulti(){
   const alive=players.filter((_,i)=>playerAlive[i]);
   for(let attI=0;attI<players.length;attI++){
@@ -2820,341 +2685,296 @@ function checkHitsMulti(){
   return -1;
 }
 
-async function endRoundMulti(eliminatedIdx){
+function endRoundMulti(){
   if(multiRoundOver)return;
   multiRoundOver=true;
+  humanDeadShown=true;
 
-  // Trouver le gagnant (dernier survivant)
-  const alivePlayers=players.filter((_,i)=>playerAlive[i]);
-  const winnerIdx=alivePlayers.length===1?players.indexOf(alivePlayers[0]):-1;
-
-  // Incrémenter le compteur de session du gagnant
+  // Gagnant = seul survivant
+  const aliveIdx=players.findIndex((_,i)=>playerAlive[i]);
+  const winnerIdx=playerAlive.filter(Boolean).length===1?aliveIdx:-1;
   if(winnerIdx>=0) playerWins[winnerIdx]++;
 
-  // Évolution + persistance des cerveaux IA
-  await evolveAllMulti(winnerIdx);
-
-  updateMultiHUD();
-
-  const ov   = document.getElementById('game-overlay');
-  const title= document.getElementById('ov-title');
-  const sub  = document.getElementById('ov-sub');
-  const btns = document.getElementById('ov-btns');
-
+  // Overlay immédiat (sync, jamais bloqué)
+  const title=document.getElementById('ov-title');
+  const sub=document.getElementById('ov-sub');
+  const btns=document.getElementById('ov-btns');
+  title.className='';
   if(winnerIdx>=0){
     const w=players[winnerIdx];
     title.textContent=`${sanitize(w._label)} GAGNE !`;
-    title.className='';
     title.style.color=SLOT_COLORS[w._slotIndex];
   } else {
     title.textContent='TEMPS ÉCOULÉ';
-    title.className='';
     title.style.color='var(--gold)';
   }
+  sub.textContent=`Round ${multiRound}  ·  `+players.map((p,i)=>`${sanitize(p._label).split(' ')[0]} ${playerWins[i]}W`).join('  ');
+  btns.innerHTML=`<button class="btn small" onclick="quitGame()">✕ Quitter</button>
+    <button class="btn small primary" onclick="nextRoundMulti()">▶ Suite</button>`;
+  document.getElementById('game-overlay').classList.remove('hidden');
 
-  // Score de session : [label] W pour chaque slot
-  const scores=players.map((p,i)=>`${sanitize(p._label).split(' ')[0]} ${playerWins[i]}W`).join('  ');
-  sub.textContent=`Round ${session.round}  ·  ${scores}`;
-  btns.innerHTML=`<button class="btn small" onclick="quitGame()">✕ Quitter</button><button class="btn small primary" onclick="nextRoundMulti()">▶ Suite</button>`;
-  ov.classList.remove('hidden');
+  // Évolution cerveaux en arrière-plan
+  evolveAllMulti(winnerIdx).then(()=>updateMultiHUD()).catch(()=>{});
 }
 
 function showHumanDeadOverlay(){
-  if(multiRoundOver)return;
-  // Caméra libre + masquer joysticks immédiatement
-  updateGameControls();
-  resizeGame();
-
-  const ov   = document.getElementById('game-overlay');
-  const title= document.getElementById('ov-title');
-  const sub  = document.getElementById('ov-sub');
-  const btns = document.getElementById('ov-btns');
+  const title=document.getElementById('ov-title');
   title.textContent='ÉLIMINÉ';
   title.className='winner-a';
   title.style.color='';
-  sub.textContent='Observer la suite ou passer au round suivant';
-  btns.innerHTML=`
+  document.getElementById('ov-sub').textContent='Observer la suite ou passer au round suivant';
+  document.getElementById('ov-btns').innerHTML=`
     <button class="btn small" onclick="quitGame()">✕ Quitter</button>
     <button class="btn small" onclick="document.getElementById('game-overlay').classList.add('hidden')">👁 Observer</button>
-    <button class="btn small primary" onclick="endRoundMulti(-1)">⏭ Suivant</button>
-  `;
-  ov.classList.remove('hidden');
+    <button class="btn small primary" onclick="endRoundMulti()">⏭ Suivant</button>`;
+  document.getElementById('game-overlay').classList.remove('hidden');
 }
 
 function nextRoundMulti(){
-  session.round++;
+  multiRound++;
   multiRoundOver=false;
   humanDeadShown=false;
   roundTimer=0;
   particles=[];
   multiTrapProj=[];
+
   // Reset pièges
   multiTraps.forEach(t=>{
     if(t.type==='collapse'){t.triggered=false;t.fallTimer=0;t.fallen=false;t.y=t.origY;}
     if(t.type==='mine'){t.triggered=false;t.triggerTimer=0;t.active=true;}
   });
-  playerBrains.forEach(b=>{ if(b) b.resetMemory(); });
+
+  // Spawns aléatoires pour tous les joueurs (entraîneurs inclus)
+  const spawns=randomSpawns(players.length);
   for(let i=0;i<players.length;i++){
-    const sp=SPAWN_POS[i%4];
+    const sp=spawns[i];
     players[i].x=sp.x; players[i].y=sp.y;
     players[i].vx=0; players[i].vy=0;
     players[i].arr=[]; players[i].cd=0; players[i].aim=0;
     players[i].face=sp.face;
+    players[i].hp=3; players[i].hitFlash=0; players[i].ht=0;
     playerAlive[i]=true;
+    const b=playerBrains[i];
+    if(b instanceof ScriptedAgent){
+      b.mem={lastEnemyX:0,lastEnemyY:0,jumpCooldown:0,retreatDir:0,retreatTimer:0,patternBuf:[],lastShot:0};
+    } else if(b&&b.resetMemory){
+      b.resetMemory();
+    }
   }
-  // Reset agents entraîneurs
-  multiAgentEnts.forEach((ent,i)=>{
-    const sp=SPAWN_POS[(players.length+i)%4];
-    ent.x=sp.x; ent.y=sp.y; ent.vx=0; ent.vy=0;
-    ent.arr=[]; ent.cd=0; ent.aim=0; ent.face=sp.face;
-  });
-  // Restaurer les contrôles (joysticks si humain, camlib si full IA)
+
   updateGameControls();
   resizeGame();
+  // Remettre le zoom si un humain est présent
+  if(playerBrains.some(b=>b===null)){
+    freeCam=false; camZoom=1.0;
+    document.body.classList.remove('observe-mode');
+  }
   updateMultiHUD();
   document.getElementById('game-overlay').classList.add('hidden');
-  document.getElementById('mh-round').textContent=`Round ${session.round}`;
+  document.getElementById('mh-round').textContent=`Round ${multiRound}`;
 }
 
 function gameLoop(){
   if(!gameActive)return;
   requestAnimationFrame(gameLoop);
 
-  if(multiMode){
-    // ── MULTI GAME LOOP ────────────────────────────────────────
-    if(!multiRoundOver){
-      // Collect all enemy arrows for each AI (for dodge detection)
-      for(let i=0;i<players.length;i++){
-        if(!playerAlive[i])continue;
-        const me=players[i];
-        if(playerBrains[i]!==null){
-          // AI: pick nearest alive enemy as target
-          let target=null,bestDist=Infinity;
-          const allEnts=[...players.filter((_,j)=>j!==i&&playerAlive[j]),...multiAgentEnts];
-          for(const e of allEnts){
-            const dx=e.x-me.x,dy=e.y-me.y,d=dx*dx+dy*dy;
-            if(d<bestDist){bestDist=d;target=e;}
+  if(!multiRoundOver){
+    // ── 1. INPUT JOUEURS ────────────────────────────────────────
+    for(let i=0;i<players.length;i++){
+      if(!playerAlive[i]) continue;
+      const me=players[i];
+      const brain=playerBrains[i];
+
+      if(brain===null){
+        // Humain : clavier + joysticks (premier humain seulement)
+        const isFirstHuman=players.slice(0,i).every((_,j)=>playerBrains[j]!==null);
+        if(isFirstHuman){
+          if(keys['KeyA']||keys['ArrowLeft']){me.vx-=MSPD*0.4;me.face=-1;}
+          if(keys['KeyD']||keys['ArrowRight']){me.vx+=MSPD*0.4;me.face=1;}
+          if((keys['KeyW']||keys['KeyZ']||keys['ArrowUp'])&&me.gnd){me.vy=JUMP;}
+          if(keys['Space']) me.shoot();
+          if(joyState.left.active){
+            const lx=joyState.left.x,ly=joyState.left.y;
+            if(Math.abs(lx)>DEADZONE){me.vx+=lx*MSPD*0.5;me.face=lx>0?1:-1;}
+            if(ly<-0.6&&me.gnd) me.vy=JUMP;
           }
-          if(target){
-            const enemyArrows=[...players.filter((_,j)=>j!==i).flatMap(p=>p.arr),...multiAgentEnts.flatMap(e=>e.arr)];
-            const inp=aiInputsFor(me,target,enemyArrows,roundTimer);
-            const out=playerBrains[i].forward(inp);
-            aiProcessFor(out,me);
-          }
-        } else {
-          // Human: use existing playerInput but bound to first human slot
-          if(players.filter((_,j)=>j<i&&playerBrains[j]===null).length===0){
-            P=me; playerInput();
-          }
-        }
-        me.update();
-      }
-
-      // Agents entraîneurs scriptés
-      for(let i=0;i<multiAgents.length;i++){
-        const ag=multiAgents[i];
-        const ent=multiAgentEnts[i];
-        // Cible = joueur humain en priorité, sinon le plus proche
-        const humanEnt=players.find((_,j)=>playerBrains[j]===null&&playerAlive[j]);
-        const allTargets=[...players.filter((_,j)=>playerAlive[j]),...multiAgentEnts.filter((_,j)=>j!==i)];
-        const target=humanEnt||allTargets.reduce((b,e)=>{
-          const d=(e.x-ent.x)**2+(e.y-ent.y)**2;
-          const bd=(b.x-ent.x)**2+(b.y-ent.y)**2;
-          return d<bd?e:b;
-        },allTargets[0]||players[0]);
-        if(target){
-          const arrows=[...players.flatMap(p=>p.arr),...multiAgentEnts.filter((_,j)=>j!==i).flatMap(e=>e.arr)];
-          ag.act(ent,target,arrows,multiTraps,roundTimer);
-        }
-        ent.update();
-      }
-
-      // Mise à jour pièges
-      const allGameEnts=[...players.filter((_,i)=>playerAlive[i]),...multiAgentEnts];
-      for(const t of multiTraps) t.update(allGameEnts, multiTrapProj);
-
-      // Mise à jour projectiles pièges
-      for(let i=multiTrapProj.length-1;i>=0;i--){
-        const p=multiTrapProj[i];
-        if(p.st){p.life--;if(p.life<=0){multiTrapProj.splice(i,1);continue;}}
-        else{p.vy+=AGRAV;p.vx*=ADRAG;p.vy*=ADRAG;p.x+=p.vx;p.y+=p.vy;p.life--;}
-        if(p.life<=0||p.x<-50||p.x>WW+50||p.y>WH+50){multiTrapProj.splice(i,1);continue;}
-        // Touche les joueurs
-        for(let j=0;j<players.length;j++){
-          if(!playerAlive[j]) continue;
-          const e=players[j];
-          if(p.x>e.x&&p.x<e.x+e.w&&p.y>e.y&&p.y<e.y+e.h){
-            boom(p.x,p.y,e.col); multiTrapProj.splice(i,1);
-            playerAlive[j]=false; break;
-          }
-        }
-      }
-
-      // Hits entre joueurs
-      checkHitsMulti();
-
-      // Hits agents entraîneurs → joueurs
-      for(const ag of multiAgentEnts){
-        for(let j=ag.arr.length-1;j>=0;j--){
-          const a=ag.arr[j]; if(a.st) continue;
-          for(let k=0;k<players.length;k++){
-            if(!playerAlive[k]) continue;
-            const e=players[k];
-            if(a.x>e.x&&a.x<e.x+e.w&&a.y>e.y&&a.y<e.y+e.h){
-              boom(a.x,a.y,e.col); ag.arr.splice(j,1); playerAlive[k]=false; break;
+          if(joyState.jump&&me.gnd) me.vy=JUMP;
+          if(joyState.right.active){
+            const rx=joyState.right.x,ry=joyState.right.y;
+            const mag=Math.sqrt(rx*rx+ry*ry);
+            if(mag>DEADZONE){
+              me.aim=Math.atan2(ry,rx);
+              me.face=rx>0?1:-1;
+              if(mag>0.4) me.shoot();
             }
           }
         }
-      }
-
-      const aliveCount=playerAlive.filter(Boolean).length;
-
-      // Check if human player just died → show observer overlay
-      const humanIdx=playerBrains.findIndex(b=>b===null);
-      if(humanIdx>=0 && !playerAlive[humanIdx] && !multiRoundOver && !humanDeadShown){
-        humanDeadShown=true;
-        showHumanDeadOverlay();
-      }
-
-      if(aliveCount<=1)endRoundMulti(-1);
-
-      roundTimer++;
-      if(roundTimer>60*40)endRoundMulti(-1);
-
-      // Timer HUD multi
-      const remM=Math.floor(Math.max(0,60*40-roundTimer)/60);
-      const remS=Math.floor(Math.max(0,60*40-roundTimer)%60);
-      const tEl=document.getElementById('mh-timer');
-      if(tEl) tEl.textContent=`${remM}:${String(remS).padStart(2,'0')}`;
-    }
-
-    if(freeCam){freeCamKeyboard();}
-    else{
-      // Camera: follow human player if alive, otherwise center on all alive
-      const humanIdx=playerBrains.findIndex(b=>b===null);
-      const humanAlive=humanIdx>=0&&playerAlive[humanIdx];
-      if(humanAlive){
-        const me=players[humanIdx];
-        const tx=me.x+me.w/2-vW/2+me.vx*18;
-        const ty=me.y+me.h/2-vH/2+me.vy*6;
-        camX+=(Math.max(0,Math.min(WW-vW,tx))-camX)*0.08;
-        camY+=(Math.max(0,Math.min(WH-vH,ty))-camY)*0.1;
+      } else if(brain instanceof ScriptedAgent){
+        // Entraîneur scriptés : cibler le joueur vivant le plus proche (tous types)
+        const targets=players.filter((_,j)=>j!==i&&playerAlive[j]);
+        if(targets.length>0){
+          const target=targets.reduce((best,e)=>{
+            const d=(e.x-me.x)**2+(e.y-me.y)**2;
+            const bd=(best.x-me.x)**2+(best.y-me.y)**2;
+            return d<bd?e:best;
+          },targets[0]);
+          const arrows=players.filter((_,j)=>j!==i&&playerAlive[j]).flatMap(p=>p.arr);
+          brain.act(me,target,arrows,multiTraps,roundTimer);
+        }
       } else {
-        const alive=players.filter((_,i)=>playerAlive[i]);
-        if(alive.length>0){
-          const cx=alive.reduce((s,p)=>s+p.x+p.w/2,0)/alive.length;
-          const cy=alive.reduce((s,p)=>s+p.y+p.h/2,0)/alive.length;
-          camX+=(cx-vW/2-camX)*0.06;
-          camY+=(cy-vH/2-camY)*0.06;
+        // Cerveau IA : trouver la meilleure cible parmi les joueurs vivants
+        let target=null,bestDist=Infinity;
+        for(let j=0;j<players.length;j++){
+          if(j===i||!playerAlive[j]) continue;
+          const dx=players[j].x-me.x,dy=players[j].y-me.y;
+          const d=dx*dx+dy*dy;
+          if(d<bestDist){bestDist=d;target=players[j];}
+        }
+        if(target){
+          const enemyArrows=players.filter((_,j)=>j!==i&&playerAlive[j]).flatMap(p=>p.arr);
+          const inp=aiInputsFor(me,target,enemyArrows,roundTimer);
+          const out=brain.forward(inp);
+          aiProcessFor(out,me);
+          me.face=target.x<me.x?-1:1;
+        }
+      }
+      me.update();
+    }
+
+    // Agents entraîneurs séparés (multiAgentEnts) — plus utilisés, vide maintenant
+
+    // ── 2. PIÈGES ────────────────────────────────────────────────
+    const allLiving=players.filter((_,i)=>playerAlive[i]);
+    for(const t of multiTraps) t.update(allLiving,multiTrapProj);
+
+    for(let i=multiTrapProj.length-1;i>=0;i--){
+      const p=multiTrapProj[i];
+      if(p.st){if(--p.life<=0)multiTrapProj.splice(i,1);continue;}
+      p.vy+=AGRAV;p.vx*=ADRAG;p.vy*=ADRAG;
+      p.x+=p.vx;p.y+=p.vy;p.life--;
+      if(p.life<=0||p.x<-50||p.x>WW+50||p.y>WH+50){multiTrapProj.splice(i,1);continue;}
+      for(let j=0;j<players.length;j++){
+        if(!playerAlive[j])continue;
+        const e=players[j];
+        if(p.x>e.x&&p.x<e.x+e.w&&p.y>e.y&&p.y<e.y+e.h){
+          boom(p.x,p.y,e.col);multiTrapProj.splice(i,1);
+          e.hp--; e.ht=12; e.hitFlash=20;
+          if(e.hp<=0) playerAlive[j]=false;
+          break;
         }
       }
     }
-    updateParticles();
-    drawGameMulti();
 
-  } else {
-    // ── CLASSIC GAME LOOP ──────────────────────────────────────
-    if(!roundOver){
-      playerInput();
-      const inp=aiInputs(),out=activeBrain.forward(inp);
-      aiProcess(out);
-      P.update();A.update();
-
-      // Collect per-frame stats for fitness
-      if(A.gnd){
-        const py=Math.round(A.y/10)*10;
-        if(py!==roundStats.lastPlatformY&&roundStats.lastPlatformY!==-1){
-          roundStats.platformChanges++;
+    // ── 3. DÉTECTION HITS (tous vs tous) ────────────────────────
+    for(let att=0;att<players.length;att++){
+      if(!playerAlive[att])continue;
+      for(let a=players[att].arr.length-1;a>=0;a--){
+        const ar=players[att].arr[a];if(ar.st)continue;
+        for(let def=0;def<players.length;def++){
+          if(def===att||!playerAlive[def])continue;
+          const e=players[def];
+          if(ar.x>e.x&&ar.x<e.x+e.w&&ar.y>e.y&&ar.y<e.y+e.h){
+            players[att].arr.splice(a,1);
+            e.hp--;
+            e.ht=12; // clignotement
+            e.hitFlash=20; // flash rouge humain
+            boom(ar.x,ar.y,e.col);
+            if(e.hp<=0) playerAlive[def]=false;
+            break;
+          }
         }
-        roundStats.lastPlatformY=py;
-      }
-      if(Math.abs(A.x-roundStats.lastX)<2)roundStats.stagnationFrames++;
-      else roundStats.stagnationFrames=Math.max(0,roundStats.stagnationFrames-3);
-      roundStats.lastX=A.x;
-
-      // Visée précise (framesAiming)
-      const _aimTarget=Math.atan2(P.y+P.h/2-(A.y+A.h/2), P.x+P.w/2-(A.x+A.w/2));
-      let _aimDiff=Math.abs(A.aim-_aimTarget);
-      if(_aimDiff>Math.PI)_aimDiff=Math.PI*2-_aimDiff;
-      if(_aimDiff<0.2) roundStats.framesAiming++;
-      // Tir précis (preciseShots) — détecté dans checkHits via shotsNearMiss
-      // On ajoute ici le tracking de tir bien visé
-      if(out[5]>0.5 && _aimDiff<0.3 && A.cd===0) roundStats.preciseShots+=0.5;
-
-      const hit=checkHits();
-      if(hit)endRound(hit);
-      roundTimer++;
-      if(roundTimer>60*35)endRound(null);
-
-      // Timer HUD solo
-      const remM=Math.floor(Math.max(0,60*35-roundTimer)/60);
-      const remS=Math.floor(Math.max(0,60*35-roundTimer)%60);
-      const tEl=document.getElementById('h-timer');
-      if(tEl){
-        tEl.textContent=`${remM}:${String(remS).padStart(2,'0')}`;
-        tEl.style.color=remM===0&&remS<10?'#ff4444':'var(--warn)';
       }
     }
-    updateCamera();updateParticles();drawGame();
+
+    // ── 5. FIN DE ROUND ─────────────────────────────────────────
+    const aliveCount=playerAlive.filter(Boolean).length;
+    const humanIdx=playerBrains.findIndex(b=>b===null);
+
+    if(humanIdx>=0&&!playerAlive[humanIdx]&&!humanDeadShown){
+      humanDeadShown=true;
+      // Dézoom : voir toute la map (calcul exact)
+      camZoom=Math.min(vW/WW, vH/WH);
+      freeCam=true;
+      camX=WW/2-vW/2;
+      camY=WH/2-vH/2;
+      document.body.classList.add('observe-mode');
+      document.getElementById('touch-pad').classList.remove('on');
+      if(aliveCount>0) showHumanDeadOverlay();
+    }
+
+    if(aliveCount<=1) endRoundMulti();
+    roundTimer++;
+    if(roundTimer>60*40) endRoundMulti();
+
+    // Timer HUD
+    const rem=Math.max(0,60*40-roundTimer);
+    const remM=Math.floor(rem/60),remS=rem%60;
+    const tEl=document.getElementById('mh-timer');
+    if(tEl){
+      tEl.textContent=`${remM}:${String(remS).padStart(2,'0')}`;
+      tEl.style.color=remM===0&&remS<10?'#ff4444':'var(--warn)';
+    }
   }
+
+  // ── 6. CAMÉRA ────────────────────────────────────────────────
+  if(freeCam){
+    freeCamKeyboard();
+  } else {
+    const humanIdx=playerBrains.findIndex(b=>b===null);
+    const humanAlive=humanIdx>=0&&playerAlive[humanIdx];
+
+    // Zoom auto : on veut voir ~900px de large en world-space
+    // Si l'écran est plus grand, on profite de l'espace
+    const targetVisibleW = 900;
+    camZoom = Math.min(1.0, vW / targetVisibleW);
+
+    if(humanAlive){
+      const me=players[humanIdx];
+      const tx=me.x+me.w/2 - vW/2;
+      const ty=me.y+me.h/2 - vH/2;
+      camX+=(tx-camX)*0.1;
+      camY+=(ty-camY)*0.1;
+    }
+  }
+
+  updateParticles();
+  drawGameMulti();
 }
 
 // ================================================================
 //  SCREENS
-// ================================================================
-// ── Gère l'affichage des joysticks et l'état caméra selon le contexte ──
-// Règles :
-//   Solo          : joysticks si touch, caméra classique
-//   Multi humain  : joysticks si touch, caméra suit humain vivant
-//   Multi tout IA : pas de joysticks, caméra libre
-//   Humain mort   : joysticks cachés, caméra libre
 function updateGameControls(){
   const isTouch=('ontouchstart' in window)||navigator.maxTouchPoints>0;
   const pad=document.getElementById('touch-pad');
-
-  if(!multiMode){
-    // Solo : joysticks si touch
+  const humanIdx=playerBrains.findIndex(b=>b===null);
+  const hasHuman=humanIdx>=0;
+  const humanAlive=hasHuman&&playerAlive[humanIdx];
+  const allAI=!hasHuman;
+  if(allAI||!humanAlive){
+    pad.classList.remove('on');
+    freeCam=true;
+    document.body.classList.add('observe-mode');
+  } else {
     if(isTouch) pad.classList.add('on'); else pad.classList.remove('on');
     freeCam=false;
     document.body.classList.remove('observe-mode');
-  } else {
-    const humanIdx=playerBrains.findIndex(b=>b===null);
-    const hasHuman=humanIdx>=0;
-    const humanAlive=hasHuman&&playerAlive[humanIdx];
-    const allAI=!hasHuman;
-
-    if(allAI || !humanAlive){
-      // Pas d'humain ou humain mort : caméra libre, pas de joysticks
-      pad.classList.remove('on');
-      freeCam=true;
-      document.body.classList.add('observe-mode');
-    } else {
-      // Humain vivant : joysticks si touch, caméra suit le joueur
-      if(isTouch) pad.classList.add('on'); else pad.classList.remove('on');
-      freeCam=false;
-      document.body.classList.remove('observe-mode');
-    }
   }
-  // Resize après reflow DOM (les joysticks ont changé de taille)
   requestAnimationFrame(()=>resizeGame());
 }
 
 function showScreen(name){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(name+'-screen').classList.add('active');
-  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.screen===name));
   if(name==='game'){
     document.body.classList.add('in-game');
-    // Les joysticks/caméra sont gérés par updateGameControls()
   } else {
     document.body.classList.remove('in-game','observe-mode');
     document.getElementById('touch-pad').classList.remove('on');
     gameActive=false;
-    document.getElementById('game-hud').style.display='';
     document.getElementById('multi-hud').style.display='none';
   }
   if(name==='menu'){
-    multiMode=false;freeCam=false;camZoom=1;updateMenuUI();
+    freeCam=false;camZoom=1;updateMenuUI();
     // Relancer la simulation de fond (avec le cerveau potentiellement mis à jour)
     setTimeout(()=>initMenuBg(), 100);
   } else {
@@ -3171,36 +2991,16 @@ function showScreen(name){
   }
 }
 
-function startArena(){
-  showScreen('game');
-  resizeGame();
-  updateGameControls();
-  session={playerWins:0, aiWins:0, round:1};
-  document.getElementById('h-pscore').textContent='0';
-  document.getElementById('h-ascore').textContent='0';
-  document.getElementById('h-gen').textContent=generation;
-  document.getElementById('h-round').textContent='Round 1';
-  initRound();
-  gameActive=true;
-  requestAnimationFrame(gameLoop);
-}
-
 async function quitGame(){
   gameActive=false;
-  if(multiMode){
-    multiMode=false;freeCam=false;camZoom=1;
-    document.body.classList.remove('observe-mode');
-    showScreen('menu');
-  } else {
-    await saveCurrent();
-    showScreen('menu');
-  }
+   freeCam=false; camZoom=1;
+  document.body.classList.remove('observe-mode');
+  showScreen('menu');
 }
 window.addEventListener('resize',()=>{if(gameActive)resizeGame()});
 
 // ================================================================
 //  PERSISTENCE
-// ================================================================
 async function saveCurrent(){
   const existing = await store.get('brains', currentBrainId);
   // Nom : conserve l'existant, génère séquentiellement si premier save
@@ -3343,7 +3143,6 @@ async function resetCurrent(){
 
 // ================================================================
 //  FILE IMPORT/EXPORT
-// ================================================================
 async function exportBestBrain(){
   const brain = bestBrain || activeBrain;
   const src   = await store.get('brains', currentBrainId);
@@ -3383,7 +3182,7 @@ async function importBrainFile(event){
     currentBrainId=id; activeBrain=brain;
     generation=data.generation||1; bestBrain=brain.clone();
     toast(`Importé : ${name}`); updateLabUI();
-  }catch(e){ toast('Erreur: '+e.message); }
+  }catch(e){ toast('Erreur import: '+e.message); }
   event.target.value='';
 }
 
@@ -3395,7 +3194,6 @@ if(dropZone){dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZon
 
 // ================================================================
 //  UTILITIES
-// ================================================================
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),2500)}
 
 if(!CanvasRenderingContext2D.prototype.roundRect){CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){if(typeof r==='number')r=[r,r,r,r];this.moveTo(x+r[0],y);this.lineTo(x+w-r[1],y);this.quadraticCurveTo(x+w,y,x+w,y+r[1]);this.lineTo(x+w,y+h-r[2]);this.quadraticCurveTo(x+w,y+h,x+w-r[2],y+h);this.lineTo(x+r[3],y+h);this.quadraticCurveTo(x,y+h,x,y+h-r[3]);this.lineTo(x,y+r[0]);this.quadraticCurveTo(x,y,x+r[0],y);this.closePath()}}
@@ -3404,7 +3202,6 @@ document.getElementById('game').addEventListener('touchmove',e=>e.preventDefault
 
 // ================================================================
 //  PARAMÈTRES D'ÉVOLUTION ÉDITABLES
-// ================================================================
 const EVO_DEFAULTS = {
   mutRateWin  : 0.04,
   mutRateLoss : 0.16,
@@ -3431,8 +3228,8 @@ function resetParams(){
     const key = k.replace(/([A-Z])/g,'-$1').toLowerCase();
     const slider = document.getElementById('p-'+key);
     const label  = document.getElementById('v-'+key);
-    if(slider){ slider.value = v; }
-    if(label)  { label.textContent = v; }
+    if(slider){ slider.value=v; }
+    if(label)  { label.textContent=v; }
   }
   toast('Paramètres réinitialisés');
 }
@@ -3460,7 +3257,6 @@ function initParamSliders(){
 
 // ================================================================
 //  TOURNOI AUTOMATIQUE
-// ================================================================
 let tourneyRunning = false;
 let tourneySpeed   = 1;      // ×1, ×4, ×16, 0=MAX
 let tourneyMatches = [];     // [{a,b,scoreA,scoreB,done,running}]
@@ -3469,7 +3265,6 @@ let tourneyBrains  = [];     // [{id,name,elo,fitness,brain}]
 let tourneyRound   = 0;      // round actuel du match en cours
 let tourneyMatchIdx= 0;
 let tourneyA = null, tourneyB = null;   // Ent en cours
-let tourneyBrainA = null, tourneyBrainB = null;
 let tourneyRoundOver = false;
 let tourneyTimer = 0;
 let tourneyParticles = [];
@@ -3506,7 +3301,7 @@ async function arenaToggle(){
 
 async function arenaStart(){
   const all = await store.getAll('brains');
-  if(all.length < 2){ toast('Il faut au moins 2 cerveaux'); return; }
+  if(all.length < 2){ toast('Il faut au moins 2 cerveaux pour un tournoi'); return; }
 
   tourneyBrains = all.map(e=>({
     id: e.id,
@@ -3516,7 +3311,7 @@ async function arenaStart(){
     wins: 0, played: 0,
     brain: deserializeBrain(e.brain),
   }));
-  tourneyBrains.forEach(b=>{ b.brain.fitness=b.fitness; b.brain.elo=b.elo; });
+  tourneyBrains.forEach(b=>{ b.brain.resetMemory(); });
 
   // Round-robin : tous contre tous
   tourneyMatches = [];
@@ -3616,14 +3411,14 @@ function startTourneyRound(match){
     if(!tourneyRunning || tourneyRoundOver) return;
 
     // IA A
-    const inpA = aiInputsFor(tourneyA, tourneyB, tourneyB.arr, tourneyRoundTimer);
+    const inpA = aiInputsFor(tourneyA, tourneyB, tourneyB.arr, tourneyTimer);
     const outA = bA.brain.forward(inpA);
     aiProcessFor(outA, tourneyA);
     tourneyA.face = tourneyB.x < tourneyA.x ? -1 : 1;
     tourneyA.update();
 
     // IA B
-    const inpB = aiInputsFor(tourneyB, tourneyA, tourneyA.arr, tourneyRoundTimer);
+    const inpB = aiInputsFor(tourneyB, tourneyA, tourneyA.arr, tourneyTimer);
     const outB = bB.brain.forward(inpB);
     aiProcessFor(outB, tourneyB);
     tourneyB.face = tourneyA.x < tourneyB.x ? -1 : 1;
@@ -3868,7 +3663,6 @@ function drawTourneyFrame(){
 
 // ================================================================
 //  GRAPHIQUE ÉVOLUTION
-// ================================================================
 const GRAPH_COLORS=['#f0c040','#60c8ff','#60ff80','#ff4444','#ff80ff','#80ffff','#ffaa40','#aaffaa'];
 
 function drawEvoGraph(){
@@ -3944,7 +3738,6 @@ function drawEvoGraph(){
 
 // ================================================================
 //  STATS PAR CERVEAU
-// ================================================================
 let statsSelectedId = null;
 
 async function renderStats(){
@@ -3961,7 +3754,7 @@ async function renderStats(){
 
   if(!statsSelectedId && all.length>0) statsSelectedId = all[0].id;
   const e = all.find(b=>b.id===statsSelectedId);
-  if(!e){ cont.innerHTML=''; return; }
+  if(!e){ cont.innerHTML='<div class="empty-state">Aucun cerveau sélectionné</div>'; return; }
 
   const wr = e.played>0 ? Math.round(e.wins/e.played*100) : 0;
   const hist = evoHistory[e.id] || [];
@@ -4065,1357 +3858,231 @@ function drawStatsHistory(id){
 }
 // ================================================================
 //  SCRIPTED AGENT — IA codée à la main (4 niveaux)
-// ================================================================
 class ScriptedAgent {
   constructor(level=1){
     this.level = level; // 1=ROOKIE 2=FIGHTER 3=VETERAN 4=MASTER
-    this.mem = { lastEnemyX:0, lastEnemyY:0, jumpCooldown:0,
-                 retreatDir:0, retreatTimer:0, patternBuf:[], lastShot:0 };
+    this.mem = {
+      jumpCooldown:0, retreatDir:0, retreatTimer:0,
+      patternBuf:[], losSearchDir:0, losSearchTimer:0,
+    };
   }
 
-  // Retourne les actions à appliquer sur `me` face à `enemy`
   act(me, enemy, enemyArrows, traps, timer){
     const m = this.mem;
-    m.jumpCooldown = Math.max(0, m.jumpCooldown-1);
-    m.retreatTimer = Math.max(0, m.retreatTimer-1);
+    m.jumpCooldown  = Math.max(0, m.jumpCooldown-1);
+    m.retreatTimer  = Math.max(0, m.retreatTimer-1);
+    m.losSearchTimer= Math.max(0, m.losSearchTimer-1);
+    m.platSearchTimer= Math.max(0, (m.platSearchTimer||0)-1);
 
-    const dx = enemy.x - me.x;
-    const dy = enemy.y - me.y;
+    const dx   = enemy.x - me.x;
+    const dy   = enemy.y - me.y;
     const dist = Math.sqrt(dx*dx+dy*dy);
-    const optDist = this.level >= 3 ? 350 : 250; // distance optimale
+    const blocked = this._shotBlocked(me, enemy);
 
-    // ── Direction de déplacement ──────────────────────────────
-    let moveX = 0;
-    if(this.level === 1){
-      // ROOKIE : fonce vers l'ennemi
-      moveX = dx > 0 ? 1 : -1;
-    } else {
-      // FIGHTER+ : maintient distance optimale
-      if(dist > optDist + 60) moveX = dx > 0 ? 1 : -1;
-      else if(dist < optDist - 60) moveX = dx > 0 ? -1 : 1;
-      // Retraite forcée si en danger
-      if(m.retreatTimer > 0){ moveX = m.retreatDir; }
+    // Avantage de hauteur : suis-je au-dessus de l'ennemi ?
+    const heightAdv = me.y - enemy.y; // négatif = je suis plus haut
+    const hasHighGround = heightAdv < -40;
+    const enemyAbove = heightAdv > 60;
+
+    // ── TROUVER LA MEILLEURE PLATEFORME ────────────────────────
+    // Chercher une plateforme au-dessus de l'ennemi pour avoir l'avantage
+    let targetPlat = null;
+    if(!hasHighGround && this.level >= 2){
+      let bestScore = -Infinity;
+      for(const p of platforms){
+        if(p.w<=12||p.h>=WH-40||p.w<60) continue; // ignorer murs/sol/petites
+        // La plateforme doit être au-dessus de l'ennemi
+        if(p.y >= enemy.y - 20) continue;
+        // Score : plus haut que l'ennemi = mieux, mais pas trop loin horizontalement
+        const platCX = p.x + p.w/2;
+        const platCY = p.y;
+        const hScore = (enemy.y - platCY) * 2; // bonus hauteur
+        const dScore = -Math.abs(platCX - enemy.x) * 0.5; // pénalité distance horizontale
+        const myDist = -Math.abs(platCX - me.x) * 0.3; // préférer les proches de moi
+        const score = hScore + dScore + myDist;
+        if(score > bestScore){ bestScore=score; targetPlat=p; }
+      }
     }
 
-    // ── Esquive flèches ───────────────────────────────────────
-    let dodge = false;
+    // ── MOUVEMENT ──────────────────────────────────────────────
+    let moveX = 0;
+    let wantJumpToPlat = false;
+
+    if(blocked){
+      // Chercher une ligne de vue libre en se déplaçant latéralement
+      if(m.losSearchTimer === 0){
+        m.losSearchDir = Math.random() < 0.5 ? 1 : -1;
+        m.losSearchTimer = 60;
+      }
+      moveX = m.losSearchDir;
+      if(me.x < 60)  { moveX = 1;  m.losSearchDir = 1; }
+      if(me.x > WW-80){ moveX = -1; m.losSearchDir = -1; }
+      // Si bloqué, sauter pour changer de plateforme
+      if(m.losSearchTimer > 40 && me.gnd && m.jumpCooldown===0){
+        wantJumpToPlat = true;
+      }
+    } else if(targetPlat && !hasHighGround && this.level >= 2){
+      // ── NAVIGUER VERS LA PLATEFORME CIBLE (high ground) ──────
+      const platCX = targetPlat.x + targetPlat.w/2;
+      const platCY = targetPlat.y;
+      const dxPlat = platCX - me.x;
+      const dyPlat = platCY - me.y;
+
+      // Se déplacer horizontalement vers la plateforme
+      if(Math.abs(dxPlat) > 40){
+        moveX = dxPlat > 0 ? 1 : -1;
+      }
+      // Sauter si on est en dessous de la plateforme cible et à peu près aligné
+      if(dyPlat < -20 && Math.abs(dxPlat) < targetPlat.w && me.gnd && m.jumpCooldown===0){
+        wantJumpToPlat = true;
+      }
+    } else if(hasHighGround){
+      // ── POSITION DOMINANTE — rester au-dessus, se centrer sur l'ennemi ──
+      const optOffsetX = this.level >= 3 ? 0 : 30; // MASTER: pile au dessus
+      if(Math.abs(dx) > 60 + optOffsetX) moveX = dx > 0 ? 1 : -1;
+      // Si l'ennemi est loin en dessous, on peut descendre pour être plus agressif
+      if(this.level >= 3 && Math.abs(dy) > 250 && me.gnd && m.jumpCooldown===0){
+        // Ne pas sauter, juste se rapprocher du bord pour tirer vers le bas
+      }
+      // Retraite après esquive
+      if(m.retreatTimer > 0) moveX = m.retreatDir;
+    } else {
+      // Ligne de vue libre, pas de high ground target → positionnement normal
+      m.losSearchTimer = 0;
+
+      if(this.level === 1){
+        if(timer % 90 < 45) moveX = dx > 0 ? 1 : -1;
+        else moveX = Math.random() < 0.5 ? 1 : -1;
+      } else {
+        const optDist = this.level >= 3 ? 380 : 280;
+        if(dist > optDist + 80) moveX = dx > 0 ? 1 : -1;
+        else if(dist < optDist - 80) moveX = dx > 0 ? -1 : 1;
+        if(m.retreatTimer > 0) moveX = m.retreatDir;
+      }
+    }
+
+    // ── ESQUIVE ────────────────────────────────────────────────
+    let doJump = false;
     if(this.level >= 2){
       for(const a of enemyArrows){
         if(a.st) continue;
         const ax = a.x - me.x, ay = a.y - me.y;
         const adist = Math.sqrt(ax*ax+ay*ay);
-        if(adist < (this.level >= 3 ? 140 : 90)){
-          // Esquive : sauter si la flèche arrive à hauteur du corps
-          if(Math.abs(ay) < me.h && a.vx * ax > 0){
-            dodge = true;
-            // VETERAN+ : esquive directionnelle
-            if(this.level >= 3) moveX = ay > 0 ? (dx>0?1:-1) : -Math.sign(a.vx);
-          }
+        const thresh = this.level >= 3 ? 130 : 80;
+        if(adist < thresh && Math.abs(ay) < me.h && a.vx * ax > 0){
+          if(me.gnd && m.jumpCooldown === 0){ doJump = true; m.jumpCooldown = 35; }
           if(this.level >= 3){
+            moveX = -Math.sign(a.vx);
             m.retreatDir = -Math.sign(a.vx);
-            m.retreatTimer = 18;
+            m.retreatTimer = 20;
           }
+        }
+        // Esquive flèches venant du dessous (plongeantes vers le haut)
+        if(adist < 100 && a.vy < -2 && ay < 0 && Math.abs(ax) < 40){
+          moveX = Math.random() < 0.5 ? 1 : -1;
+          m.retreatDir = moveX;
+          m.retreatTimer = 15;
         }
       }
     }
 
-    // ── Saut ──────────────────────────────────────────────────
-    let doJump = false;
-    if(dodge && me.gnd && m.jumpCooldown === 0){
-      doJump = true; m.jumpCooldown = 30;
-    } else if(this.level === 1 && Math.random() < 0.008 && me.gnd){
-      doJump = true; // ROOKIE saute aléatoirement
-    } else if(this.level >= 2 && me.gnd && m.jumpCooldown === 0){
-      // Sauter pour atteindre l'ennemi si plus haut
-      if(enemy.y < me.y - 60 && Math.random() < 0.03){
-        doJump = true; m.jumpCooldown = 40;
-      }
-      // VETERAN+ : utiliser les plateformes intelligemment
-      if(this.level >= 3 && Math.random() < 0.01){
-        doJump = true; m.jumpCooldown = 60;
+    // ── SAUT ──────────────────────────────────────────────────
+    if(!doJump && me.gnd && m.jumpCooldown === 0){
+      if(wantJumpToPlat){
+        doJump = true; m.jumpCooldown = 30;
+      } else if(this.level === 1){
+        if(Math.random() < 0.003) { doJump = true; m.jumpCooldown = 60; }
+      } else {
+        // Monter vers l'ennemi s'il est au-dessus
+        if(enemyAbove && Math.random() < 0.04){
+          doJump = true; m.jumpCooldown = 35;
+        }
+        // Chercher le high ground activement (même sans targetPlat)
+        if(!hasHighGround && Math.random() < (this.level >= 3 ? 0.025 : 0.012)){
+          doJump = true; m.jumpCooldown = 40;
+        }
+        if(blocked && Math.random() < 0.03){
+          doJump = true; m.jumpCooldown = 40;
+        }
+        if(this.level >= 3 && Math.random() < 0.008){
+          doJump = true; m.jumpCooldown = 55;
+        }
       }
     }
 
-    // ── Visée ─────────────────────────────────────────────────
+    // ── VISÉE ─────────────────────────────────────────────────
     let targetAim = Math.atan2(dy, dx);
-    if(this.level >= 2){
-      // Anticipation : prédire où sera l'ennemi
-      const tof = dist / ASPD; // time of flight approximatif
+
+    // Bonus: si on a le high ground, viser vers le bas (angle plongeant = plus facile)
+    if(hasHighGround && this.level >= 2){
+      // Viser légèrement en avance pour les tirs plongeants (la gravité aide)
+      const tof = dist / ASPD;
+      const gravDrop = 0.5 * AGRAV * tof * tof; // la flèche tombe
       const predX = enemy.x + enemy.vx * tof * (this.level >= 3 ? 1.0 : 0.5);
-      const predY = enemy.y + enemy.vy * tof * (this.level >= 3 ? 0.8 : 0.3);
+      const predY = enemy.y + enemy.vy * tof * 0.4 - gravDrop * 0.3; // compenser la gravité
       targetAim = Math.atan2(predY - me.y, predX - me.x);
-    }
-    if(this.level >= 4){
-      // MASTER : feinte — rate intentionnellement 20% du temps
-      if(timer % 180 < 36) targetAim += (Math.random()-0.5) * 0.8;
-      // Mémoriser patterns
-      m.patternBuf.push({x:enemy.x,y:enemy.y,t:timer});
-      if(m.patternBuf.length > 60) m.patternBuf.shift();
-    }
-    // Interpolation douce vers la cible
-    const aimSpeed = this.level === 1 ? 0.06 : this.level === 2 ? 0.10 : 0.15;
-    let diff = targetAim - me.aim;
-    while(diff > Math.PI) diff -= Math.PI*2;
-    while(diff < -Math.PI) diff += Math.PI*2;
-    me.aim += diff * aimSpeed;
+    } else if(this.level === 1){
+      const aimSpeed = 0.04;
+      let diff = targetAim - me.aim;
+      while(diff > Math.PI) diff -= Math.PI*2;
+      while(diff < -Math.PI) diff += Math.PI*2;
+      me.aim += diff * aimSpeed;
+    } else {
+      const tof = dist / ASPD;
+      const predX = enemy.x + enemy.vx * tof * (this.level >= 3 ? 1.0 : 0.4);
+      const predY = enemy.y + enemy.vy * tof * (this.level >= 3 ? 0.8 : 0.2);
+      targetAim = Math.atan2(predY - me.y, predX - me.x);
 
-    // ── Tir ───────────────────────────────────────────────────
+      if(this.level >= 4){
+        if(timer % 200 < 40) targetAim += (Math.random()-0.5) * 0.6;
+        m.patternBuf.push({x:enemy.x,y:enemy.y});
+        if(m.patternBuf.length > 60) m.patternBuf.shift();
+      }
+    }
+
+    // Appliquer rotation de visée (commun)
+    if(this.level >= 2 || !hasHighGround){
+      const aimSpeed = this.level === 1 ? 0.04 : this.level === 2 ? 0.09 : this.level === 3 ? 0.14 : 0.18;
+      // High ground: visée plus rapide (angle plus stable)
+      const finalSpeed = hasHighGround ? aimSpeed * 1.3 : aimSpeed;
+      let diff = targetAim - me.aim;
+      while(diff > Math.PI) diff -= Math.PI*2;
+      while(diff < -Math.PI) diff += Math.PI*2;
+      me.aim += diff * finalSpeed;
+    }
+
+    // ── TIR ───────────────────────────────────────────────────
     let doShoot = false;
-    const aimErr = Math.abs(diff);
-    const shootThresh = this.level === 1 ? 0.6 : this.level === 2 ? 0.35 : this.level >= 3 ? 0.2 : 0.15;
-    if(aimErr < shootThresh && dist < 800 && me.cd === 0){
-      if(this.level === 1) doShoot = Math.random() < 0.4;
-      else doShoot = true;
+    let diff2 = targetAim - me.aim;
+    while(diff2 > Math.PI) diff2 -= Math.PI*2;
+    while(diff2 < -Math.PI) diff2 += Math.PI*2;
+    const aimErr = Math.abs(diff2);
+
+    // Seuil de tir plus permissif en position haute (angle plongeant = cible plus large)
+    const highGroundBonus = hasHighGround ? 1.3 : 1.0;
+    const shootThresh = (this.level === 1 ? 0.5 : this.level === 2 ? 0.32 : this.level === 3 ? 0.18 : 0.13) * highGroundBonus;
+    const shootChance = this.level === 1 ? 0.15 : 1.0;
+    if(aimErr < shootThresh && dist < 900 && me.cd === 0 && !blocked){
+      doShoot = Math.random() < shootChance;
     }
 
-    // ── Appliquer ─────────────────────────────────────────────
+    // ── APPLIQUER ─────────────────────────────────────────────
     if(moveX < 0){ me.vx -= MSPD*0.4; me.face=-1; }
     if(moveX > 0){ me.vx += MSPD*0.4; me.face=1; }
     if(doJump && me.gnd) me.vy = JUMP;
     if(doShoot) me.shoot();
     me.face = dx > 0 ? 1 : -1;
-
-    m.lastEnemyX = enemy.x;
-    m.lastEnemyY = enemy.y;
   }
 
-  get label(){ return ['ROOKIE','FIGHTER','VETERAN','MASTER'][this.level-1]; }
-  get color(){ return ['#888888','#60c8ff','#f0c040','#ff4444'][this.level-1]; }
-}
-
-// ELO fictif des agents scriptés par niveau
-const AGENT_ELO = [1100, 1350, 1600, 1900];
-
-// ================================================================
-//  PIÈGES (TRAPS)
-// ================================================================
-class Trap {
-  constructor(type, x, y, config={}){
-    this.type = type; this.x=x; this.y=y;
-    this.active = true; this.timer = 0;
-    this.cfg = config;
-    // État propre selon type
-    switch(type){
-      case 'mine':     this.triggered=false; this.triggerTimer=0; break;
-      case 'launcher': this.cooldown=0; this.buttonX=config.btnX||x+50; this.buttonY=config.btnY||y-20; this.pressed=false; break;
-      case 'electric': this.phase=Math.random()*Math.PI*2; break;
-      case 'teleport': this.partnerX=config.partnerX||x+400; this.partnerY=config.partnerY||y; this.cooldown=0; break;
-      case 'collapse': this.triggered=false; this.fallTimer=0; this.fallen=false; this.origY=y; break;
-      case 'wind':     this.dir=config.dir||1; this.strength=config.strength||3; break;
-    }
-  }
-
-  update(entities, projectiles){
-    this.timer++;
-    switch(this.type){
-      case 'mine': this._updateMine(entities, projectiles); break;
-      case 'launcher': this._updateLauncher(entities, projectiles); break;
-      case 'electric': this._updateElectric(entities); break;
-      case 'teleport': this._updateTeleport(entities); break;
-      case 'collapse': this._updateCollapse(entities); break;
-      case 'wind': this._updateWind(entities, projectiles); break;
-    }
-  }
-
-  _updateMine(entities, proj){
-    if(this.triggered){ this.triggerTimer++; if(this.triggerTimer>8){this.active=false;} return; }
-    for(const e of entities){
-      const dx=e.x+e.w/2-this.x, dy=e.y+e.h-this.y;
-      if(Math.abs(dx)<16&&Math.abs(dy)<14){
-        this.triggered=true;
-        // Explosion : salve de 8 flèches
-        for(let a=0;a<8;a++){
-          const ang=a*Math.PI/4;
-          proj.push({x:this.x,y:this.y,vx:Math.cos(ang)*ASPD*0.7,vy:Math.sin(ang)*ASPD*0.7,
-            life:120,st:false,tr:[],owner:'trap',col:'#ff8020'});
-        }
-        boom(this.x,this.y,'#ff8020');
-      }
-    }
-  }
-
-  _updateLauncher(entities, proj){
-    this.cooldown=Math.max(0,this.cooldown-1);
-    // Bouton : quelqu'un marche dessus ?
-    for(const e of entities){
-      const dx=e.x+e.w/2-this.buttonX, dy=e.y+e.h-this.buttonY;
-      if(Math.abs(dx)<18&&Math.abs(dy)<12&&e.gnd){
-        if(!this.pressed && this.cooldown===0){
-          this.pressed=true; this.cooldown=120;
-          // Salve horizontale depuis le mur
-          const dir=this.cfg.dir||1;
-          for(let i=0;i<5;i++){
-            const vy=(i-2)*1.5;
-            proj.push({x:this.x,y:this.y+i*20,vx:dir*ASPD,vy,life:200,st:false,tr:[],owner:'trap',col:'#ff4444'});
-          }
-        }
-      } else { this.pressed=false; }
-    }
-  }
-
-  _updateElectric(entities){
-    const active = Math.sin(this.timer*0.05+this.phase) > 0.3;
-    if(!active) return;
-    for(const e of entities){
-      if(e.x+e.w>this.x && e.x<this.x+80 && e.y+e.h>this.y && e.y<this.y+8){
-        // Choc : repousse vers le haut
-        e.vy = Math.min(e.vy, JUMP*0.8);
-        e.vx += (Math.random()-0.5)*6;
-      }
-    }
-  }
-
-  _updateTeleport(entities){
-    if(this.cooldown>0){this.cooldown--;return;}
-    for(const e of entities){
-      const dx=e.x+e.w/2-this.x, dy=e.y+e.h/2-this.y;
-      if(Math.abs(dx)<24&&Math.abs(dy)<24){
-        e.x=this.partnerX-e.w/2; e.y=this.partnerY-e.h;
-        e.vx*=0.3; e.vy*=0.3;
-        this.cooldown=60;
-        boom(this.x,this.y,'#a060ff'); boom(this.partnerX,this.partnerY,'#a060ff');
-      }
-    }
-  }
-
-  _updateCollapse(entities){
-    if(this.fallen) return;
-    if(!this.triggered){
-      for(const e of entities){
-        if(e.x+e.w>this.x&&e.x<this.x+this.cfg.w&&Math.abs(e.y+e.h-this.y)<8&&e.gnd){
-          this.triggered=true; break;
-        }
-      }
-    } else {
-      this.fallTimer++;
-      this.y = this.origY + this.fallTimer*this.fallTimer*0.08;
-      if(this.y > WH+50) this.fallen=true;
-    }
-  }
-
-  _updateWind(entities, proj){
-    for(const e of entities){
-      if(e.x+e.w>this.x&&e.x<this.x+this.cfg.w&&e.y+e.h>this.y&&e.y<this.y+(this.cfg.h||WH)){
-        e.vx += this.dir*this.strength*0.04;
-      }
-    }
-    for(const a of proj){
-      if(!a.st&&a.x>this.x&&a.x<this.x+this.cfg.w){
-        a.vx += this.dir*this.strength*0.08;
-      }
-    }
-  }
-
-  draw(ctx){
-    if(!this.active) return;
-    switch(this.type){
-      case 'mine':     this._drawMine(ctx); break;
-      case 'launcher': this._drawLauncher(ctx); break;
-      case 'electric': this._drawElectric(ctx); break;
-      case 'teleport': this._drawTeleport(ctx); break;
-      case 'collapse': this._drawCollapse(ctx); break;
-      case 'wind':     this._drawWind(ctx); break;
-    }
-  }
-
-  _drawMine(ctx){
-    if(this.triggered){
-      ctx.fillStyle=`rgba(255,128,32,${1-this.triggerTimer/8})`;
-      ctx.beginPath();ctx.arc(this.x,this.y,30+this.triggerTimer*4,0,Math.PI*2);ctx.fill();
-      return;
-    }
-    ctx.fillStyle='#cc4400';ctx.fillRect(this.x-8,this.y-8,16,16);
-    ctx.fillStyle='#ff6600';ctx.fillRect(this.x-4,this.y-12,8,6);
-    ctx.fillStyle='#ffaa00';ctx.fillRect(this.x-2,this.y-6,4,4);
-    // Indicateur danger
-    if(Math.floor(this.timer/15)%2===0){
-      ctx.fillStyle='rgba(255,80,0,0.4)';ctx.beginPath();ctx.arc(this.x,this.y,24,0,Math.PI*2);ctx.fill();
-    }
-  }
-
-  _drawLauncher(ctx){
-    // Mur lanceur
-    ctx.fillStyle='#442200';ctx.fillRect(this.x-8,this.y-60,16,120);
-    ctx.fillStyle='#ff4400';ctx.fillRect(this.x-4,this.y-4,8,8);
-    // Bouton
-    ctx.fillStyle=this.pressed?'#ff2200':'#882200';
-    ctx.fillRect(this.buttonX-10,this.buttonY-6,20,12);
-    ctx.fillStyle='#cc4400';ctx.fillRect(this.buttonX-8,this.buttonY-4,16,8);
-    // Label
-    ctx.fillStyle='rgba(255,80,0,0.6)';ctx.font='5px monospace';ctx.textAlign='center';
-    ctx.fillText('BTN',this.buttonX,this.buttonY-10);
-  }
-
-  _drawElectric(ctx){
-    const active=Math.sin(this.timer*0.05+this.phase)>0.3;
-    ctx.fillStyle=active?'#ffff44':'#444420';
-    ctx.fillRect(this.x,this.y,80,8);
-    if(active){
-      ctx.strokeStyle='rgba(255,255,0,0.6)';ctx.lineWidth=1;
-      for(let i=0;i<6;i++){
-        ctx.beginPath();ctx.moveTo(this.x+i*14,this.y);
-        ctx.lineTo(this.x+i*14+(Math.random()-0.5)*8,this.y-8-Math.random()*8);
-        ctx.stroke();
-      }
-    }
-  }
-
-  _drawTeleport(ctx){
-    const pulse=Math.sin(this.timer*0.08)*0.3+0.7;
-    // Portail A
-    ctx.fillStyle=`rgba(160,96,255,${pulse*0.3})`;ctx.beginPath();ctx.arc(this.x,this.y,20,0,Math.PI*2);ctx.fill();
-    ctx.strokeStyle=`rgba(160,96,255,${pulse})`;ctx.lineWidth=2;ctx.beginPath();ctx.arc(this.x,this.y,20,0,Math.PI*2);ctx.stroke();
-    ctx.fillStyle='rgba(160,96,255,0.8)';ctx.font='6px monospace';ctx.textAlign='center';ctx.fillText('A',this.x,this.y+3);
-    // Portail B
-    ctx.fillStyle=`rgba(96,255,160,${pulse*0.3})`;ctx.beginPath();ctx.arc(this.partnerX,this.partnerY,20,0,Math.PI*2);ctx.fill();
-    ctx.strokeStyle=`rgba(96,255,160,${pulse})`;ctx.lineWidth=2;ctx.beginPath();ctx.arc(this.partnerX,this.partnerY,20,0,Math.PI*2);ctx.stroke();
-    ctx.fillStyle='rgba(96,255,160,0.8)';ctx.fillText('B',this.partnerX,this.partnerY+3);
-  }
-
-  _drawCollapse(ctx){
-    if(this.fallen) return;
-    const crack=this.triggered?Math.min(this.fallTimer/30,1):0;
-    ctx.fillStyle=`rgb(${Math.round(46+crack*60)},${Math.round(36-crack*30)},${Math.round(72-crack*40)})`;
-    ctx.fillRect(this.x,this.y,this.cfg.w||120,16);
-    if(crack>0){
-      ctx.strokeStyle=`rgba(0,0,0,${crack*0.8})`;ctx.lineWidth=1;
-      for(let i=0;i<3;i++){
-        ctx.beginPath();ctx.moveTo(this.x+30*i,this.y);
-        ctx.lineTo(this.x+30*i+15,this.y+8);ctx.stroke();
-      }
-    }
-    ctx.fillStyle='rgba(255,200,0,0.6)';ctx.font='5px monospace';ctx.textAlign='center';
-    ctx.fillText('⚠',this.x+(this.cfg.w||120)/2,this.y-4);
-  }
-
-  _drawWind(ctx){
-    const alpha=0.07+Math.sin(this.timer*0.04)*0.03;
-    ctx.fillStyle=`rgba(200,220,255,${alpha})`;
-    ctx.fillRect(this.x,this.y,this.cfg.w||100,this.cfg.h||WH);
-    // Lignes de vent
-    ctx.strokeStyle='rgba(150,200,255,0.2)';ctx.lineWidth=1;
-    for(let i=0;i<5;i++){
-      const offset=(this.timer*this.dir*2+i*60)%200;
-      ctx.beginPath();ctx.moveTo(this.x+(this.dir>0?offset:200-offset),this.y+i*40);
-      ctx.lineTo(this.x+(this.dir>0?offset+40:160-offset),this.y+i*40+10);ctx.stroke();
-    }
-  }
-}
-
-// Génère les pièges actifs pour la carte d'entraînement
-function buildTraps(config){
-  const traps=[];
-  if(config.mine){
-    traps.push(new Trap('mine',400,WH-30));
-    traps.push(new Trap('mine',900,WH-30));
-    traps.push(new Trap('mine',650,400));
-  }
-  if(config.launcher){
-    traps.push(new Trap('launcher',12,WH/2,{dir:1,btnX:100,btnY:WH-30}));
-    traps.push(new Trap('launcher',WW-12,WH/2,{dir:-1,btnX:WW-100,btnY:WH-30}));
-  }
-  if(config.electric){
-    traps.push(new Trap('electric',350,WH-30));
-    traps.push(new Trap('electric',900,350));
-  }
-  if(config.teleport){
-    traps.push(new Trap('teleport',200,WH-80,{partnerX:WW-200,partnerY:WH-80}));
-  }
-  if(config.collapse){
-    traps.push(new Trap('collapse',300,310,{w:160}));
-    traps.push(new Trap('collapse',900,430,{w:160}));
-  }
-  if(config.wind){
-    traps.push(new Trap('wind',550,0,{w:200,h:WH,dir:1,strength:2}));
-  }
-  return traps;
-}
-
-// ================================================================
-//  SALLE D'ENTRAÎNEMENT — state & logic
-// ================================================================
-let trConfig = {
-  brainId: null,
-  agents: [{level:1}],
-  traps: {mine:false,launcher:false,electric:false,teleport:false,collapse:false,wind:false},
-  rounds: 50,
-  speed: 1,
-  curriculum: false,
-  objective: 'balanced',
-};
-let trRunning = false;
-let trRoundsDone = 0;
-let trInterval = null;
-let trBrain = null;    // MultiExpertBrain actif
-let trTrainees = [];   // Ent[] (cerveau + agents)
-let trAgentObjs = [];  // ScriptedAgent[]
-let trTraps = [];      // Trap[]
-let trTrapProj = [];   // projectiles des pièges
-let trHof = [];        // Hall of Fame local
-let trBestBrain = null;
-let trStag = 0;
-let trRoundTimer = 0;
-let trRoundOver = false;
-let trEvoHistory = []; // [{round, elo, fitness}]
-
-function trainingTab(name){
-  document.querySelectorAll('.arena-tab').forEach((t,i)=>{
-    const names=['config','graph','params','stats'];
-    t.classList.toggle('active',names[i]===name);
-  });
-  ['config','graph','params','stats'].forEach(n=>{
-    const el=document.getElementById('panel-'+n);
-    if(el) el.style.display=n===name?'':'none';
-  });
-  if(name==='graph') drawTrainGraph();
-  if(name==='stats') renderStats();
-  if(name==='params') initParamSliders();
-}
-
-function renderTraining(){
-  renderTrBrainSel();
-  renderTrAgents();
-}
-
-async function renderTrBrainSel(){
-  const all=await store.getAll('brains');
-  // Pré-sélectionner le cerveau actif en solo par défaut
-  if(!trConfig.brainId || !all.find(e=>e.id===trConfig.brainId)){
-    trConfig.brainId = currentBrainId || (all[0]?.id);
-  }
-  document.getElementById('tr-brain-sel').innerHTML=all.map(e=>`
-    <button class="tr-brain-btn ${e.id===trConfig.brainId?'active':''}"
-      onclick="trSetBrain('${e.id}')">${sanitize((e.name||e.id).substring(0,12))}${e.id===currentBrainId?' ●':''}</button>`).join('');
-}
-
-function trSetBrain(id){ trConfig.brainId=id; renderTrBrainSel(); }
-
-function renderTrAgents(){
-  const el=document.getElementById('tr-agents');
-  el.innerHTML=trConfig.agents.map((a,i)=>`
-    <div class="tr-agent-row">
-      <span style="font-size:5px;color:#6040a0;flex-shrink:0">IA ${i+1}</span>
-      <div class="tr-agent-lvl">
-        ${['ROOKIE','FIGHTER','VETERAN','MASTER'].map((lbl,li)=>`
-          <button class="tr-agent-lvl-btn ${a.level===li+1?'active':''}"
-            onclick="trSetAgentLvl(${i},${li+1})">${lbl}</button>`).join('')}
-      </div>
-      <button class="tr-agent-del" onclick="trRemoveAgent(${i})">✕</button>
-    </div>`).join('');
-}
-
-function trAddAgent(){
-  if(trConfig.agents.length>=3){toast('Max 3 adversaires');return;}
-  trConfig.agents.push({level:1}); renderTrAgents();
-}
-function trRemoveAgent(i){
-  if(trConfig.agents.length<=1){toast('Min 1 adversaire');return;}
-  trConfig.agents.splice(i,1); renderTrAgents();
-}
-function trSetAgentLvl(i,lvl){ trConfig.agents[i].level=lvl; renderTrAgents(); }
-function trTrapToggle(k,el){ trConfig.traps[k]=el.checked; }
-function setTrainSpeed(spd,btn){
-  trConfig.speed=spd;
-  document.querySelectorAll('.speed-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-}
-
-async function trainingToggle(){
-  if(trRunning){ trainingStop(); return; }
-  await trainingStart();
-}
-
-// ================================================================
-//  ÉTAT POPULATION
-// ================================================================
-let trPopulation = [];       // [{brain, fitness, elo, wins, played}]
-let trPopGeneration = 0;
-let trCurriculumLevel = 1;   // niveau courant
-let trCurriculumWins = 0;    // victoires depuis dernier changement
-let trCurriculumTotal = 0;   // rounds depuis dernier changement
-let trShapedReward = 0;      // récompense shaped accumulée dans le round
-
-async function trainingStart(){
-  if(!trConfig.brainId){toast('Choisis un cerveau');return;}
-  const entry=await store.get('brains',trConfig.brainId);
-  if(!entry){toast('Cerveau introuvable');return;}
-
-  trBrain=deserializeBrain(entry.brain);
-  trBrain.fitness=entry.fitness||0;
-  trBrain.elo=entry.elo||ELO_BASE;
-  trBestBrain=null; trHof=[]; trStag=0;
-  trRoundsDone=0; trRunning=true;
-  trEvoHistory=[];
-  trConfig.rounds=parseInt(document.getElementById('tr-rounds').value)||100;
-  trConfig.curriculum=document.getElementById('tr-curriculum').checked;
-  trConfig.objective=document.getElementById('tr-objective').value;
-  const popMode=document.getElementById('tr-population').checked;
-  const popSize=parseInt(document.getElementById('tr-popsize').value)||20;
-
-  document.getElementById('tr-start-btn').textContent='■ STOP';
-  document.getElementById('tr-status').textContent='';
-
-  // Curriculum : démarrer au bon niveau
-  trCurriculumLevel = _curriculumLevel(trBrain.elo);
-  trCurriculumWins=0; trCurriculumTotal=0;
-
-  // Mode population : créer N clones mutés du cerveau de base
-  if(popMode){
-    trPopulation=[];
-    for(let i=0;i<popSize;i++){
-      const b=trBrain.clone();
-      if(i>0) b.mutate(0.3,0.4); // varier la pop initiale
-      b.fitness=trBrain.fitness; b.elo=trBrain.elo;
-      trPopulation.push({brain:b,fitness:b.fitness,elo:b.elo,wins:0,played:0,shapedScore:0});
-    }
-    trPopGeneration=0;
-  } else {
-    trPopulation=[];
-  }
-
-  // Agents
-  const lvl = trConfig.curriculum ? trCurriculumLevel : trConfig.agents[0].level;
-  trAgentObjs=trConfig.agents.map(()=>new ScriptedAgent(lvl));
-  trTraps=buildTraps(trConfig.traps);
-
-  startTrainRound();
-}
-
-function startTrainRound(){
-  if(!trRunning) return;
-  if(trRoundsDone>=trConfig.rounds){
-    trainingStop(); toast('Entraînement terminé !'); drawTrainGraph(); return;
-  }
-
-  const popMode = trPopulation.length>0;
-
-  // En mode population : choisir le prochain individu à évaluer (round-robin)
-  if(popMode){
-    const idx = trRoundsDone % trPopulation.length;
-    trBrain = trPopulation[idx].brain;
-    // Tous les N rounds = 1 génération → sélection + croisement
-    if(trRoundsDone>0 && trRoundsDone % trPopulation.length === 0){
-      _evolvePopulation();
-    }
-  }
-
-  trRoundTimer=0; trRoundOver=false; trTrapProj=[]; trShapedReward=0;
-  trTraps.forEach(t=>{
-    if(t.type==='collapse'){t.triggered=false;t.fallTimer=0;t.fallen=false;t.y=t.origY;}
-    if(t.type==='mine'){t.triggered=false;t.triggerTimer=0;t.active=true;}
-  });
-
-  // Curriculum progressif : si win rate > 60% sur les 20 derniers → monter
-  if(trConfig.curriculum && trCurriculumTotal>=20){
-    const wr=trCurriculumWins/trCurriculumTotal;
-    if(wr>=0.6 && trCurriculumLevel<4){
-      trCurriculumLevel++;
-      trCurriculumWins=0; trCurriculumTotal=0;
-      toast(`Niveau ↑ ${['ROOKIE','FIGHTER','VETERAN','MASTER'][trCurriculumLevel-1]}`);
-    } else if(wr<0.25 && trCurriculumLevel>1){
-      trCurriculumLevel--;
-      trCurriculumWins=0; trCurriculumTotal=0;
-      toast(`Niveau ↓ ${['ROOKIE','FIGHTER','VETERAN','MASTER'][trCurriculumLevel-1]}`);
-    }
-    const lvl=trConfig.curriculum?trCurriculumLevel:trConfig.agents[0].level;
-    trAgentObjs.forEach(a=>a.level=lvl);
-  }
-
-  // Créer entités
-  trTrainees=[];
-  // Spawn aléatoire sur une plateforme de la map
-  const spawnPlats = platforms.filter(p=>p.w>60&&p.h<30&&p.y<WH-20);
-  const sp = spawnPlats[Math.floor(Math.random()*spawnPlats.length)] || {x:160,y:WH-100,w:100};
-  const spX = sp.x + Math.random()*(sp.w-30);
-  const spY = sp.y - 50;
-  const cervEnt=new Ent(spX, spY, SLOT_COLORS[0], true);
-  cervEnt.face = Math.random()<0.5 ? 1 : -1;
-  trTrainees.push(cervEnt);
-  trAgentObjs.forEach((ag,i)=>{
-    const spIdx=(i+1)%4;
-    const sp=SPAWN_POS[spIdx];
-    const ent=new Ent(sp.x,sp.y,SLOT_COLORS[i+1],true); ent.face=sp.face;
-    trTrainees.push(ent);
-  });
-  trBrain.resetMemory();
-  trAgentObjs.forEach(a=>{
-    a.mem={lastEnemyX:0,lastEnemyY:0,jumpCooldown:0,retreatDir:0,retreatTimer:0,patternBuf:[],lastShot:0};
-  });
-
-  const stepsPerFrame=trConfig.speed===0?1000:trConfig.speed;
-  if(trInterval){clearInterval(trInterval);trInterval=null;}
-
-  // Stats comportementales du round
-  const rs={
-    arrowsDodged:0, shotsNearMiss:0, platformChanges:0, lastPlatY:-1,
-    framesAiming:0,  // frames où l'arc pointe vers l'ennemi ±20°
-    stationaryFrames:0, lastX:trTrainees[0].x,
-  };
-
-  function runStep(){
-    if(trRoundOver) return;
-    trRoundTimer++;
-
-    const ce=trTrainees[0];
-    const nearestEnemy=trTrainees.slice(1).reduce((b,e)=>{
-      const d=(e.x-ce.x)**2+(e.y-ce.y)**2;
-      const bd=(b.x-ce.x)**2+(b.y-ce.y)**2;
-      return d<bd?e:b;
-    },trTrainees[1]);
-
-    const enemyArrows=trTrainees.slice(1).flatMap(e=>e.arr);
-    const inp=aiInputsFor(ce,nearestEnemy,enemyArrows,trRoundTimer);
-    const out=trBrain.forward(inp);
-    aiProcessFor(out,ce);
-    ce.face=nearestEnemy.x<ce.x?-1:1;
-    ce.update();
-
-    // ── RÉCOMPENSES SHAPED ───────────────────────────────────────
-    const aimTarget=Math.atan2(
-      nearestEnemy.y+nearestEnemy.h/2-(ce.y+ce.h/2),
-      nearestEnemy.x+nearestEnemy.w/2-(ce.x+ce.w/2)
-    );
-    let aimDiff=Math.abs(ce.aim-aimTarget);
-    if(aimDiff>Math.PI) aimDiff=Math.PI*2-aimDiff;
-
-    // 1. Viser précisément : récompense graduelle et forte
-    const aimPrecision=Math.max(0,(0.4-aimDiff)/0.4); // 1=parfait, 0=>23°
-    trShapedReward += aimPrecision*0.012;
-    if(aimDiff<0.2) rs.framesAiming++;
-
-    // 2. Tirer quand on vise bien : la vraie récompense
-    if(out[5]>0.5 && aimDiff<0.3 && ce.cd===0){
-      trShapedReward += 0.08; // grosse récompense pour tir bien visé
-    } else if(out[5]>0.5 && aimDiff>0.8){
-      trShapedReward -= 0.02; // pénalité tir en l'air
-    }
-
-    // 3. Flèches proches de l'ennemi
-    for(const a of ce.arr){
-      if(a.st) continue;
-      const dx=a.x-(nearestEnemy.x+nearestEnemy.w/2);
-      const dy=a.y-(nearestEnemy.y+nearestEnemy.h/2);
-      const d=Math.sqrt(dx*dx+dy*dy);
-      if(d<60){ rs.shotsNearMiss+=0.1; trShapedReward+=0.04; }
-      else if(d<120){ trShapedReward+=0.01; }
-    }
-
-    // 4. Esquiver les flèches ennemies
-    for(const a of enemyArrows){
-      if(a.st) continue;
-      const dx=a.x-(ce.x+ce.w/2), dy=a.y-(ce.y+ce.h/2);
-      const d=Math.sqrt(dx*dx+dy*dy);
-      if(d<80) rs.arrowsDodged+=0.1;
-    }
-
-    // 5. Pénalité mur
-    if(ce.x<25||ce.x>WW-45) trShapedReward-=0.008;
-
-    // Agents scriptés
-    for(let i=0;i<trAgentObjs.length;i++){
-      const ag=trAgentObjs[i];
-      const ent=trTrainees[i+1];
-      const arrows=trTrainees.filter((_,j)=>j!==i+1).flatMap(e=>e.arr);
-      ag.act(ent,ce,arrows,trTraps,trRoundTimer);
-      ent.update();
-    }
-
-    // Pièges
-    for(const t of trTraps) t.update(trTrainees,trTrapProj);
-    for(let i=trTrapProj.length-1;i>=0;i--){
-      const p=trTrapProj[i];
-      if(p.st){p.life--;if(p.life<=0){trTrapProj.splice(i,1);continue;}}
-      else{p.vy+=AGRAV;p.vx*=ADRAG;p.vy*=ADRAG;p.x+=p.vx;p.y+=p.vy;p.life--;}
-      if(p.life<=0||p.x<-50||p.x>WW+50||p.y>WH+50){trTrapProj.splice(i,1);continue;}
-      if(p.x>ce.x&&p.x<ce.x+ce.w&&p.y>ce.y&&p.y<ce.y+ce.h){
-        boom(p.x,p.y,ce.col); trTrapProj.splice(i,1); trRoundOver=true; return;
-      }
-    }
-
-    const hit=checkTrainHits();
-    if(hit!==null){ trRoundOver=true; return; }
-    if(trRoundTimer>60*35) trRoundOver=true;
-  }
-
-  function checkTrainHits(){
-    const ce=trTrainees[0];
-    for(let i=1;i<trTrainees.length;i++){
-      for(let j=trTrainees[i].arr.length-1;j>=0;j--){
-        const a=trTrainees[i].arr[j];if(a.st)continue;
-        if(a.x>ce.x&&a.x<ce.x+ce.w&&a.y>ce.y&&a.y<ce.y+ce.h){
-          boom(a.x,a.y,ce.col);trTrainees[i].arr.splice(j,1);return 'lose';
-        }
-      }
-    }
-    for(let j=ce.arr.length-1;j>=0;j--){
-      const a=ce.arr[j];if(a.st)continue;
-      for(let i=1;i<trTrainees.length;i++){
-        const opp=trTrainees[i];
-        if(a.x>opp.x&&a.x<opp.x+opp.w&&a.y>opp.y&&a.y<opp.y+opp.h){
-          boom(a.x,a.y,opp.col);ce.arr.splice(j,1);return 'win';
-        }
-      }
-    }
-    return null;
-  }
-
-  function onRoundEnd(){
-    const lastHit=checkTrainHits();
-    const won = lastHit==='win' || (trRoundTimer<=60*35 && lastHit!=='lose');
-    trRoundsDone++;
-
-    // Curriculum tracking
-    trCurriculumTotal++;
-    if(won) trCurriculumWins++;
-
-    // Gain = comportement + shaped + victoire
-    const aimBonus   = Math.min(rs.framesAiming / (60*35) * 15, 15); // max 15 : viser
-    const shotBonus  = Math.min(rs.shotsNearMiss * 0.5, 10);          // max 10 : précision
-    const dodgeBonus = Math.min(rs.arrowsDodged  * 0.4, 5);           // max 5  : esquive
-    const shaped     = Math.max(-5, Math.min(trShapedReward * 80, 12)); // shaped clamped
-    const totalGain  = aimBonus + shotBonus + dodgeBonus + shaped + (won ? evoParams.winBonus : 0);
-
-    const prevFit=trBrain.fitness||0;
-    trBrain.fitness = updateFitness(prevFit, totalGain, won);
-
-    // Mode population : stocker le score pour sélection
-    if(popMode){
-      const idx=trRoundsDone % trPopulation.length || trPopulation.length-1;
-      const popIdx=(trRoundsDone-1) % trPopulation.length;
-      trPopulation[popIdx].shapedScore += totalGain;
-      trPopulation[popIdx].played++;
-      if(won) trPopulation[popIdx].wins++;
-      trPopulation[popIdx].fitness=trBrain.fitness;
-      trPopulation[popIdx].elo=trBrain.elo;
-    }
-
-    if(won){
-      if(!trBestBrain||trBrain.fitness>=(trBestBrain.fitness||0)) trBestBrain=trBrain.clone();
-      trHof.push(trBrain.clone());
-      trHof.sort((a,b)=>(b.elo||0)-(a.elo||0));
-      if(trHof.length>evoParams.hofSize) trHof.length=evoParams.hofSize;
-      trStag=0;
-    } else {
-      if(trBrain.fitness<=prevFit) trStag++;
-      else trStag=Math.max(0,trStag-1);
-    }
-
-    // ELO
-    const agentLvl = trConfig.curriculum ? trCurriculumLevel : (trAgentObjs[0]?.level||1);
-    const agentElo = AGENT_ELO[agentLvl-1] || AGENT_ELO[0];
-    const prevElo=trBrain.elo||ELO_BASE;
-    trBrain.elo=Math.max(400,eloUpdate(prevElo,eloExpected(prevElo,agentElo),won?1:0,trRoundsDone));
-
-    // Mutation (seulement en mode individuel — pop gère sa propre évolution)
-    if(!popMode) selectMutationStrategy(trBrain,trStag,won,trHof,trBestBrain);
-
-    trEvoHistory.push({round:trRoundsDone,elo:trBrain.elo,fitness:Math.round(trBrain.fitness)});
-
-    const lvlLabel=trConfig.curriculum?['ROOKIE','FIGHTER','VETERAN','MASTER'][trCurriculumLevel-1]:'';
-    const wr=trCurriculumTotal>0?Math.round(trCurriculumWins/trCurriculumTotal*100):0;
-    const popInfo=popMode?` · Pop gen ${trPopGeneration}`:'';
-    document.getElementById('tr-status').textContent=
-      `Round ${trRoundsDone}/${trConfig.rounds} · ELO ${trBrain.elo} · ${lvlLabel} ${wr}%${popInfo}`;
-
-    if(trRoundsDone%10===0) saveTrainResults();
-    else _syncActiveBrainLive(); // sync RAM sans écrire disque
-    if(trRoundsDone%5===0&&document.getElementById('panel-graph')?.style.display!=='none') drawTrainGraph();
-
-    // Toujours async pour éviter stack overflow en MAX speed
-    setTimeout(()=>startTrainRound(), 0);
-  }
-
-  // Exécution
-  if(trConfig.speed===0){
-    const cv2=document.getElementById('tr-preview');
-    if(cv2) cv2.style.display='none';
-    // Boucle synchrone — on sort dès que trRoundOver
-    let safetyCounter=0;
-    while(!trRoundOver && safetyCounter<60*35+10){
-      runStep();
-      safetyCounter++;
-    }
-    onRoundEnd();
-  } else {
-    const cv2=document.getElementById('tr-preview');
-    if(cv2) cv2.style.display='block';
-    trInterval=setInterval(()=>{
-      if(!trRunning||trRoundOver){clearInterval(trInterval);trInterval=null;return;}
-      for(let s=0;s<trConfig.speed;s++){
-        if(trRoundOver) break;
-        runStep();
-      }
-      if(trConfig.speed<=16) drawTrainFrame();
-      if(trRoundOver){
-        clearInterval(trInterval);trInterval=null;
-        onRoundEnd();
-      }
-    },1000/60);
-  }
-}
-
-// ── Évolution de la population (appelée chaque génération) ───────
-function _evolvePopulation(){
-  trPopGeneration++;
-  const N=trPopulation.length;
-  const keep=Math.max(2,Math.floor(N*0.25)); // garder top 25%
-
-  // Trier par score shaped normalisé
-  trPopulation.sort((a,b)=>{
-    const sa=a.played>0?a.shapedScore/a.played:-999;
-    const sb=b.played>0?b.shapedScore/b.played:-999;
-    return sb-sa;
-  });
-
-  // Le meilleur devient le nouveau trBrain
-  const champion=trPopulation[0];
-  trBrain=champion.brain.clone();
-  trBrain.fitness=champion.fitness;
-  trBrain.elo=champion.elo;
-
-  // Sauvegarder le champion toutes les 5 générations
-  if(trPopGeneration%5===0){
-    saveTrainResults();
-    toast(`Gén ${trPopGeneration} · Champion ELO ${trBrain.elo} · Win ${champion.played>0?Math.round(champion.wins/champion.played*100):0}%`);
-  }
-
-  // Reconstruire la population : élite + croisements + mutations
-  const elite=trPopulation.slice(0,keep);
-  const newPop=[];
-
-  // 1. Garder l'élite
-  for(const e of elite){
-    const b=e.brain.clone();
-    b.fitness=e.fitness; b.elo=e.elo;
-    newPop.push({brain:b,fitness:b.fitness,elo:b.elo,wins:0,played:0,shapedScore:0});
-  }
-
-  // 2. Croisements élite × élite
-  while(newPop.length<Math.floor(N*0.6)){
-    const a=elite[Math.floor(Math.random()*elite.length)];
-    const b=elite[Math.floor(Math.random()*elite.length)];
-    const child=MultiExpertBrain.crossover(a.brain,b.brain);
-    child.mutate(evoParams.mutRateWin,evoParams.mutPower);
-    child.fitness=(a.fitness+b.fitness)/2;
-    child.elo=Math.round((a.elo+b.elo)/2);
-    newPop.push({brain:child,fitness:child.fitness,elo:child.elo,wins:0,played:0,shapedScore:0});
-  }
-
-  // 3. Remplir le reste avec mutations aléatoires de l'élite
-  while(newPop.length<N){
-    const src=elite[Math.floor(Math.random()*elite.length)];
-    const child=src.brain.clone();
-    child.mutate(evoParams.mutRateLoss,evoParams.mutPower*1.5);
-    child.fitness=src.fitness; child.elo=src.elo;
-    newPop.push({brain:child,fitness:child.fitness,elo:child.elo,wins:0,played:0,shapedScore:0});
-  }
-
-  trPopulation=newPop;
-
-  // Mettre à jour le HoF avec les meilleurs de l'élite
-  for(const e of elite.slice(0,3)){
-    trHof.push(e.brain.clone());
-  }
-  trHof.sort((a,b)=>(b.elo||0)-(a.elo||0));
-  if(trHof.length>evoParams.hofSize) trHof.length=evoParams.hofSize;
-  trBestBrain=trHof[0]||trBestBrain;
-}
-function _curriculumLevel(elo){
-  if(elo<1300) return 1;
-  if(elo<1500) return 2;
-  if(elo<1800) return 3;
-  return 4;
-}
-
-function trainingStop(){
-  trRunning=false;
-  if(trInterval){clearInterval(trInterval);trInterval=null;}
-  document.getElementById('tr-start-btn').textContent='▶ LANCER';
-  document.getElementById('tr-status').textContent='';
-  const cv2=document.getElementById('tr-preview');
-  if(cv2) cv2.style.display='none';
-  saveTrainResults();
-}
-
-async function saveTrainResults(){
-  if(!trConfig.brainId||!trBrain) return;
-  const entry=await store.get('brains',trConfig.brainId);
-  if(!entry) return;
-
-  // En mode population : champion = meilleur score moyen
-  const brainToSave = trPopulation.length>0
-    ? (() => {
-        const sorted = [...trPopulation].sort((a,b)=>
-          (b.shapedScore/Math.max(b.played,1))-(a.shapedScore/Math.max(a.played,1)));
-        return sorted[0]?.brain || trBrain;
-      })()
-    : trBrain;
-
-  entry.brain      = brainToSave.serialize();
-  entry.fitness    = brainToSave.fitness;
-  entry.elo        = brainToSave.elo;
-  entry.generation = (entry.generation||1) + Math.max(trRoundsDone,1);
-  await store.put('brains', entry);
-
-  // Sync activeBrain si c'est le cerveau actif en solo
-  if(trConfig.brainId===currentBrainId){
-    activeBrain = brainToSave.clone();
-    activeBrain.fitness = brainToSave.fitness;
-    activeBrain.elo     = brainToSave.elo;
-    generation = entry.generation;
-  }
-
-  if(trRoundsDone>0) toast(`${trRoundsDone} rounds · ELO ${brainToSave.elo}`);
-}
-
-// Sync légère après chaque round (sans écrire dans IndexedDB)
-function _syncActiveBrainLive(){
-  if(trConfig.brainId!==currentBrainId) return;
-  // En mode pop : utiliser le meilleur individu évalué jusqu'ici
-  const src = trPopulation.length>0
-    ? (trPopulation.reduce((b,c)=>
-        (c.played>0&&c.shapedScore/c.played > (b.played>0?b.shapedScore/b.played:-Infinity))?c:b,
-        trPopulation[0])?.brain || trBrain)
-    : trBrain;
-  activeBrain = src.clone();
-  activeBrain.fitness = src.fitness;
-  activeBrain.elo     = src.elo;
-}
-
-function drawTrainFrame(){
-  const cv2=document.getElementById('tr-preview');
-  if(!cv2) return;
-  const ctx=cv2.getContext('2d');
-  const W=cv2.width,H=cv2.height;
-  const sc=Math.min(W/WW,H/WH)*0.9;
-  const offX=(W-WW*sc)/2,offY=(H-WH*sc)/2;
-
-  ctx.fillStyle='#0d0818';ctx.fillRect(0,0,W,H);
-  ctx.save();ctx.translate(offX,offY);ctx.scale(sc,sc);
-
-  for(const p of platforms){
-    if(p.w<=12||p.h>=WH-40){ctx.fillStyle='#1e1630';ctx.fillRect(p.x,p.y,p.w,p.h);continue;}
-    ctx.fillStyle='#2e2448';ctx.fillRect(p.x,p.y,p.w,p.h);
-    ctx.fillStyle='#5a4e80';ctx.fillRect(p.x,p.y,p.w,2);
-  }
-  for(const t of trTraps) t.draw(ctx);
-  for(const p of trTrapProj){
-    ctx.fillStyle='#ff8020';ctx.fillRect(Math.round(p.x-3),Math.round(p.y-1),6,2);
-  }
-  for(const e of trTrainees) e.draw(ctx);
-  ctx.restore();
-
-  ctx.fillStyle='rgba(13,8,24,0.7)';ctx.fillRect(0,0,W,24);
-  ctx.font='bold 7px monospace';ctx.textAlign='left';
-  ctx.fillStyle=SLOT_COLORS[0];
-  const popInfo=trPopulation.length>0?` Pop gén ${trPopGeneration}`:'';
-  ctx.fillText(`CERVEAU ELO ${trBrain?.elo||'?'}${popInfo}`,6,15);
-  ctx.fillStyle='#8060c0';ctx.textAlign='right';
-  ctx.fillText(`Round ${trRoundsDone+1}/${trConfig.rounds}`,W-6,15);
-  trAgentObjs.forEach((ag,i)=>{
-    ctx.fillStyle=ag.color;ctx.textAlign='center';
-    ctx.fillText(ag.label,(i+1)*W/(trAgentObjs.length+1),15);
-  });
-}
-
-function drawTrainGraph(){
-  const cv2=document.getElementById('evo-canvas');
-  if(!cv2||trEvoHistory.length<2) return;
-  const ctx=cv2.getContext('2d');
-  const W=cv2.width,H=cv2.height;
-  ctx.fillStyle='#10081e';ctx.fillRect(0,0,W,H);
-
-  const elos=trEvoHistory.map(p=>p.elo);
-  const fits=trEvoHistory.map(p=>p.fitness);
-  const minE=Math.min(...elos)-20,maxE=Math.max(...elos)+20;
-  const maxF=Math.max(...fits)+10;
-  const pad={l:40,r:10,t:10,b:20};
-  const gW=W-pad.l-pad.r,gH=H-pad.t-pad.b;
-
-  // Grille
-  ctx.strokeStyle='#2a1a3a';ctx.lineWidth=1;
-  for(let i=0;i<=4;i++){
-    const y=pad.t+gH*(1-i/4);
-    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+gW,y);ctx.stroke();
-    ctx.fillStyle='#6040a0';ctx.font='8px monospace';ctx.textAlign='right';
-    ctx.fillText(Math.round(minE+(maxE-minE)*(i/4)),pad.l-3,y+3);
-  }
-
-  const N=trEvoHistory.length;
-  // Courbe ELO
-  ctx.strokeStyle=GRAPH_COLORS[0];ctx.lineWidth=2;ctx.beginPath();
-  trEvoHistory.forEach((pt,i)=>{
-    const x=pad.l+gW*(i/(N-1));
-    const y=pad.t+gH*(1-(pt.elo-minE)/(maxE-minE));
-    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
-  });
-  ctx.stroke();
-
-  // Courbe Fitness (normalisée)
-  ctx.strokeStyle=GRAPH_COLORS[2];ctx.lineWidth=1;ctx.setLineDash([3,3]);ctx.beginPath();
-  trEvoHistory.forEach((pt,i)=>{
-    const x=pad.l+gW*(i/(N-1));
-    const y=pad.t+gH*(1-pt.fitness/Math.max(maxF,1));
-    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
-  });
-  ctx.stroke();ctx.setLineDash([]);
-
-  // Légende
-  const legend=document.getElementById('chart-legend');
-  if(legend) legend.innerHTML=`
-    <div class="legend-item"><div class="legend-dot" style="background:${GRAPH_COLORS[0]}"></div><span style="color:${GRAPH_COLORS[0]};font-size:5px">ELO (${trBrain?.elo||'?'})</span></div>
-    <div class="legend-item"><div class="legend-dot" style="background:${GRAPH_COLORS[2]}"></div><span style="color:${GRAPH_COLORS[2]};font-size:5px">Fitness (${Math.round(trBrain?.fitness||0)})</span></div>`;
-}
-
-// ================================================================
-//  MODAL CRÉATION CERVEAU
-// ================================================================
-function openBrainModal(){
-  updateBrainPreview();
-  document.getElementById('brain-create-modal').classList.add('open');
-}
-function closeBrainModal(){
-  document.getElementById('brain-create-modal').classList.remove('open');
-}
-
-function updateBrainPreview(){
-  const H=parseInt(document.getElementById('bc-h').value)||8;
-  const out=parseInt(document.getElementById('bc-out').value)||4;
-  const arb=parseInt(document.getElementById('bc-arb').value)||8;
-  // Calcul params
-  const gruParams=(H*(H+6)*3+out*H)*3; // 3 experts
-  const arbParams=(3*out)*arb+arb+arb*6+6;
-  const total=gruParams+arbParams;
-  document.getElementById('brain-preview-info').innerHTML=
-    `Topologie : GRU(H=${H}) × 3 experts → dense(${3*out}→${arb}→6)\n`+
-    `Paramètres : ${total}\n`+
-    `Mémoire par round : ${H*3} valeurs GRU`;
-}
-
-async function confirmNewBrain(){
-  const H=parseInt(document.getElementById('bc-h').value)||8;
-  const outSize=parseInt(document.getElementById('bc-out').value)||4;
-  const arbSize=parseInt(document.getElementById('bc-arb').value)||8;
-  const xavierScale=parseFloat(document.getElementById('bc-xavier').value)||1.0;
-  const startElo=parseInt(document.getElementById('bc-elo').value)||ELO_BASE;
-
-  // Créer le MultiExpertBrain avec les paramètres choisis
-  const b=new MultiExpertBrain(H,outSize,arbSize,xavierScale);
-  b.elo=startElo;
-
-  const id='brain_'+Date.now();
-  const name=await nextBrainName();
-  await store.put('brains',{id,name,creator:localCreator,brain:b.serialize(),
-    generation:1,fitness:0,elo:startElo,wins:0,played:0,
-    timestamp:Date.now(),game:'arena-archer',
-    topology:`GRU(H=${H})×3+ARB(${arbSize})`,params:b.paramCount()});
-  currentBrainId=id;store.setConfig('currentBrainId',id);activeBrain=b;generation=1;bestBrain=null;
-  totalWins=0;totalPlayed=0;
-  closeBrainModal();
-  toast(`Créé : ${name} (${b.paramCount()} params)`);
-  updateLabUI();
-}
-//             ex: "darknode"
-//
-//  Cerveau  : [creator]#[NNN]   numéro séquentiel
-//             ex: "darknode#001"
-//
-//  Clone    : [source_name]~[NNN]
-//             ex: "darknode#001~002"
-//
-//  Importé  : conserve le nom original du fichier/export
-//
-const CREATOR_ADJ =['swift','dark','neo','iron','ghost','void','storm','neon','arc','hyper','flux','echo','apex','zero','nova','red','cold','deep','wild','hex'];
-const CREATOR_NOUN=['node','mind','core','agent','pulse','forge','byte','grid','wave','link','unit','mesh','gate','loop','data','cell','port','chip','flow','net'];
-
-function generateCreatorId(){
-  const adj  = CREATOR_ADJ [Math.floor(Math.random()*CREATOR_ADJ.length)];
-  const noun = CREATOR_NOUN[Math.floor(Math.random()*CREATOR_NOUN.length)];
-  return adj + noun; // ex: "darknode"
-}
-
-let localCreator = '';
-let brainCounter = 0; // compteur séquentiel local, chargé depuis le store
-
-async function loadCreator(){
-  let saved = await store.getConfig('localCreator', null);
-  if(!saved){ saved = generateCreatorId(); await store.setConfig('localCreator', saved); }
-  localCreator = saved;
-
-  // Charge le compteur séquentiel
-  const cnt = await store.getConfig('brainCounter', 0);
-  brainCounter = cnt || 0;
-}
-
-// Génère le prochain nom séquentiel et incrémente le compteur
-async function nextBrainName(){
-  brainCounter++;
-  await store.setConfig('brainCounter', brainCounter);
-  const num = String(brainCounter).padStart(3, '0');
-  return `${localCreator}#${num}`; // ex: darknode#001
-}
-
-// Génère un nom de clone basé sur le nom source
-async function cloneBrainName(sourceName){
-  brainCounter++;
-  await store.setConfig('brainCounter', brainCounter);
-  const num = String(brainCounter).padStart(3, '0');
-  // Prend la racine avant ~ si déjà un clone
-  const base = sourceName.split('~')[0];
-  return `${base}~${num}`; // ex: darknode#001~002
-}
-
-// ================================================================
-// ================================================================
-//  SIMULATION DE FOND — MENU SCREEN
-// ================================================================
-//  Le meilleur cerveau disponible joue en boucle contre un MASTER.
-//  Rendu sur #menu-bg-canvas, sans interaction.
-// ================================================================
-
-const menuBg = {
-  cv: null, ctx: null,
-  W: 0, H: 0,
-  entA: null,          // cerveau
-  agentEnts: [],       // 3 entités MASTER
-  agents: [],          // 3 ScriptedAgent(4)
-  brainA: null,
-  timer: 0, interval: null,
-  particles: [],
-  active: false,
-};
-
-async function initMenuBg(){
-  menuBg.cv = document.getElementById('menu-bg-canvas');
-  if(!menuBg.cv) return;
-  menuBg.ctx = menuBg.cv.getContext('2d');
-  _resizeMenuBg();
-  window.addEventListener('resize', _resizeMenuBg);
-
-  let all = [];
-  try { all = await store.getAll('brains'); } catch(e){}
-  let bestEntry = all.sort((a,b)=>(b.elo||0)-(a.elo||0))[0] || null;
-
-  menuBg.brainA = bestEntry ? deserializeBrain(bestEntry.brain) : new MultiExpertBrain();
-  if(bestEntry){ menuBg.brainA.fitness=bestEntry.fitness||0; menuBg.brainA.elo=bestEntry.elo||ELO_BASE; }
-
-  // 3 agents MASTER
-  menuBg.agents = [new ScriptedAgent(4), new ScriptedAgent(4), new ScriptedAgent(4)];
-
-  const lbl = document.getElementById('menu-bg-label');
-  if(lbl) lbl.textContent = bestEntry
-    ? `EN DIRECT · ${sanitize((bestEntry.name||'').substring(0,16))} vs 3× MASTER`
-    : 'EN DIRECT · CERVEAU DÉBUTANT vs 3× MASTER';
-
-  menuBg.active = true;
-  _startMenuBgRound();
-}
-
-function _resizeMenuBg(){
-  if(!menuBg.cv) return;
-  const r = menuBg.cv.getBoundingClientRect();
-  menuBg.W = r.width || window.innerWidth;
-  menuBg.H = r.height || window.innerHeight;
-  menuBg.cv.width  = menuBg.W;
-  menuBg.cv.height = menuBg.H;
-}
-
-function _startMenuBgRound(){
-  if(!menuBg.active) return;
-  menuBg.timer = 0;
-  menuBg.particles = [];
-
-  // Cerveau — spawn coin haut gauche
-  menuBg.entA = new Ent(160, WH-100, SLOT_COLORS[0], true); menuBg.entA.face=1;
-  menuBg.brainA?.resetMemory();
-
-  // 3 MASTER — spawns répartis sur la map
-  const masterSpawns = [
-    {x:WW-180, y:WH-100, face:-1, col:'#ff4444'},
-    {x:700,    y:200,    face:-1, col:'#ff6644'},
-    {x:WW-200, y:250,    face:-1, col:'#ff8844'},
-  ];
-  menuBg.agentEnts = masterSpawns.map((sp,i)=>{
-    const e=new Ent(sp.x, sp.y, sp.col, true); e.face=sp.face; return e;
-  });
-  menuBg.agents.forEach(ag=>{
-    ag.mem={lastEnemyX:0,lastEnemyY:0,jumpCooldown:0,retreatDir:0,retreatTimer:0,patternBuf:[],lastShot:0};
-  });
-
-  if(menuBg.interval){ clearInterval(menuBg.interval); menuBg.interval=null; }
-  menuBg.interval = setInterval(_stepMenuBg, 1000/60);
-}
-
-function stopMenuBg(){
-  menuBg.active = false;
-  if(menuBg.interval){ clearInterval(menuBg.interval); menuBg.interval=null; }
-  if(menuBg.ctx) menuBg.ctx.clearRect(0,0,menuBg.W,menuBg.H);
-}
-
-function _stepMenuBg(){
-  if(!menuBg.active || !menuBg.ctx) return;
-
-  for(let s=0;s<2;s++){
-    menuBg.timer++;
-    const A=menuBg.entA;
-    const allAgentEnts=menuBg.agentEnts;
-
-    // Cerveau — cible le MASTER le plus proche
-    if(menuBg.brainA && A){
-      let nearest=allAgentEnts[0], nd=Infinity;
-      for(const e of allAgentEnts){
-        const d=(e.x-A.x)**2+(e.y-A.y)**2;
-        if(d<nd){nd=d;nearest=e;}
-      }
-      const allEnemyArrows=allAgentEnts.flatMap(e=>e.arr);
-      const inp = aiInputsFor(A, nearest, allEnemyArrows, menuBg.timer);
-      const out = menuBg.brainA.forward(inp);
-      aiProcessFor(out, A);
-      A.face = nearest.x < A.x ? -1 : 1;
-    }
-    A?.update();
-
-    // 3 MASTER — chacun cible le cerveau
-    for(let i=0;i<menuBg.agents.length;i++){
-      const ag=menuBg.agents[i];
-      const ent=allAgentEnts[i];
-      const arrows=A?A.arr:[];
-      ag.act(ent, A||ent, arrows, [], menuBg.timer);
-      ent.update();
-    }
-
-    // Particules
-    for(let i=menuBg.particles.length-1;i>=0;i--){
-      const p=menuBg.particles[i];
-      p.x+=p.vx; p.y+=p.vy; p.vy+=0.12; p.life--;
-      if(p.life<=0) menuBg.particles.splice(i,1);
-    }
-
-    // Détection hits
-    let roundOver = false;
-
-    // Flèches cerveau → MASTER
-    if(A) for(let i=A.arr.length-1;i>=0;i--){
-      const a=A.arr[i]; if(a.st)continue;
-      for(const e of allAgentEnts){
-        if(a.x>e.x&&a.x<e.x+e.w&&a.y>e.y&&a.y<e.y+e.h){
-          _menuBoom(a.x,a.y,e.col); A.arr.splice(i,1); roundOver=true; break;
-        }
-      }
-      if(roundOver) break;
-    }
-
-    // Flèches MASTER → cerveau
-    for(const e of allAgentEnts){
-      for(let i=e.arr.length-1;i>=0;i--){
-        const a=e.arr[i]; if(a.st)continue;
-        if(A&&a.x>A.x&&a.x<A.x+A.w&&a.y>A.y&&a.y<A.y+A.h){
-          _menuBoom(a.x,a.y,A.col); e.arr.splice(i,1); roundOver=true; break;
-        }
-      }
-      if(roundOver) break;
-    }
-
-    if(menuBg.timer>60*20) roundOver=true; // max 20s
-
-    if(roundOver){
-      clearInterval(menuBg.interval); menuBg.interval=null;
-      setTimeout(()=>{ if(menuBg.active) _startMenuBgRound(); }, 1000);
-      break;
-    }
-  }
-
-  _drawMenuBg();
-}
-
-function _menuBoom(x,y,col){
-  for(let i=0;i<18;i++){
-    const a=Math.random()*Math.PI*2, s=1+Math.random()*5;
-    menuBg.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:25+Math.random()*20,col,sz:2});
-  }
-  for(let i=0;i<8;i++){
-    const a=Math.random()*Math.PI*2, s=2+Math.random()*6;
-    menuBg.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-3,life:15,col:'#f0c040',sz:1});
-  }
-}
-
-function _drawMenuBg(){
-  const ctx=menuBg.ctx, W=menuBg.W, H=menuBg.H;
-  if(!ctx||!W||!H) return;
-
-  // Vue complète de la map
-  const sc = Math.max(W/WW, H/WH);
-  const offX=(W-WW*sc)/2, offY=(H-WH*sc)/2;
-
-  ctx.clearRect(0,0,W,H);
-  ctx.fillStyle='#0d0818';
-  ctx.fillRect(0,0,W,H);
-
-  ctx.save();
-  ctx.translate(offX, offY);
-  ctx.scale(sc, sc);
-
-  // Briques arrière-plan
-  const bW=64,bH=32;
-  for(let by=0;by<WH+bH;by+=bH){
-    const row=Math.floor(by/bH);
-    const ox=(row%2)*bW/2;
-    for(let bx=-ox;bx<WW+bW;bx+=bW){
-      ctx.fillStyle='#110a1e';
-      ctx.fillRect(bx+1,by+1,bW-2,bH-2);
-      ctx.fillStyle='#0a0814';
-      ctx.fillRect(bx,by,bW,1);
-      ctx.fillRect(bx,by,1,bH);
-    }
-  }
-
-  // Torches animées
-  const t=menuBg.timer;
-  [[200,WH-30],[600,WH-30],[1000,WH-30],[400,350],[900,260]].forEach(([tx,ty])=>{
-    drawTorch(ctx,tx,ty,t);
-  });
-
-  // Plateformes
-  for(const p of platforms){
-    if(p.w<=12||p.h>=WH-40){ctx.fillStyle='#1e1630';ctx.fillRect(p.x,p.y,p.w,p.h);continue;}
-    ctx.fillStyle='#2e2448';ctx.fillRect(p.x,p.y,p.w,p.h);
-    ctx.fillStyle='#5a4e80';ctx.fillRect(p.x,p.y,p.w,2);
-    ctx.fillStyle='#1a1430';ctx.fillRect(p.x,p.y+p.h-3,p.w,3);
-  }
-
-  // Entités
-  if(menuBg.entA) menuBg.entA.draw(ctx);
-  for(const ag of menuBg.agentEnts) ag.draw(ctx);
-
-  // Particules
-  for(const p of menuBg.particles){
-    const a=p.life/45;
-    ctx.fillStyle=p.col+(Math.round(Math.min(a,1)*255).toString(16).padStart(2,'0'));
-    ctx.fillRect(Math.round(p.x),Math.round(p.y),p.sz,p.sz);
-  }
-
-  ctx.restore();
-
-  // Label MASTER (screen space)
-  ctx.fillStyle='rgba(255,68,68,0.5)';
-  ctx.font='bold 7px monospace';
-  ctx.textAlign='left';
-  ctx.fillText('3× MASTER', offX+12, offY+24);
-}
-
-async function init(){
-  await loadCreator();
-  await loadBrains();
-  await githubSync.loadConfig();
-  updateMenuUI();
-
-  if(githubSync.repo){ setTimeout(()=>githubSync.sync(),800); }
-  if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
-
-  // Lancer la simulation de fond du menu après un court délai
-  setTimeout(()=>initMenuBg(), 300);
-}
-init();
-</script>
-</body>
-</html>
+  // Vérifie si une plateforme bloque la ligne de tir me → enemy
+  _shotBlocked(me, enemy){
+    const x0=me.x+me.w/2, y0=me.y+me.h/2;
+    const x1=enemy.x+enemy.w/2, y1=enemy.y+enemy.h/2;
+    const ddx=x1-x0, ddy=y1-y0;
+    const len=Math.sqrt(ddx*ddx+ddy*ddy)||1;
+    const steps=Math.ceil(len/20);
+    for(let s=1;s<steps;s++){
+      const t=s/steps;
+      const px=x0+ddx*t, py=y0+ddy*t;
+      for(const p of platforms){
+        if(p.w<=12||p.h>=WH-40)
