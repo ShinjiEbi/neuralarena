@@ -1,8 +1,8 @@
 const CACHE_NAME = 'neuralarena-v3';
 const ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json'
+  './',
+  './index.html',
+  './manifest.json'
 ];
 
 self.addEventListener('install', e => {
