@@ -4,7 +4,7 @@
   "description": "Entraîne une IA de combat par le jeu. Partage les cerveaux avec la communauté.",
   "start_url": "./",
   "display": "standalone",
-  "orientation": "landscape",
+  "orientation": "any",
   "background_color": "#060810",
   "theme_color": "#060810",
   "icons": [
