@@ -4085,4 +4085,1243 @@ class ScriptedAgent {
       const t=s/steps;
       const px=x0+ddx*t, py=y0+ddy*t;
       for(const p of platforms){
-        if(p.w<=12||p.h>=WH-40)
+        if(p.w<=12||p.h>=WH-40) continue;
+        if(px>p.x&&px<p.x+p.w&&py>p.y&&py<p.y+p.h) return true;
+      }
+    }
+    return false;
+  }
+
+  get label(){ return ['ROOKIE','FIGHTER','VETERAN','MASTER'][this.level-1]; }
+  get color(){ return ['#888888','#60c8ff','#f0c040','#ff4444'][this.level-1]; }
+}
+
+// ELO fictif des agents scriptés par niveau
+const AGENT_ELO = [1100, 1350, 1600, 1900];
+
+// ================================================================
+//  PIÈGES (TRAPS)
+class Trap {
+  constructor(type, x, y, config={}){
+    this.type = type; this.x=x; this.y=y;
+    this.active = true; this.timer = 0;
+    this.cfg = config;
+    // État propre selon type
+    switch(type){
+      case 'mine':     this.triggered=false; this.triggerTimer=0; break;
+      case 'launcher': this.cooldown=0; this.buttonX=config.btnX||x+50; this.buttonY=config.btnY||y-20; this.pressed=false; break;
+      case 'electric': this.phase=Math.random()*Math.PI*2; break;
+      case 'teleport': this.partnerX=config.partnerX||x+400; this.partnerY=config.partnerY||y; this.cooldown=0; break;
+      case 'collapse': this.triggered=false; this.fallTimer=0; this.fallen=false; this.origY=y; break;
+      case 'wind':     this.dir=config.dir||1; this.strength=config.strength||3; break;
+    }
+  }
+
+  update(entities, projectiles){
+    this.timer++;
+    switch(this.type){
+      case 'mine': this._updateMine(entities, projectiles); break;
+      case 'launcher': this._updateLauncher(entities, projectiles); break;
+      case 'electric': this._updateElectric(entities); break;
+      case 'teleport': this._updateTeleport(entities); break;
+      case 'collapse': this._updateCollapse(entities); break;
+      case 'wind': this._updateWind(entities, projectiles); break;
+    }
+  }
+
+  _updateMine(entities, proj){
+    if(this.triggered){ this.triggerTimer++; if(this.triggerTimer>8){this.active=false;} return; }
+    for(const e of entities){
+      const dx=e.x+e.w/2-this.x, dy=e.y+e.h-this.y;
+      if(Math.abs(dx)<16&&Math.abs(dy)<14){
+        this.triggered=true;
+        // Explosion : salve de 8 flèches
+        for(let a=0;a<8;a++){
+          const ang=a*Math.PI/4;
+          proj.push({x:this.x,y:this.y,vx:Math.cos(ang)*ASPD*0.7,vy:Math.sin(ang)*ASPD*0.7,
+            life:120,st:false,tr:[],owner:'trap',col:'#ff8020'});
+        }
+        boom(this.x,this.y,'#ff8020');
+      }
+    }
+  }
+
+  _updateLauncher(entities, proj){
+    this.cooldown=Math.max(0,this.cooldown-1);
+    // Bouton : quelqu'un marche dessus ?
+    for(const e of entities){
+      const dx=e.x+e.w/2-this.buttonX, dy=e.y+e.h-this.buttonY;
+      if(Math.abs(dx)<18&&Math.abs(dy)<12&&e.gnd){
+        if(!this.pressed && this.cooldown===0){
+          this.pressed=true; this.cooldown=120;
+          // Salve horizontale depuis le mur
+          const dir=this.cfg.dir||1;
+          for(let i=0;i<5;i++){
+            const vy=(i-2)*1.5;
+            proj.push({x:this.x,y:this.y+i*20,vx:dir*ASPD,vy,life:200,st:false,tr:[],owner:'trap',col:'#ff4444'});
+          }
+        }
+      } else { this.pressed=false; }
+    }
+  }
+
+  _updateElectric(entities){
+    const active = Math.sin(this.timer*0.05+this.phase) > 0.3;
+    if(!active) return;
+    for(const e of entities){
+      if(e.x+e.w>this.x && e.x<this.x+80 && e.y+e.h>this.y && e.y<this.y+8){
+        // Choc : repousse vers le haut
+        e.vy = Math.min(e.vy, JUMP*0.8);
+        e.vx += (Math.random()-0.5)*6;
+      }
+    }
+  }
+
+  _updateTeleport(entities){
+    if(this.cooldown>0){this.cooldown--;return;}
+    for(const e of entities){
+      const dx=e.x+e.w/2-this.x, dy=e.y+e.h/2-this.y;
+      if(Math.abs(dx)<24&&Math.abs(dy)<24){
+        e.x=this.partnerX-e.w/2; e.y=this.partnerY-e.h;
+        e.vx*=0.3; e.vy*=0.3;
+        this.cooldown=60;
+        boom(this.x,this.y,'#a060ff'); boom(this.partnerX,this.partnerY,'#a060ff');
+      }
+    }
+  }
+
+  _updateCollapse(entities){
+    if(this.fallen) return;
+    if(!this.triggered){
+      for(const e of entities){
+        if(e.x+e.w>this.x&&e.x<this.x+this.cfg.w&&Math.abs(e.y+e.h-this.y)<8&&e.gnd){
+          this.triggered=true; break;
+        }
+      }
+    } else {
+      this.fallTimer++;
+      this.y = this.origY + this.fallTimer*this.fallTimer*0.08;
+      if(this.y > WH+50) this.fallen=true;
+    }
+  }
+
+  _updateWind(entities, proj){
+    for(const e of entities){
+      if(e.x+e.w>this.x&&e.x<this.x+this.cfg.w&&e.y+e.h>this.y&&e.y<this.y+(this.cfg.h||WH)){
+        e.vx += this.dir*this.strength*0.04;
+      }
+    }
+    for(const a of proj){
+      if(!a.st&&a.x>this.x&&a.x<this.x+this.cfg.w){
+        a.vx += this.dir*this.strength*0.08;
+      }
+    }
+  }
+
+  draw(ctx){
+    if(!this.active) return;
+    switch(this.type){
+      case 'mine':     this._drawMine(ctx); break;
+      case 'launcher': this._drawLauncher(ctx); break;
+      case 'electric': this._drawElectric(ctx); break;
+      case 'teleport': this._drawTeleport(ctx); break;
+      case 'collapse': this._drawCollapse(ctx); break;
+      case 'wind':     this._drawWind(ctx); break;
+    }
+  }
+
+  _drawMine(ctx){
+    if(this.triggered){
+      ctx.fillStyle=`rgba(255,128,32,${1-this.triggerTimer/8})`;
+      ctx.beginPath();ctx.arc(this.x,this.y,30+this.triggerTimer*4,0,Math.PI*2);ctx.fill();
+      return;
+    }
+    ctx.fillStyle='#cc4400';ctx.fillRect(this.x-8,this.y-8,16,16);
+    ctx.fillStyle='#ff6600';ctx.fillRect(this.x-4,this.y-12,8,6);
+    ctx.fillStyle='#ffaa00';ctx.fillRect(this.x-2,this.y-6,4,4);
+    // Indicateur danger
+    if(Math.floor(this.timer/15)%2===0){
+      ctx.fillStyle='rgba(255,80,0,0.4)';ctx.beginPath();ctx.arc(this.x,this.y,24,0,Math.PI*2);ctx.fill();
+    }
+  }
+
+  _drawLauncher(ctx){
+    // Mur lanceur
+    ctx.fillStyle='#442200';ctx.fillRect(this.x-8,this.y-60,16,120);
+    ctx.fillStyle='#ff4400';ctx.fillRect(this.x-4,this.y-4,8,8);
+    // Bouton
+    ctx.fillStyle=this.pressed?'#ff2200':'#882200';
+    ctx.fillRect(this.buttonX-10,this.buttonY-6,20,12);
+    ctx.fillStyle='#cc4400';ctx.fillRect(this.buttonX-8,this.buttonY-4,16,8);
+    // Label
+    ctx.fillStyle='rgba(255,80,0,0.6)';ctx.font='5px monospace';ctx.textAlign='center';
+    ctx.fillText('BTN',this.buttonX,this.buttonY-10);
+  }
+
+  _drawElectric(ctx){
+    const active=Math.sin(this.timer*0.05+this.phase)>0.3;
+    ctx.fillStyle=active?'#ffff44':'#444420';
+    ctx.fillRect(this.x,this.y,80,8);
+    if(active){
+      ctx.strokeStyle='rgba(255,255,0,0.6)';ctx.lineWidth=1;
+      for(let i=0;i<6;i++){
+        ctx.beginPath();ctx.moveTo(this.x+i*14,this.y);
+        ctx.lineTo(this.x+i*14+(Math.random()-0.5)*8,this.y-8-Math.random()*8);
+        ctx.stroke();
+      }
+    }
+  }
+
+  _drawTeleport(ctx){
+    const pulse=Math.sin(this.timer*0.08)*0.3+0.7;
+    // Portail A
+    ctx.fillStyle=`rgba(160,96,255,${pulse*0.3})`;ctx.beginPath();ctx.arc(this.x,this.y,20,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=`rgba(160,96,255,${pulse})`;ctx.lineWidth=2;ctx.beginPath();ctx.arc(this.x,this.y,20,0,Math.PI*2);ctx.stroke();
+    ctx.fillStyle='rgba(160,96,255,0.8)';ctx.font='6px monospace';ctx.textAlign='center';ctx.fillText('A',this.x,this.y+3);
+    // Portail B
+    ctx.fillStyle=`rgba(96,255,160,${pulse*0.3})`;ctx.beginPath();ctx.arc(this.partnerX,this.partnerY,20,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=`rgba(96,255,160,${pulse})`;ctx.lineWidth=2;ctx.beginPath();ctx.arc(this.partnerX,this.partnerY,20,0,Math.PI*2);ctx.stroke();
+    ctx.fillStyle='rgba(96,255,160,0.8)';ctx.fillText('B',this.partnerX,this.partnerY+3);
+  }
+
+  _drawCollapse(ctx){
+    if(this.fallen) return;
+    const crack=this.triggered?Math.min(this.fallTimer/30,1):0;
+    ctx.fillStyle=`rgb(${Math.round(46+crack*60)},${Math.round(36-crack*30)},${Math.round(72-crack*40)})`;
+    ctx.fillRect(this.x,this.y,this.cfg.w||120,16);
+    if(crack>0){
+      ctx.strokeStyle=`rgba(0,0,0,${crack*0.8})`;ctx.lineWidth=1;
+      for(let i=0;i<3;i++){
+        ctx.beginPath();ctx.moveTo(this.x+30*i,this.y);
+        ctx.lineTo(this.x+30*i+15,this.y+8);ctx.stroke();
+      }
+    }
+    ctx.fillStyle='rgba(255,200,0,0.6)';ctx.font='5px monospace';ctx.textAlign='center';
+    ctx.fillText('⚠',this.x+(this.cfg.w||120)/2,this.y-4);
+  }
+
+  _drawWind(ctx){
+    const alpha=0.07+Math.sin(this.timer*0.04)*0.03;
+    ctx.fillStyle=`rgba(200,220,255,${alpha})`;
+    ctx.fillRect(this.x,this.y,this.cfg.w||100,this.cfg.h||WH);
+    // Lignes de vent
+    ctx.strokeStyle='rgba(150,200,255,0.2)';ctx.lineWidth=1;
+    for(let i=0;i<5;i++){
+      const offset=(this.timer*this.dir*2+i*60)%200;
+      ctx.beginPath();ctx.moveTo(this.x+(this.dir>0?offset:200-offset),this.y+i*40);
+      ctx.lineTo(this.x+(this.dir>0?offset+40:160-offset),this.y+i*40+10);ctx.stroke();
+    }
+  }
+}
+
+// Génère les pièges actifs pour la carte d'entraînement
+function buildTraps(config){
+  const traps=[];
+  if(config.mine){
+    traps.push(new Trap('mine',400,WH-30));
+    traps.push(new Trap('mine',900,WH-30));
+    traps.push(new Trap('mine',650,400));
+  }
+  if(config.launcher){
+    traps.push(new Trap('launcher',12,WH/2,{dir:1,btnX:100,btnY:WH-30}));
+    traps.push(new Trap('launcher',WW-12,WH/2,{dir:-1,btnX:WW-100,btnY:WH-30}));
+  }
+  if(config.electric){
+    traps.push(new Trap('electric',350,WH-30));
+    traps.push(new Trap('electric',900,350));
+  }
+  if(config.teleport){
+    traps.push(new Trap('teleport',200,WH-80,{partnerX:WW-200,partnerY:WH-80}));
+  }
+  if(config.collapse){
+    traps.push(new Trap('collapse',300,310,{w:160}));
+    traps.push(new Trap('collapse',900,430,{w:160}));
+  }
+  if(config.wind){
+    traps.push(new Trap('wind',550,0,{w:200,h:WH,dir:1,strength:2}));
+  }
+  return traps;
+}
+
+// ================================================================
+//  SALLE D'ENTRAÎNEMENT — state & logic
+let trConfig = {
+  brainId: null,
+  agents: [{level:1}],
+  traps: {mine:false,launcher:false,electric:false,teleport:false,collapse:false,wind:false},
+  rounds: 50,
+  speed: 1,
+  curriculum: false,
+  objective: 'balanced',
+};
+let trRunning = false;
+let trRoundsDone = 0;
+let trInterval = null;
+let trBrain = null;    // MultiExpertBrain actif
+let trTrainees = [];   // Ent[] (cerveau + agents)
+let trAgentObjs = [];  // ScriptedAgent[]
+let trTraps = [];      // Trap[]
+let trTrapProj = [];   // projectiles des pièges
+let trHof = [];        // Hall of Fame local
+let trBestBrain = null;
+let trStag = 0;
+let trRoundTimer = 0;
+let trRoundOver = false;
+let trEvoHistory = []; // [{round, elo, fitness}]
+
+function trainingTab(name){
+  document.querySelectorAll('.arena-tab').forEach((t,i)=>{
+    const names=['config','graph','params','stats'];
+    t.classList.toggle('active',names[i]===name);
+  });
+  ['config','graph','params','stats'].forEach(n=>{
+    const el=document.getElementById('panel-'+n);
+    if(el) el.style.display=n===name?'':'none';
+  });
+  if(name==='graph') drawTrainGraph();
+  if(name==='stats') renderStats();
+  if(name==='params') initParamSliders();
+}
+
+function renderTraining(){
+  renderTrBrainSel();
+  renderTrAgents();
+}
+
+async function renderTrBrainSel(){
+  const all=await store.getAll('brains');
+  // Pré-sélectionner le cerveau actif en solo par défaut
+  if(!trConfig.brainId || !all.find(e=>e.id===trConfig.brainId)){
+    trConfig.brainId = currentBrainId || (all[0]?.id);
+  }
+  document.getElementById('tr-brain-sel').innerHTML=all.map(e=>`
+    <button class="tr-brain-btn ${e.id===trConfig.brainId?'active':''}"
+      onclick="trSetBrain('${e.id}')">${sanitize((e.name||e.id).substring(0,12))}${e.id===currentBrainId?' ●':''}</button>`).join('');
+}
+
+function trSetBrain(id){ trConfig.brainId=id; renderTrBrainSel(); }
+
+function renderTrAgents(){
+  const el=document.getElementById('tr-agents');
+  el.innerHTML=trConfig.agents.map((a,i)=>`
+    <div class="tr-agent-row">
+      <span style="font-size:5px;color:#6040a0;flex-shrink:0">IA ${i+1}</span>
+      <div class="tr-agent-lvl">
+        ${['ROOKIE','FIGHTER','VETERAN','MASTER'].map((lbl,li)=>`
+          <button class="tr-agent-lvl-btn ${a.level===li+1?'active':''}"
+            onclick="trSetAgentLvl(${i},${li+1})">${lbl}</button>`).join('')}
+      </div>
+      <button class="tr-agent-del" onclick="trRemoveAgent(${i})">✕</button>
+    </div>`).join('');
+}
+
+function trAddAgent(){
+  if(trConfig.agents.length>=3){toast('Max 3 adversaires');return;}
+  trConfig.agents.push({level:1}); renderTrAgents();
+}
+function trRemoveAgent(i){
+  if(trConfig.agents.length<=1){toast('Min 1 adversaire');return;}
+  trConfig.agents.splice(i,1); renderTrAgents();
+}
+function trSetAgentLvl(i,lvl){ trConfig.agents[i].level=lvl; renderTrAgents(); }
+function trTrapToggle(k,el){ trConfig.traps[k]=el.checked; }
+function setTrainSpeed(spd,btn){
+  trConfig.speed=spd;
+  document.querySelectorAll('.speed-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+async function trainingToggle(){
+  if(trRunning){ trainingStop(); return; }
+  await trainingStart();
+}
+
+// ================================================================
+//  ÉTAT POPULATION
+let trPopulation = [];       // [{brain, fitness, elo, wins, played}]
+let trPopGeneration = 0;
+let trCurriculumLevel = 1;   // niveau courant
+let trCurriculumWins = 0;    // victoires depuis dernier changement
+let trCurriculumTotal = 0;   // rounds depuis dernier changement
+let trShapedReward = 0;      // récompense shaped accumulée dans le round
+
+async function trainingStart(){
+  if(!trConfig.brainId){toast('Choisis un cerveau');return;}
+  const entry=await store.get('brains',trConfig.brainId);
+  if(!entry){toast('Cerveau introuvable');return;}
+
+  trBrain=deserializeBrain(entry.brain);
+  trBrain.fitness=entry.fitness||0;
+  trBrain.elo=entry.elo||ELO_BASE;
+  trBestBrain=null; trHof=[]; trStag=0;
+  trRoundsDone=0; trRunning=true;
+  trEvoHistory=[];
+  trConfig.rounds=parseInt(document.getElementById('tr-rounds').value)||100;
+  trConfig.curriculum=document.getElementById('tr-curriculum').checked;
+  trConfig.objective=document.getElementById('tr-objective').value;
+  const popMode=document.getElementById('tr-population').checked;
+  const popSize=parseInt(document.getElementById('tr-popsize').value)||20;
+
+  document.getElementById('tr-start-btn').textContent='■ STOP';
+  document.getElementById('tr-status').textContent='';
+
+  // Curriculum : démarrer au bon niveau
+  trCurriculumLevel = _curriculumLevel(trBrain.elo);
+  trCurriculumWins=0; trCurriculumTotal=0;
+
+  // Mode population : créer N clones mutés du cerveau de base
+  if(popMode){
+    trPopulation=[];
+    for(let i=0;i<popSize;i++){
+      const b=trBrain.clone();
+      if(i>0) b.mutate(0.3,0.4); // varier la pop initiale
+      b.fitness=trBrain.fitness; b.elo=trBrain.elo;
+      trPopulation.push({brain:b,fitness:b.fitness,elo:b.elo,wins:0,played:0,shapedScore:0});
+    }
+    trPopGeneration=0;
+  } else {
+    trPopulation=[];
+  }
+
+  // Agents
+  const lvl = trConfig.curriculum ? trCurriculumLevel : trConfig.agents[0].level;
+  trAgentObjs=trConfig.agents.map(()=>new ScriptedAgent(lvl));
+  trTraps=buildTraps(trConfig.traps);
+
+  startTrainRound();
+}
+
+function startTrainRound(){
+  if(!trRunning) return;
+  if(trRoundsDone>=trConfig.rounds){
+    trainingStop(); toast('Entraînement terminé !'); drawTrainGraph(); return;
+  }
+
+  const popMode = trPopulation.length>0;
+
+  // En mode population : choisir le prochain individu à évaluer (round-robin)
+  if(popMode){
+    const idx = trRoundsDone % trPopulation.length;
+    trBrain = trPopulation[idx].brain;
+    // Tous les N rounds = 1 génération → sélection + croisement
+    if(trRoundsDone>0 && trRoundsDone % trPopulation.length === 0){
+      _evolvePopulation();
+    }
+  }
+
+  trRoundTimer=0; trRoundOver=false; trTrapProj=[]; trShapedReward=0;
+  trTraps.forEach(t=>{
+    if(t.type==='collapse'){t.triggered=false;t.fallTimer=0;t.fallen=false;t.y=t.origY;}
+    if(t.type==='mine'){t.triggered=false;t.triggerTimer=0;t.active=true;}
+  });
+
+  // Curriculum progressif : si win rate > 60% sur les 20 derniers → monter
+  if(trConfig.curriculum && trCurriculumTotal>=20){
+    const wr=trCurriculumWins/trCurriculumTotal;
+    if(wr>=0.6 && trCurriculumLevel<4){
+      trCurriculumLevel++;
+      trCurriculumWins=0; trCurriculumTotal=0;
+      toast(`Niveau ↑ ${['ROOKIE','FIGHTER','VETERAN','MASTER'][trCurriculumLevel-1]}`);
+    } else if(wr<0.25 && trCurriculumLevel>1){
+      trCurriculumLevel--;
+      trCurriculumWins=0; trCurriculumTotal=0;
+      toast(`Niveau ↓ ${['ROOKIE','FIGHTER','VETERAN','MASTER'][trCurriculumLevel-1]}`);
+    }
+    const lvl=trConfig.curriculum?trCurriculumLevel:trConfig.agents[0].level;
+    trAgentObjs.forEach(a=>a.level=lvl);
+  }
+
+  // Créer entités
+  trTrainees=[];
+  // Spawns aléatoires pour le cerveau + les agents
+  const traineeCount = 1 + trAgentObjs.length;
+  const spawnPositions = randomSpawns(traineeCount);
+
+  const cervEnt=new Ent(spawnPositions[0].x, spawnPositions[0].y, SLOT_COLORS[0], true);
+  cervEnt.face = spawnPositions[0].face;
+  trTrainees.push(cervEnt);
+  trAgentObjs.forEach((ag,i)=>{
+    const sp=spawnPositions[i+1];
+    const ent=new Ent(sp.x,sp.y,SLOT_COLORS[i+1],true); ent.face=sp.face;
+    trTrainees.push(ent);
+  });
+  trBrain.resetMemory();
+  trAgentObjs.forEach(a=>{
+    a.mem={lastEnemyX:0,lastEnemyY:0,jumpCooldown:0,retreatDir:0,retreatTimer:0,patternBuf:[],lastShot:0};
+  });
+
+  const stepsPerFrame=trConfig.speed===0?1000:trConfig.speed;
+  if(trInterval){clearInterval(trInterval);trInterval=null;}
+
+  // Stats comportementales du round
+  const rs={
+    arrowsDodged:0, shotsNearMiss:0, platformChanges:0, lastPlatY:-1,
+    framesAiming:0,  // frames où l'arc pointe vers l'ennemi ±20°
+    stationaryFrames:0, lastX:trTrainees[0].x,
+  };
+
+  function runStep(){
+    if(trRoundOver) return;
+    trRoundTimer++;
+
+    const ce=trTrainees[0];
+    const nearestEnemy=trTrainees.slice(1).reduce((b,e)=>{
+      const d=(e.x-ce.x)**2+(e.y-ce.y)**2;
+      const bd=(b.x-ce.x)**2+(b.y-ce.y)**2;
+      return d<bd?e:b;
+    },trTrainees[1]);
+
+    const enemyArrows=trTrainees.slice(1).flatMap(e=>e.arr);
+    const inp=aiInputsFor(ce,nearestEnemy,enemyArrows,trRoundTimer);
+    const out=trBrain.forward(inp);
+    aiProcessFor(out,ce);
+    ce.face=nearestEnemy.x<ce.x?-1:1;
+    ce.update();
+
+    // ── RÉCOMPENSES SHAPED ───────────────────────────────────────
+    const aimTarget=Math.atan2(
+      nearestEnemy.y+nearestEnemy.h/2-(ce.y+ce.h/2),
+      nearestEnemy.x+nearestEnemy.w/2-(ce.x+ce.w/2)
+    );
+    let aimDiff=Math.abs(ce.aim-aimTarget);
+    if(aimDiff>Math.PI) aimDiff=Math.PI*2-aimDiff;
+
+    // 1. Viser précisément : récompense graduelle et forte
+    const aimPrecision=Math.max(0,(0.4-aimDiff)/0.4); // 1=parfait, 0=>23°
+    trShapedReward += aimPrecision*0.012;
+    if(aimDiff<0.2) rs.framesAiming++;
+
+    // 2. Tirer quand on vise bien : la vraie récompense
+    if(out[5]>0.5 && aimDiff<0.3 && ce.cd===0){
+      trShapedReward += 0.08; // grosse récompense pour tir bien visé
+    } else if(out[5]>0.5 && aimDiff>0.8){
+      trShapedReward -= 0.02; // pénalité tir en l'air
+    }
+
+    // 3. Flèches proches de l'ennemi
+    for(const a of ce.arr){
+      if(a.st) continue;
+      const dx=a.x-(nearestEnemy.x+nearestEnemy.w/2);
+      const dy=a.y-(nearestEnemy.y+nearestEnemy.h/2);
+      const d=Math.sqrt(dx*dx+dy*dy);
+      if(d<60){ trShapedReward+=0.04; rs.shotsNearMiss+=0.3; }
+      else if(d<120){ trShapedReward+=0.015; rs.shotsNearMiss+=0.1; }
+    }
+
+    // 4. Esquiver les flèches ennemies
+    for(const a of enemyArrows){
+      if(a.st) continue;
+      const dx=a.x-(ce.x+ce.w/2), dy=a.y-(ce.y+ce.h/2);
+      const d=Math.sqrt(dx*dx+dy*dy);
+      if(d<80) rs.arrowsDodged+=0.1;
+    }
+
+    // 5. Pénalité mur
+    if(ce.x<25||ce.x>WW-45) trShapedReward-=0.008;
+
+    // Agents scriptés
+    for(let i=0;i<trAgentObjs.length;i++){
+      const ag=trAgentObjs[i];
+      const ent=trTrainees[i+1];
+      const arrows=trTrainees.filter((_,j)=>j!==i+1).flatMap(e=>e.arr);
+      ag.act(ent,ce,arrows,trTraps,trRoundTimer);
+      ent.update();
+    }
+
+    // Pièges
+    for(const t of trTraps) t.update(trTrainees,trTrapProj);
+    for(let i=trTrapProj.length-1;i>=0;i--){
+      const p=trTrapProj[i];
+      if(p.st){p.life--;if(p.life<=0){trTrapProj.splice(i,1);continue;}}
+      else{p.vy+=AGRAV;p.vx*=ADRAG;p.vy*=ADRAG;p.x+=p.vx;p.y+=p.vy;p.life--;}
+      if(p.life<=0||p.x<-50||p.x>WW+50||p.y>WH+50){trTrapProj.splice(i,1);continue;}
+      if(p.x>ce.x&&p.x<ce.x+ce.w&&p.y>ce.y&&p.y<ce.y+ce.h){
+        boom(p.x,p.y,ce.col); trTrapProj.splice(i,1); trRoundOver=true; return;
+      }
+    }
+
+    const hit=checkTrainHits();
+    if(hit!==null){ trRoundOver=true; }
+    if(trRoundTimer>60*35) trRoundOver=true;
+  }
+
+  function checkTrainHits(){
+    const ce=trTrainees[0];
+    for(let i=1;i<trTrainees.length;i++){
+      for(let j=trTrainees[i].arr.length-1;j>=0;j--){
+        const a=trTrainees[i].arr[j];if(a.st)continue;
+        if(a.x>ce.x&&a.x<ce.x+ce.w&&a.y>ce.y&&a.y<ce.y+ce.h){
+          boom(a.x,a.y,ce.col);trTrainees[i].arr.splice(j,1);return 'lose';
+        }
+      }
+    }
+    for(let j=ce.arr.length-1;j>=0;j--){
+      const a=ce.arr[j];if(a.st)continue;
+      for(let i=1;i<trTrainees.length;i++){
+        const opp=trTrainees[i];
+        if(a.x>opp.x&&a.x<opp.x+opp.w&&a.y>opp.y&&a.y<opp.y+opp.h){
+          boom(a.x,a.y,opp.col);ce.arr.splice(j,1);return 'win';
+        }
+      }
+    }
+    return null;
+  }
+
+  function onRoundEnd(){
+    const lastHit=checkTrainHits();
+    const won = lastHit==='win' || (trRoundTimer<=60*35 && lastHit!=='lose');
+    trRoundsDone++;
+
+    // Curriculum tracking
+    trCurriculumTotal++;
+    if(won) trCurriculumWins++;
+
+    // Gain = comportement + shaped + victoire
+    const aimBonus   = Math.min(rs.framesAiming / (60*35) * 15, 15); // max 15 : viser
+    const shotBonus  = Math.min(rs.shotsNearMiss * 0.5, 10);          // max 10 : précision
+    const dodgeBonus = Math.min(rs.arrowsDodged  * 0.4, 5);           // max 5  : esquive
+    const shaped     = Math.max(-5, Math.min(trShapedReward * 80, 12)); // shaped clamped
+    const totalGain  = aimBonus + shotBonus + dodgeBonus + shaped + (won ? evoParams.winBonus : 0);
+
+    const prevFit=trBrain.fitness||0;
+    trBrain.fitness = updateFitness(prevFit, totalGain, won);
+
+    // Mode population : stocker le score pour sélection
+    if(popMode){
+      const idx=trRoundsDone % trPopulation.length || trPopulation.length-1;
+      const popIdx=(trRoundsDone-1) % trPopulation.length;
+      trPopulation[popIdx].shapedScore += totalGain;
+      trPopulation[popIdx].played++;
+      if(won) trPopulation[popIdx].wins++;
+      trPopulation[popIdx].fitness=trBrain.fitness;
+      trPopulation[popIdx].elo=trBrain.elo;
+    }
+
+    if(won){
+      if(!trBestBrain||trBrain.fitness>=(trBestBrain.fitness||0)) trBestBrain=trBrain.clone();
+      trHof.push(trBrain.clone());
+      trHof.sort((a,b)=>(b.elo||0)-(a.elo||0));
+      if(trHof.length>evoParams.hofSize) trHof.length=evoParams.hofSize;
+      trStag=0;
+    } else {
+      if(trBrain.fitness<=prevFit) trStag++;
+      else trStag=Math.max(0,trStag-1);
+    }
+
+    // ELO
+    const agentLvl = trConfig.curriculum ? trCurriculumLevel : (trAgentObjs[0]?.level||1);
+    const agentElo = AGENT_ELO[agentLvl-1] || AGENT_ELO[0];
+    const prevElo=trBrain.elo||ELO_BASE;
+    trBrain.elo=Math.max(400,eloUpdate(prevElo,eloExpected(prevElo,agentElo),won?1:0,trRoundsDone));
+
+    // Mutation (seulement en mode individuel — pop gère sa propre évolution)
+    if(!popMode) selectMutationStrategy(trBrain,trStag,won,trHof,trBestBrain);
+
+    trEvoHistory.push({round:trRoundsDone,elo:trBrain.elo,fitness:Math.round(trBrain.fitness)});
+
+    const lvlLabel=trConfig.curriculum?['ROOKIE','FIGHTER','VETERAN','MASTER'][trCurriculumLevel-1]:'';
+    const wr=trCurriculumTotal>0?Math.round(trCurriculumWins/trCurriculumTotal*100):0;
+    const popInfo=popMode?` · Pop gen ${trPopGeneration}`:'';
+    document.getElementById('tr-status').textContent=
+      `Round ${trRoundsDone}/${trConfig.rounds} · ELO ${trBrain.elo} · ${lvlLabel} ${wr}%${popInfo}`;
+
+    if(trRoundsDone%10===0) saveTrainResults();
+    else _syncActiveBrainLive(); // sync RAM sans écrire disque
+    if(trRoundsDone%5===0&&document.getElementById('panel-graph')?.style.display!=='none') drawTrainGraph();
+
+    // Toujours async pour éviter stack overflow en MAX speed
+    setTimeout(()=>startTrainRound(), 0);
+  }
+
+  // Exécution
+  if(trConfig.speed===0){
+    const cv2=document.getElementById('tr-preview');
+    if(cv2) cv2.style.display='none';
+    // Boucle synchrone — on sort dès que trRoundOver
+    let safetyCounter=0;
+    while(!trRoundOver && safetyCounter<60*35+10){
+      runStep();
+      safetyCounter++;
+    }
+    onRoundEnd();
+  } else {
+    const cv2=document.getElementById('tr-preview');
+    if(cv2) cv2.style.display='block';
+    trInterval=setInterval(()=>{
+      if(!trRunning||trRoundOver){clearInterval(trInterval);trInterval=null;return;}
+      for(let s=0;s<trConfig.speed;s++){
+        if(trRoundOver) break;
+        runStep();
+      }
+      if(trConfig.speed<=16) drawTrainFrame();
+      if(trRoundOver){
+        clearInterval(trInterval);trInterval=null;
+        onRoundEnd();
+      }
+    },1000/60);
+  }
+}
+
+// ── Évolution de la population (appelée chaque génération) ───────
+function _evolvePopulation(){
+  trPopGeneration++;
+  const N=trPopulation.length;
+  const keep=Math.max(2,Math.floor(N*0.25)); // garder top 25%
+
+  // Trier par score shaped normalisé
+  trPopulation.sort((a,b)=>{
+    const sa=a.played>0?a.shapedScore/a.played:-999;
+    const sb=b.played>0?b.shapedScore/b.played:-999;
+    return sb-sa;
+  });
+
+  // Le meilleur devient le nouveau trBrain
+  const champion=trPopulation[0];
+  trBrain=champion.brain.clone();
+  trBrain.fitness=champion.fitness;
+  trBrain.elo=champion.elo;
+
+  // Sauvegarder le champion toutes les 5 générations
+  if(trPopGeneration%5===0){
+    saveTrainResults();
+    toast(`Gén ${trPopGeneration} · Champion ELO ${trBrain.elo} · Win ${champion.played>0?Math.round(champion.wins/champion.played*100):0}%`);
+  }
+
+  // Reconstruire la population : élite + croisements + mutations
+  const elite=trPopulation.slice(0,keep);
+  const newPop=[];
+
+  // 1. Garder l'élite
+  for(const e of elite){
+    const b=e.brain.clone();
+    b.fitness=e.fitness; b.elo=e.elo;
+    newPop.push({brain:b,fitness:b.fitness,elo:b.elo,wins:0,played:0,shapedScore:0});
+  }
+
+  // 2. Croisements élite × élite
+  while(newPop.length<Math.floor(N*0.6)){
+    const a=elite[Math.floor(Math.random()*elite.length)];
+    const b=elite[Math.floor(Math.random()*elite.length)];
+    const child=MultiExpertBrain.crossover(a.brain,b.brain);
+    child.mutate(evoParams.mutRateWin,evoParams.mutPower);
+    child.fitness=(a.fitness+b.fitness)/2;
+    child.elo=Math.round((a.elo+b.elo)/2);
+    newPop.push({brain:child,fitness:child.fitness,elo:child.elo,wins:0,played:0,shapedScore:0});
+  }
+
+  // 3. Remplir le reste avec mutations aléatoires de l'élite
+  while(newPop.length<N){
+    const src=elite[Math.floor(Math.random()*elite.length)];
+    const child=src.brain.clone();
+    child.mutate(evoParams.mutRateLoss,evoParams.mutPower*1.5);
+    child.fitness=src.fitness; child.elo=src.elo;
+    newPop.push({brain:child,fitness:child.fitness,elo:child.elo,wins:0,played:0,shapedScore:0});
+  }
+
+  trPopulation=newPop;
+
+  // Mettre à jour le HoF avec les meilleurs de l'élite
+  for(const e of elite.slice(0,3)){
+    trHof.push(e.brain.clone());
+  }
+  trHof.sort((a,b)=>(b.elo||0)-(a.elo||0));
+  if(trHof.length>evoParams.hofSize) trHof.length=evoParams.hofSize;
+  trBestBrain=trHof[0]||trBestBrain;
+}
+function _curriculumLevel(elo){
+  if(elo<1300) return 1;
+  if(elo<1500) return 2;
+  if(elo<1800) return 3;
+  return 4;
+}
+
+function trainingStop(){
+  trRunning=false;
+  if(trInterval){clearInterval(trInterval);trInterval=null;}
+  document.getElementById('tr-start-btn').textContent='▶ LANCER';
+  document.getElementById('tr-status').textContent='';
+  const cv2=document.getElementById('tr-preview');
+  if(cv2) cv2.style.display='none';
+  saveTrainResults();
+}
+
+async function saveTrainResults(){
+  if(!trConfig.brainId||!trBrain) return;
+  const entry=await store.get('brains',trConfig.brainId);
+  if(!entry) return;
+
+  // En mode population : champion = meilleur score moyen
+  const brainToSave = trPopulation.length>0
+    ? (() => {
+        const sorted = [...trPopulation].sort((a,b)=>
+          (b.shapedScore/Math.max(b.played,1))-(a.shapedScore/Math.max(a.played,1)));
+        return sorted[0]?.brain || trBrain;
+      })()
+    : trBrain;
+
+  entry.brain      = brainToSave.serialize();
+  entry.fitness    = brainToSave.fitness;
+  entry.elo        = brainToSave.elo;
+  entry.generation = (entry.generation||1) + Math.max(trRoundsDone,1);
+  await store.put('brains', entry);
+
+  // Sync activeBrain si c'est le cerveau actif en solo
+  if(trConfig.brainId===currentBrainId){
+    activeBrain = brainToSave.clone();
+    activeBrain.fitness = brainToSave.fitness;
+    activeBrain.elo     = brainToSave.elo;
+    generation = entry.generation;
+  }
+
+  if(trRoundsDone>0) toast(`${trRoundsDone} rounds · ELO ${brainToSave.elo}`);
+}
+
+// Sync légère après chaque round (sans écrire dans IndexedDB)
+function _syncActiveBrainLive(){
+  if(trConfig.brainId!==currentBrainId) return;
+  // En mode pop : utiliser le meilleur individu évalué jusqu'ici
+  const src = trPopulation.length>0
+    ? (trPopulation.reduce((b,c)=>
+        (c.played>0&&c.shapedScore/c.played > (b.played>0?b.shapedScore/b.played:-Infinity))?c:b,
+        trPopulation[0])?.brain || trBrain)
+    : trBrain;
+  activeBrain = src.clone();
+  activeBrain.fitness = src.fitness;
+  activeBrain.elo     = src.elo;
+}
+
+function drawTrainFrame(){
+  const cv2=document.getElementById('tr-preview');
+  if(!cv2) return;
+  const ctx=cv2.getContext('2d');
+  const W=cv2.width,H=cv2.height;
+  const sc=Math.min(W/WW,H/WH)*0.9;
+  const offX=(W-WW*sc)/2,offY=(H-WH*sc)/2;
+
+  ctx.fillStyle='#0d0818';ctx.fillRect(0,0,W,H);
+  ctx.save();ctx.translate(offX,offY);ctx.scale(sc,sc);
+
+  for(const p of platforms){
+    if(p.w<=12||p.h>=WH-40){ctx.fillStyle='#1e1630';ctx.fillRect(p.x,p.y,p.w,p.h);continue;}
+    ctx.fillStyle='#2e2448';ctx.fillRect(p.x,p.y,p.w,p.h);
+    ctx.fillStyle='#5a4e80';ctx.fillRect(p.x,p.y,p.w,2);
+  }
+  for(const t of trTraps) t.draw(ctx);
+  for(const p of trTrapProj){
+    ctx.fillStyle='#ff8020';ctx.fillRect(Math.round(p.x-3),Math.round(p.y-1),6,2);
+  }
+  for(const e of trTrainees) e.draw(ctx);
+  ctx.restore();
+
+  ctx.fillStyle='rgba(13,8,24,0.7)';ctx.fillRect(0,0,W,24);
+  ctx.font='bold 7px monospace';ctx.textAlign='left';
+  ctx.fillStyle=SLOT_COLORS[0];
+  const popInfo=trPopulation.length>0?` Pop gén ${trPopGeneration}`:'';
+  ctx.fillText(`CERVEAU ELO ${trBrain?.elo||'?'}${popInfo}`,6,15);
+  ctx.fillStyle='#8060c0';ctx.textAlign='right';
+  ctx.fillText(`Round ${trRoundsDone+1}/${trConfig.rounds}`,W-6,15);
+  trAgentObjs.forEach((ag,i)=>{
+    ctx.fillStyle=ag.color;ctx.textAlign='center';
+    ctx.fillText(ag.label,(i+1)*W/(trAgentObjs.length+1),15);
+  });
+}
+
+function drawTrainGraph(){
+  const cv2=document.getElementById('evo-canvas');
+  if(!cv2||trEvoHistory.length<2) return;
+  const ctx=cv2.getContext('2d');
+  const W=cv2.width,H=cv2.height;
+  ctx.fillStyle='#10081e';ctx.fillRect(0,0,W,H);
+
+  const elos=trEvoHistory.map(p=>p.elo);
+  const fits=trEvoHistory.map(p=>p.fitness);
+  const minE=Math.min(...elos)-20,maxE=Math.max(...elos)+20;
+  const maxF=Math.max(...fits)+10;
+  const pad={l:40,r:10,t:10,b:20};
+  const gW=W-pad.l-pad.r,gH=H-pad.t-pad.b;
+
+  // Grille
+  ctx.strokeStyle='#2a1a3a';ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    const y=pad.t+gH*(1-i/4);
+    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+gW,y);ctx.stroke();
+    ctx.fillStyle='#6040a0';ctx.font='8px monospace';ctx.textAlign='right';
+    ctx.fillText(Math.round(minE+(maxE-minE)*(i/4)),pad.l-3,y+3);
+  }
+
+  const N=trEvoHistory.length;
+  // Courbe ELO
+  ctx.strokeStyle=GRAPH_COLORS[0];ctx.lineWidth=2;ctx.beginPath();
+  trEvoHistory.forEach((pt,i)=>{
+    const x=pad.l+gW*(i/(N-1));
+    const y=pad.t+gH*(1-(pt.elo-minE)/(maxE-minE));
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+
+  // Courbe Fitness (normalisée)
+  ctx.strokeStyle=GRAPH_COLORS[2];ctx.lineWidth=1;ctx.setLineDash([3,3]);ctx.beginPath();
+  trEvoHistory.forEach((pt,i)=>{
+    const x=pad.l+gW*(i/(N-1));
+    const y=pad.t+gH*(1-pt.fitness/Math.max(maxF,1));
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.stroke();ctx.setLineDash([]);
+
+  // Légende
+  const legend=document.getElementById('chart-legend');
+  if(legend) legend.innerHTML=`
+    <div class="legend-item"><div class="legend-dot" style="background:${GRAPH_COLORS[0]}"></div><span style="color:${GRAPH_COLORS[0]};font-size:5px">ELO (${trBrain?.elo||'?'})</span></div>
+    <div class="legend-item"><div class="legend-dot" style="background:${GRAPH_COLORS[2]}"></div><span style="color:${GRAPH_COLORS[2]};font-size:5px">Fitness (${Math.round(trBrain?.fitness||0)})</span></div>`;
+}
+
+// ================================================================
+//  MODAL CRÉATION CERVEAU
+function openBrainModal(){
+  updateBrainPreview();
+  document.getElementById('brain-create-modal').classList.add('open');
+}
+function closeBrainModal(){
+  document.getElementById('brain-create-modal').classList.remove('open');
+}
+
+function updateBrainPreview(){
+  const H=parseInt(document.getElementById('bc-h').value)||8;
+  const out=parseInt(document.getElementById('bc-out').value)||4;
+  const arb=parseInt(document.getElementById('bc-arb').value)||8;
+  // Calcul params
+  const gruParams=(H*(H+6)*3+out*H)*3; // 3 experts
+  const arbParams=(3*out)*arb+arb+arb*6+6;
+  const total=gruParams+arbParams;
+  document.getElementById('brain-preview-info').innerHTML=
+    `Topologie : GRU(H=${H}) × 3 experts → dense(${3*out}→${arb}→6)\n`+
+    `Paramètres : ${total}\n`+
+    `Mémoire par round : ${H*3} valeurs GRU`;
+}
+
+async function confirmNewBrain(){
+  const H=parseInt(document.getElementById('bc-h').value)||8;
+  const outSize=parseInt(document.getElementById('bc-out').value)||4;
+  const arbSize=parseInt(document.getElementById('bc-arb').value)||8;
+  const xavierScale=parseFloat(document.getElementById('bc-xavier').value)||1.0;
+  const startElo=parseInt(document.getElementById('bc-elo').value)||ELO_BASE;
+
+  // Créer le MultiExpertBrain avec les paramètres choisis
+  const b=new MultiExpertBrain(H,outSize,arbSize,xavierScale);
+  b.elo=startElo;
+
+  const id='brain_'+Date.now();
+  const name=await nextBrainName();
+  await store.put('brains',{id,name,creator:localCreator,brain:b.serialize(),
+    generation:1,fitness:0,elo:startElo,wins:0,played:0,
+    timestamp:Date.now(),game:'arena-archer',
+    topology:`GRU(H=${H})×3+ARB(${arbSize})`,params:b.paramCount()});
+  currentBrainId=id;store.setConfig('currentBrainId',id);activeBrain=b;generation=1;bestBrain=null;
+  totalWins=0;totalPlayed=0;
+  closeBrainModal();
+  toast(`Créé : ${name} (${b.paramCount()} params)`);
+  updateLabUI();
+}
+//             ex: "darknode"
+//
+//  Cerveau  : [creator]#[NNN]   numéro séquentiel
+//             ex: "darknode#001"
+//
+//  Clone    : [source_name]~[NNN]
+//             ex: "darknode#001~002"
+//
+//  Importé  : conserve le nom original du fichier/export
+//
+const CREATOR_ADJ =['swift','dark','neo','iron','ghost','void','storm','neon','arc','hyper','flux','echo','apex','zero','nova','red','cold','deep','wild','hex'];
+const CREATOR_NOUN=['node','mind','core','agent','pulse','forge','byte','grid','wave','link','unit','mesh','gate','loop','data','cell','port','chip','flow','net'];
+
+function generateCreatorId(){
+  const adj  = CREATOR_ADJ [Math.floor(Math.random()*CREATOR_ADJ.length)];
+  const noun = CREATOR_NOUN[Math.floor(Math.random()*CREATOR_NOUN.length)];
+  return adj + noun; // ex: "darknode"
+}
+
+let localCreator = '';
+let brainCounter = 0; // compteur séquentiel local, chargé depuis le store
+
+async function loadCreator(){
+  let saved = await store.getConfig('localCreator', null);
+  if(!saved){ saved=generateCreatorId(); await store.setConfig('localCreator',saved); }
+  localCreator = saved;
+
+  // Charge le compteur séquentiel
+  const cnt = await store.getConfig('brainCounter', 0);
+  brainCounter = cnt || 0;
+}
+
+// Génère le prochain nom séquentiel et incrémente le compteur
+async function nextBrainName(){
+  brainCounter++;
+  await store.setConfig('brainCounter', brainCounter);
+  const num = String(brainCounter).padStart(3, '0');
+  return `${localCreator}#${num}`; // ex: darknode#001
+}
+
+// Génère un nom de clone basé sur le nom source
+async function cloneBrainName(sourceName){
+  brainCounter++;
+  await store.setConfig('brainCounter', brainCounter);
+  const num = String(brainCounter).padStart(3, '0');
+  // Prend la racine avant ~ si déjà un clone
+  const base = sourceName.split('~')[0];
+  return `${base}~${num}`; // ex: darknode#001~002
+}
+
+// ================================================================
+// ================================================================
+//  SIMULATION DE FOND — MENU SCREEN
+// ================================================================
+//  Le meilleur cerveau disponible joue en boucle contre un MASTER.
+//  Rendu sur #menu-bg-canvas, sans interaction.
+
+const menuBg = {
+  cv: null, ctx: null,
+  W: 0, H: 0,
+  entA: null,          // cerveau
+  agentEnts: [],       // 3 entités MASTER
+  agents: [],          // 3 ScriptedAgent(4)
+  brainA: null,
+  timer: 0, interval: null,
+  particles: [],
+  active: false,
+};
+
+async function initMenuBg(){
+  menuBg.cv = document.getElementById('menu-bg-canvas');
+  if(!menuBg.cv) return;
+  menuBg.ctx = menuBg.cv.getContext('2d');
+  _resizeMenuBg();
+  window.addEventListener('resize', _resizeMenuBg);
+
+  let all = [];
+  try { all = await store.getAll('brains'); } catch(e){}
+  let bestEntry = all.sort((a,b)=>(b.elo||0)-(a.elo||0))[0] || null;
+
+  menuBg.brainA = bestEntry ? deserializeBrain(bestEntry.brain) : new MultiExpertBrain();
+  if(bestEntry){ menuBg.brainA.fitness=bestEntry.fitness||0; menuBg.brainA.elo=bestEntry.elo||ELO_BASE; }
+
+  // 3 agents MASTER
+  menuBg.agents = [new ScriptedAgent(4), new ScriptedAgent(4), new ScriptedAgent(4)];
+
+  const lbl = document.getElementById('menu-bg-label');
+  if(lbl) lbl.textContent = bestEntry
+    ? `EN DIRECT · ${sanitize((bestEntry.name||'').substring(0,16))} vs 3× MASTER`
+    : 'EN DIRECT · CERVEAU DÉBUTANT vs 3× MASTER';
+
+  menuBg.active = true;
+  _startMenuBgRound();
+}
+
+function _resizeMenuBg(){
+  if(!menuBg.cv) return;
+  const r = menuBg.cv.getBoundingClientRect();
+  menuBg.W = r.width || window.innerWidth;
+  menuBg.H = r.height || window.innerHeight;
+  menuBg.cv.width  = menuBg.W;
+  menuBg.cv.height = menuBg.H;
+}
+
+function _startMenuBgRound(){
+  if(!menuBg.active) return;
+  menuBg.timer = 0;
+  menuBg.particles = [];
+
+  // Cerveau — spawn coin haut gauche
+  menuBg.entA = new Ent(160, WH-100, SLOT_COLORS[0], true); menuBg.entA.face=1;
+  menuBg.brainA?.resetMemory();
+
+  // 3 MASTER — spawns répartis sur la map
+  const masterSpawns = [
+    {x:WW-180, y:WH-100, face:-1, col:'#ff4444'},
+    {x:700,    y:200,    face:-1, col:'#ff6644'},
+    {x:WW-200, y:250,    face:-1, col:'#ff8844'},
+  ];
+  menuBg.agentEnts = masterSpawns.map((sp,i)=>{
+    const e=new Ent(sp.x, sp.y, sp.col, true); e.face=sp.face; return e;
+  });
+  menuBg.agents.forEach(ag=>{
+    ag.mem={lastEnemyX:0,lastEnemyY:0,jumpCooldown:0,retreatDir:0,retreatTimer:0,patternBuf:[],lastShot:0};
+  });
+
+  if(menuBg.interval){ clearInterval(menuBg.interval); menuBg.interval=null; }
+  menuBg.interval = setInterval(_stepMenuBg, 1000/60);
+}
+
+function stopMenuBg(){
+  menuBg.active = false;
+  if(menuBg.interval){ clearInterval(menuBg.interval); menuBg.interval=null; }
+  if(menuBg.ctx) menuBg.ctx.clearRect(0,0,menuBg.W,menuBg.H);
+}
+
+function _stepMenuBg(){
+  if(!menuBg.active || !menuBg.ctx) return;
+
+  for(let s=0;s<2;s++){
+    menuBg.timer++;
+    const A=menuBg.entA;
+    const allAgentEnts=menuBg.agentEnts;
+
+    // Cerveau — cible le MASTER le plus proche
+    if(menuBg.brainA && A){
+      let nearest=allAgentEnts[0], nd=Infinity;
+      for(const e of allAgentEnts){
+        const d=(e.x-A.x)**2+(e.y-A.y)**2;
+        if(d<nd){nd=d;nearest=e;}
+      }
+      const allEnemyArrows=allAgentEnts.flatMap(e=>e.arr);
+      const inp = aiInputsFor(A, nearest, allEnemyArrows, menuBg.timer);
+      const out = menuBg.brainA.forward(inp);
+      aiProcessFor(out, A);
+      A.face = nearest.x < A.x ? -1 : 1;
+    }
+    A?.update();
+
+    // 3 MASTER — chacun cible le cerveau
+    for(let i=0;i<menuBg.agents.length;i++){
+      const ag=menuBg.agents[i];
+      const ent=allAgentEnts[i];
+      const arrows=A?A.arr:[];
+      ag.act(ent, A||ent, arrows, [], menuBg.timer);
+      ent.update();
+    }
+
+    // Particules
+    for(let i=menuBg.particles.length-1;i>=0;i--){
+      const p=menuBg.particles[i];
+      p.x+=p.vx; p.y+=p.vy; p.vy+=0.12; p.life--;
+      if(p.life<=0) menuBg.particles.splice(i,1);
+    }
+
+    // Détection hits
+    let roundOver = false;
+
+    // Flèches cerveau → MASTER
+    if(A) for(let i=A.arr.length-1;i>=0;i--){
+      const a=A.arr[i]; if(a.st)continue;
+      for(const e of allAgentEnts){
+        if(a.x>e.x&&a.x<e.x+e.w&&a.y>e.y&&a.y<e.y+e.h){
+          _menuBoom(a.x,a.y,e.col); A.arr.splice(i,1); roundOver=true; break;
+        }
+      }
+      if(roundOver) break;
+    }
+
+    // Flèches MASTER → cerveau
+    for(const e of allAgentEnts){
+      for(let i=e.arr.length-1;i>=0;i--){
+        const a=e.arr[i]; if(a.st)continue;
+        if(A&&a.x>A.x&&a.x<A.x+A.w&&a.y>A.y&&a.y<A.y+A.h){
+          _menuBoom(a.x,a.y,A.col); e.arr.splice(i,1); roundOver=true; break;
+        }
+      }
+      if(roundOver) break;
+    }
+
+    if(menuBg.timer>60*20) roundOver=true; // max 20s
+
+    if(roundOver){
+      clearInterval(menuBg.interval); menuBg.interval=null;
+      setTimeout(()=>{ _startMenuBgRound(); }, 1000);
+      break;
+    }
+  }
+
+  _drawMenuBg();
+}
+
+function _menuBoom(x,y,col){
+  for(let i=0;i<18;i++){
+    const a=Math.random()*Math.PI*2, s=1+Math.random()*5;
+    menuBg.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:25+Math.random()*20,col,sz:2});
+  }
+  for(let i=0;i<8;i++){
+    const a=Math.random()*Math.PI*2, s=2+Math.random()*6;
+    menuBg.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-3,life:15,col:'#f0c040',sz:1});
+  }
+}
+
+function _drawMenuBg(){
+  const ctx=menuBg.ctx, W=menuBg.W, H=menuBg.H;
+  if(!ctx||!W||!H) return;
+
+  // Vue complète de la map
+  const sc = Math.max(W/WW, H/WH);
+  const offX=(W-WW*sc)/2, offY=(H-WH*sc)/2;
+
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#0d0818';
+  ctx.fillRect(0,0,W,H);
+
+  ctx.save();
+  ctx.translate(offX, offY);
+  ctx.scale(sc, sc);
+
+  // Briques arrière-plan
+  const bW=64,bH=32;
+  for(let by=0;by<WH+bH;by+=bH){
+    const row=Math.floor(by/bH);
+    const ox=(row%2)*bW/2;
+    for(let bx=-ox;bx<WW+bW;bx+=bW){
+      ctx.fillStyle='#110a1e';
+      ctx.fillRect(bx+1,by+1,bW-2,bH-2);
+      ctx.fillStyle='#0a0814';
+      ctx.fillRect(bx,by,bW,1);
+      ctx.fillRect(bx,by,1,bH);
+    }
+  }
+
+  // Torches animées
+  const t=menuBg.timer;
+  [[200,WH-30],[600,WH-30],[1000,WH-30],[400,350],[900,260]].forEach(([tx,ty])=>{
+    drawTorch(ctx,tx,ty,t);
+  });
+
+  // Plateformes
+  for(const p of platforms){
+    if(p.w<=12||p.h>=WH-40){ctx.fillStyle='#1e1630';ctx.fillRect(p.x,p.y,p.w,p.h);continue;}
+    ctx.fillStyle='#2e2448';ctx.fillRect(p.x,p.y,p.w,p.h);
+    ctx.fillStyle='#5a4e80';ctx.fillRect(p.x,p.y,p.w,2);
+    ctx.fillStyle='#1a1430';ctx.fillRect(p.x,p.y+p.h-3,p.w,3);
+  }
+
+  // Entités
+  if(menuBg.entA) menuBg.entA.draw(ctx);
+  for(const ag of menuBg.agentEnts) ag.draw(ctx);
+
+  // Particules
+  for(const p of menuBg.particles){
+    const a=p.life/45;
+    ctx.fillStyle=p.col+(Math.round(Math.min(a,1)*255).toString(16).padStart(2,'0'));
+    ctx.fillRect(Math.round(p.x),Math.round(p.y),p.sz,p.sz);
+  }
+
+  ctx.restore();
+
+  // Label MASTER (screen space)
+  ctx.fillStyle='rgba(255,68,68,0.5)';
+  ctx.font='bold 7px monospace';
+  ctx.textAlign='left';
+  ctx.fillText('3× MASTER', offX+12, offY+24);
+}
+
+async function init(){
+  await loadCreator();
+  await loadBrains();
+  await githubSync.loadConfig();
+  updateMenuUI();
+
+  if(githubSync.repo){ githubSync.sync(); }
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+
+  // Lancer la simulation de fond du menu après un court délai
+  setTimeout(()=>initMenuBg(), 300);
+}
+init();
+</script>
+</body>
+</html>
