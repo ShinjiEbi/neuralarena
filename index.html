@@ -5322,6 +5322,410 @@ async function init(){
   setTimeout(()=>initMenuBg(), 300);
 }
 init();
+
+// ================================================================
+// NEURAL ARENA - PATCH v3 : SelfAttention + Recap
+// À injecter AVANT la fermeture </script>
+// ================================================================
+
+// ================================================================
+//  SELF-ATTENTION LAYER  — couche d'attention entre experts
+class SelfAttentionLayer {
+  constructor(seqLen, dModel, xavierScale=1.0){
+    this.seqLen=seqLen; this.dModel=dModel;
+    const s=Math.sqrt(2/dModel)*xavierScale;
+    const mat=(r,c,sc)=>Array.from({length:r},()=>Array.from({length:c},()=>(Math.random()*2-1)*sc));
+    this.Wq=mat(dModel,dModel,s); this.bq=new Array(dModel).fill(0);
+    this.Wk=mat(dModel,dModel,s); this.bk=new Array(dModel).fill(0);
+    this.Wv=mat(dModel,dModel,s); this.bv=new Array(dModel).fill(0);
+    this.Wo=mat(dModel,dModel,s*0.5); this.bo=new Array(dModel).fill(0);
+    this.gamma=new Array(dModel).fill(1.0);
+    this.beta =new Array(dModel).fill(0.0);
+  }
+  _mv(W,b,v){return W.map((row,i)=>b[i]+row.reduce((s,w,j)=>s+w*v[j],0))}
+  _softmax(v){
+    const m=Math.max(...v);
+    const e=v.map(x=>Math.exp(Math.min(x-m,20)));
+    const s=e.reduce((a,b)=>a+b,1e-8);
+    return e.map(x=>x/s);
+  }
+  _layerNorm(v){
+    const m=v.reduce((a,b)=>a+b,0)/v.length;
+    const va=v.reduce((a,b)=>a+(b-m)**2,0)/v.length;
+    return v.map((x,i)=>this.gamma[i]*(x-m)/Math.sqrt(va+1e-6)+this.beta[i]);
+  }
+  forward(expertOuts){
+    const scale=Math.sqrt(this.dModel);
+    const Q=expertOuts.map(x=>this._mv(this.Wq,this.bq,x));
+    const K=expertOuts.map(x=>this._mv(this.Wk,this.bk,x));
+    const V=expertOuts.map(x=>this._mv(this.Wv,this.bv,x));
+    return Q.map((q,i)=>{
+      const scores=K.map(k=>q.reduce((s,qi,d)=>s+qi*k[d],0)/scale);
+      const w=this._softmax(scores);
+      const ctx=new Array(this.dModel).fill(0);
+      for(let j=0;j<this.seqLen;j++) for(let d=0;d<this.dModel;d++) ctx[d]+=w[j]*V[j][d];
+      const proj=this._mv(this.Wo,this.bo,ctx);
+      const res=proj.map((v,d)=>v+expertOuts[i][d]);
+      return this._layerNorm(res);
+    });
+  }
+  mutate(rate,power){
+    const g=()=>{const u=Math.random(),v=Math.random();return Math.sqrt(-2*Math.log(u||1e-4))*Math.cos(2*Math.PI*v)};
+    for(const k of['Wq','Wk','Wv','Wo'])
+      for(let r=0;r<this[k].length;r++)
+        for(let c=0;c<this[k][r].length;c++)
+          if(Math.random()<rate) this[k][r][c]+=g()*power*0.35;
+    for(const k of['bq','bk','bv','bo'])
+      for(let i=0;i<this[k].length;i++)
+        if(Math.random()<rate) this[k][i]+=(Math.random()*2-1)*power*0.15;
+    for(let i=0;i<this.dModel;i++){
+      if(Math.random()<rate*0.25) this.gamma[i]+=(Math.random()*2-1)*power*0.08;
+      if(Math.random()<rate*0.25) this.beta[i] +=(Math.random()*2-1)*power*0.08;
+    }
+  }
+  clone(){
+    const e=new SelfAttentionLayer(this.seqLen,this.dModel);
+    for(const k of['Wq','Wk','Wv','Wo']) e[k]=JSON.parse(JSON.stringify(this[k]));
+    for(const k of['bq','bk','bv','bo']) e[k]=this[k].slice();
+    e.gamma=this.gamma.slice(); e.beta=this.beta.slice();
+    return e;
+  }
+  static crossover(a,b){
+    const ch=a.clone();
+    for(const k of['Wq','Wk','Wv','Wo']){
+      const cut=Math.floor(Math.random()*ch[k].length);
+      for(let r=cut;r<ch[k].length;r++) ch[k][r]=b[k][r].slice();
+    }
+    return ch;
+  }
+  serialize(){
+    return{seqLen:this.seqLen,dModel:this.dModel,
+      Wq:this.Wq,Wk:this.Wk,Wv:this.Wv,Wo:this.Wo,
+      bq:this.bq,bk:this.bk,bv:this.bv,bo:this.bo,
+      gamma:this.gamma,beta:this.beta};
+  }
+  static deserialize(d){
+    const e=new SelfAttentionLayer(d.seqLen,d.dModel);
+    for(const k of['Wq','Wk','Wv','Wo','bq','bk','bv','bo','gamma','beta']) e[k]=d[k];
+    return e;
+  }
+  paramCount(){ return 4*this.dModel*this.dModel+4*this.dModel+2*this.dModel; }
+}
+
+// ================================================================
+// PATCH: Monkey-patch MultiExpertBrain pour ajouter l'attention
+// ────────────────────────────────────────────────────────────────
+// On surcharge les méthodes clés APRÈS que la classe a été définie.
+
+(function patchMultiExpertBrain(){
+  const proto = MultiExpertBrain.prototype;
+
+  // ── Sauvegarder forward original ──────────────────────────────
+  const _origForward = proto.forward;
+
+  // ── Nouveau forward avec attention ───────────────────────────
+  proto.forward = function(inp){
+    const expertOuts = this.experts.map((exp,i)=>{
+      const x = MultiExpertBrain.EXPERT_INPUTS[i].map(idx=>inp[idx]||0);
+      return exp.forward(x);
+    });
+    // S'assurer que l'attention existe (migration de cerveaux existants)
+    if(!this.attention){
+      const out = expertOuts[0].length;
+      this.attention = new SelfAttentionLayer(this.experts.length, out, 1.0);
+    }
+    const attendedOuts = this.attention.forward(expertOuts);
+    const arbIn = attendedOuts.flat();
+    const h1 = this.arb1.forward(arbIn);
+    const h2 = this.arb2.forward(h1);
+    const out = this.arb3.forward(h2);
+    this.acts = [inp.slice(), expertOuts[0], expertOuts[1], expertOuts[2], expertOuts[3],
+                 attendedOuts[0], attendedOuts[1], arbIn, h1, h2, out];
+    return out;
+  };
+
+  // ── Nouveau mutate avec attention ─────────────────────────────
+  const _origMutate = proto.mutate;
+  proto.mutate = function(rate=0.15, power=0.35, expertIdx=null){
+    _origMutate.call(this, rate, power, expertIdx);
+    if(this.attention) this.attention.mutate(rate*0.4, power*0.4);
+  };
+
+  // ── Nouveau clone avec attention ──────────────────────────────
+  const _origClone = proto.clone;
+  proto.clone = function(){
+    const b = _origClone.call(this);
+    if(this.attention) b.attention = this.attention.clone();
+    return b;
+  };
+
+  // ── Nouveau paramCount avec attention ─────────────────────────
+  const _origParamCount = proto.paramCount;
+  proto.paramCount = function(){
+    return _origParamCount.call(this) + (this.attention?.paramCount()||0);
+  };
+
+  // ── Nouveau serialize v3 ──────────────────────────────────────
+  proto.serialize = function(){
+    return{
+      type:'multi-expert-v3',
+      experts:this.experts.map(e=>e.serialize()),
+      arb1:this.arb1.serialize(),
+      arb2:this.arb2.serialize(),
+      arb3:this.arb3.serialize(),
+      attention:this.attention?.serialize(),
+      _H:this._H, _out:this._out, _arb:this._arb,
+    };
+  };
+
+  // ── Patcher copyBrainInto ─────────────────────────────────────
+  window._origCopyBrainInto = window.copyBrainInto;
+  window.copyBrainInto = function(target, src){
+    window._origCopyBrainInto(target, src);
+    if(src.attention) target.attention = src.attention.clone();
+  };
+
+  console.log('[NeuralArena] MultiExpertBrain patché → v3 (SelfAttention)');
+})();
+
+// ── Patcher deserializeBrain pour gérer v3 ───────────────────────
+const _origDeserialize = window.deserializeBrain;
+window.deserializeBrain = function(data){
+  if(!data) return new MultiExpertBrain();
+  // v3
+  if(data.type==='multi-expert-v3'){
+    const b = MultiExpertBrain.deserialize ? MultiExpertBrain.deserialize(data) : new MultiExpertBrain(data._H||12, data._out||4, data._arb||16);
+    if(data.experts) b.experts = data.experts.map(e=>GRUExpert.deserialize(e));
+    if(data.arb1)    b.arb1    = DenseLayer.deserialize(data.arb1);
+    if(data.arb2)    b.arb2    = DenseLayer.deserialize(data.arb2);
+    if(data.arb3)    b.arb3    = DenseLayer.deserialize(data.arb3);
+    if(data.attention) b.attention = SelfAttentionLayer.deserialize(data.attention);
+    else {
+      const out = data._out||4;
+      b.attention = new SelfAttentionLayer(4, out, 1.0);
+    }
+    return b;
+  }
+  // v2 → upgrade (nouvelle attention fraîche)
+  if(data.type==='multi-expert-v2'){
+    const b = _origDeserialize(data);
+    if(!b.attention){
+      b.attention = new SelfAttentionLayer(4, data._out||4, 1.0);
+    }
+    return b;
+  }
+  return _origDeserialize(data);
+};
+
+// ================================================================
+// PATCH: updateBrainPreview enrichie
+window.updateBrainPreview = function(){
+  const H   = parseInt(document.getElementById('bc-h')?.value)||8;
+  const out = parseInt(document.getElementById('bc-out')?.value)||4;
+  const arb = parseInt(document.getElementById('bc-arb')?.value)||8;
+  const xav = parseFloat(document.getElementById('bc-xavier')?.value)||1.0;
+
+  const nExp=4;
+  const attP  = 4*out*out + 4*out + 2*out;
+  const arb1P = (nExp*out)*arb+arb;
+  const arb2P = arb*arb+arb;
+  const arb3P = arb*7+7;
+  const gruPer= 3*(H*(H+8)+H*out) + H*out;
+  const gruTot= nExp*gruPer;
+  const totalP= gruTot+attP+arb1P+arb2P+arb3P;
+  const kP    = Math.round(totalP/100)/10;
+  const capacity= totalP<400?'Minimal':totalP<800?'Standard':totalP<1400?'Avancé':'Expert';
+  const capCol  = totalP<400?'#ff8844':totalP<800?'var(--gold)':totalP<1400?'#60c8ff':'#60ff80';
+
+  const el = document.getElementById('brain-preview-info');
+  if(!el) return;
+  el.innerHTML =
+    '<span style="color:var(--gold)">Topologie v3 (Deep) :</span>\n'+
+    '• 4× GRU Expert  H='+H+'  →  '+out+' sorties\n'+
+    '<span style="color:#a080ff">• Self-Attention  d='+out+'  (résidu+LayerNorm)</span>\n'+
+    '• Arbitre dense  '+(nExp*out)+'→'+arb+'→'+arb+'→7\n'+
+    '——————\n'+
+    '<span style="color:#60ff80">Total : ~'+totalP+' params  ('+kP+'k)</span>\n'+
+    '  Attention : '+attP+' | GRU : '+gruTot+'\n'+
+    'Mémoire GRU / round : '+H*nExp+' val\n'+
+    'Xavier σ : '+xav.toFixed(1)+'  |  Capacité : <span style="color:'+capCol+'">'+capacity+'</span>';
+};
+
+// ================================================================
+// PATCH: showBrainRecap + confirmNewBrain
+window.showBrainRecap = function(){
+  const H   = parseInt(document.getElementById('bc-h')?.value)||8;
+  const out = parseInt(document.getElementById('bc-out')?.value)||4;
+  const arb = parseInt(document.getElementById('bc-arb')?.value)||8;
+  const xav = parseFloat(document.getElementById('bc-xavier')?.value)||1.0;
+  const elo = parseInt(document.getElementById('bc-elo')?.value)||1200;
+
+  const nExp=4;
+  const attP  = 4*out*out + 4*out + 2*out;
+  const arb1P = (nExp*out)*arb+arb;
+  const arb2P = arb*arb+arb;
+  const arb3P = arb*7+7;
+  const gruPer= 3*(H*(H+8)+H*out) + H*out;
+  const gruTot= nExp*gruPer;
+  const totalP= gruTot+attP+arb1P+arb2P+arb3P;
+  const kP    = Math.round(totalP/100)/10;
+  const capacity= totalP<400?'Minimal':totalP<800?'Standard':totalP<1400?'Avancé':'Expert';
+  const capCol  = totalP<400?'#ff8844':totalP<800?'var(--gold)':totalP<1400?'#60c8ff':'#60ff80';
+
+  const modal = document.getElementById('brain-create-modal');
+  modal._recap_backup = modal.innerHTML;
+
+  modal.innerHTML = `
+<div style="background:var(--card);border:2px solid var(--border);max-width:360px;width:92%;padding:16px;box-shadow:4px 4px 0 rgba(0,0,0,0.6);max-height:90vh;overflow-y:auto">
+
+  <div style="font-family:'Press Start 2P';font-size:9px;color:var(--gold);margin-bottom:4px;text-shadow:2px 2px 0 #7a4400">RÉCAPITULATIF</div>
+  <div style="font-size:5px;color:#6040a0;letter-spacing:2px;margin-bottom:14px">AVANT GÉNÉRATION DU CERVEAU</div>
+
+  <!-- FLUXOGRAMME ARCHITECTURE -->
+  <div style="font-size:5px;color:var(--gold);letter-spacing:1px;margin-bottom:6px">FLUX DE CALCUL</div>
+  <div style="background:#0a0614;border:1px solid rgba(255,200,100,0.1);padding:10px;margin-bottom:10px;font-size:5px;line-height:2.0;font-family:monospace;color:#8878aa">
+    <div style="color:#a080ff">20 inputs</div>
+    <div style="color:#666">      ↓ ↓ ↓ ↓  (sélection par expert)</div>
+    <div><span style="color:#ff8844">DANGER</span>  <span style="color:#60c8ff">VISÉE</span>  <span style="color:#60ff80">TERRAIN</span>  <span style="color:#f0c040">TACTIQUE</span></div>
+    <div><span style="color:#888">GRU(H=${H}) × 4  →  ${nExp}×${out} sorties</span></div>
+    <div style="color:#666">           ↓  ↓  ↓  ↓</div>
+    <div style="color:#a080ff">  ┌─ Self-Attention (d=${out}) ─┐</div>
+    <div style="color:#888">  │  Q·K⊤/√d → softmax → V  │</div>
+    <div style="color:#a080ff">  └── Résidu + LayerNorm ───┘</div>
+    <div style="color:#666">           ↓  ${nExp*out} dims</div>
+    <div style="color:#60c8ff">  Dense ${nExp*out} → ${arb}  (ReLU)</div>
+    <div style="color:#60c8ff">  Dense ${arb} → ${arb}  (ReLU)</div>
+    <div style="color:#60ff80">  Dense ${arb} → 7   (Sigmoid)</div>
+    <div style="color:#666">           ↓</div>
+    <div style="color:#f0c040">  [←][→][↑][⬎L][⬎R][🏹][⚡]</div>
+  </div>
+
+  <!-- PARAMÈTRES PAR COUCHE -->
+  <div style="font-size:5px;color:var(--gold);letter-spacing:1px;margin-bottom:6px">PARAMÈTRES PAR COUCHE</div>
+  <div style="background:var(--surface);border:1px solid var(--border);padding:8px;margin-bottom:10px">
+    ${[
+      ['GRU × 4 experts','~'+gruTot,'#f0c040'],
+      ['Self-Attention (Wq,Wk,Wv,Wo+LN)',''+attP,'#a080ff'],
+      ['Arbitre dense 1 ('+nExp*out+'→'+arb+')',''+arb1P,'#60c8ff'],
+      ['Arbitre dense 2 ('+arb+'→'+arb+')',''+arb2P,'#60c8ff'],
+      ['Sortie ('+arb+'→7)',''+arb3P,'#60ff80'],
+    ].map(([label,val,col])=>`
+      <div style="display:flex;justify-content:space-between;font-size:5px;padding:2px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
+        <span style="color:#8878aa">${label}</span>
+        <span style="color:${col}">${val}</span>
+      </div>`).join('')}
+    <div style="display:flex;justify-content:space-between;font-size:5px;padding:4px 0;margin-top:2px">
+      <span style="color:var(--bright);font-weight:bold">TOTAL</span>
+      <span style="color:var(--bright);font-weight:bold">~${totalP} (~${kP}k)</span>
+    </div>
+  </div>
+
+  <!-- CONFIGURATION -->
+  <div style="font-size:5px;color:var(--gold);letter-spacing:1px;margin-bottom:6px">CONFIGURATION</div>
+  <div style="background:var(--surface);border:1px solid var(--border);padding:8px;margin-bottom:12px">
+    ${[
+      ['GRU hidden H',''+H,'var(--bright)'],
+      ['Sortie par expert',''+out,'var(--bright)'],
+      ['Couche arbitre',''+arb,'var(--bright)'],
+      ['Xavier σ',''+xav.toFixed(1),'var(--bright)'],
+      ['ELO de départ',''+elo,'var(--gold)'],
+      ['Mémoire GRU / round',''+(H*nExp)+' val','#60c8ff'],
+      ['Capacité estimée',capacity,capCol],
+    ].map(([label,val,col])=>`
+      <div style="display:flex;justify-content:space-between;font-size:5px;padding:2px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
+        <span style="color:#8878aa">${label}</span>
+        <span style="color:${col}">${val}</span>
+      </div>`).join('')}
+  </div>
+
+  <div style="font-size:5px;color:#6040a0;margin-bottom:10px;text-align:center">
+    ⚡ Poids initialisés aléatoirement — évolue par entraînement
+  </div>
+
+  <div style="display:flex;gap:8px">
+    <button class="btn small" onclick="backToCreateModal()">← Retour</button>
+    <button class="btn small primary" onclick="confirmNewBrain()">✓ CRÉER CE CERVEAU</button>
+  </div>
+</div>`;
+};
+
+window.backToCreateModal = function(){
+  const modal = document.getElementById('brain-create-modal');
+  if(modal._recap_backup){
+    modal.innerHTML = modal._recap_backup;
+    window.updateBrainPreview();
+  }
+};
+
+window.confirmNewBrain = async function(){
+  const H         = parseInt(document.getElementById('bc-h')?.value)||8;
+  const outSize   = parseInt(document.getElementById('bc-out')?.value)||4;
+  const arbSize   = parseInt(document.getElementById('bc-arb')?.value)||8;
+  const xavierScale = parseFloat(document.getElementById('bc-xavier')?.value)||1.0;
+  const startElo  = parseInt(document.getElementById('bc-elo')?.value)||(window.ELO_BASE||1200);
+
+  const b = new MultiExpertBrain(H, outSize, arbSize, xavierScale);
+  b.elo = startElo;
+
+  const id   = 'brain_'+Date.now();
+  const name = await window.nextBrainName();
+  await window.store.put('brains',{id, name, creator:window.localCreator||'anon',
+    brain:b.serialize(), generation:1, fitness:0, elo:startElo,
+    wins:0, played:0, timestamp:Date.now(), game:'arena-archer',
+    topology:'GRU(H='+H+')×4+ATT+ARB('+arbSize+')', params:b.paramCount()});
+
+  window.currentBrainId = id;
+  window.store.setConfig('currentBrainId', id);
+  window.activeBrain   = b;
+  window.generation    = 1;
+  window.bestBrain     = null;
+  window.totalWins     = 0;
+  window.totalPlayed   = 0;
+
+  window.closeBrainModal();
+  window.toast('Créé : '+name+' ('+b.paramCount()+' params · v3+ATT)');
+  window.updateLabUI();
+};
+
+// Patcher le bouton du modal au chargement
+document.addEventListener('DOMContentLoaded', ()=>{
+  const modal = document.getElementById('brain-create-modal');
+  if(!modal) return;
+  // Remplacer le bouton Créer par → Récapitulatif
+  modal.innerHTML = modal.innerHTML.replace(
+    /onclick="confirmNewBrain\(\)">✓ Créer/g,
+    'onclick="showBrainRecap()">→ Récapitulatif'
+  );
+  // Patcher aussi openBrainModal pour re-appliquer
+  const _orig = window.openBrainModal;
+  window.openBrainModal = function(){
+    _orig();
+    // Re-patch le bouton après ouverture
+    setTimeout(()=>{
+      const btn = modal.querySelector('button.primary');
+      if(btn && btn.textContent.trim()==='✓ Créer'){
+        btn.textContent='→ Récapitulatif';
+        btn.onclick=window.showBrainRecap;
+      }
+    },0);
+  };
+});
+
+// ── Patcher topology tag dans updateLabUI ─────────────────────────
+const _origUpdateLabUI = window.updateLabUI;
+window.updateLabUI = async function(){
+  await _origUpdateLabUI();
+  // Remplacer les badges de topologie dans le DOM
+  document.querySelectorAll('.bc-stats').forEach(el=>{
+    el.innerHTML = el.innerHTML
+      .replace(/<span style="color:var\(--accent\)">GRU×3<\/span>/g,
+               '<span style="color:#a080ff">GRU×4+ATT</span>')
+      .replace(/GRU\(H=\d+\)×3/g, m => m.replace('×3','×4+ATT'));
+  });
+};
+
+console.log('[NeuralArena] Patch v3 chargé : SelfAttention + Récapitulatif');
+
 </script>
 </body>
 </html>
