@@ -224,6 +224,20 @@
           const inp = this.getAIInputs(vW, vH);
           const out = brain.forward(inp);
           this.processAIOutputs(out);
+          // Deep Learning : collecte d'expérience par frame (mode solo)
+          if (brain.pgLearner) {
+            // Récompense dense : survie + qualité de visée
+            const enemyDx = P.x - A.x, enemyDy = P.y - A.y;
+            const aimTarget = Math.atan2(enemyDy, Math.abs(enemyDx));
+            let aimDiff = Math.abs(A.aim - aimTarget);
+            if (aimDiff > Math.PI) aimDiff = Math.PI * 2 - aimDiff;
+            const aimQ = Math.max(0, (0.4 - aimDiff) / 0.4);
+            const pgReward = aimQ * 0.008
+              + (out[5] > 0.5 && aimDiff < 0.3 ? 0.05 : 0)
+              + (out[5] > 0.5 && aimDiff > 0.8 ? -0.02 : 0)
+              + 0.005;
+            brain.pgLearner.step(out, pgReward, brain);
+          }
         }
         if (P) P.update();
         if (A) A.update();
