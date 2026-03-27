@@ -6045,11 +6045,14 @@ window.NeuralArena.onRoundEnd = function(hit){
   }
 };
 
-// Initialiser pgLearner sur activeBrain dès que PolicyGradientLearner est disponible
-// (activeBrain peut être null au moment du chargement)
-if(window.NeuralArena?.activeBrain && !window.NeuralArena.activeBrain.pgLearner){
-  window.NeuralArena.activeBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
-}
+// Pont entre la variable locale `activeBrain` et window.NeuralArena.activeBrain
+// arena-archer.js accède au cerveau via NA.activeBrain → ce getter le redirige toujours vers
+// la valeur courante de la variable locale, sans nécessiter de mises à jour manuelles.
+Object.defineProperty(window.NeuralArena, 'activeBrain', {
+  get: ()  => activeBrain,
+  set: (b) => { activeBrain = b; },
+  configurable: true
+});
 
 console.log('[NeuralArena v4] PolicyGradientLearner prêt');
 // ================================================================
