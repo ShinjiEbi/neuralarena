@@ -1281,6 +1281,7 @@ async function downloadCommunityBrain(index){
   await store.put('brains',entry);
   currentBrainId=id;
   activeBrain=brain; activeBrain.fitness=entry.fitness; activeBrain.elo=entry.elo;
+  activeBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
   generation=entry.generation;
   bestBrain=brain.clone();
   toast(`"${entry.name}" téléchargé et activé !`);
@@ -3039,6 +3040,7 @@ async function saveCurrent(){
     wins:totalWins, played:totalPlayed, timestamp:Date.now(),
     game:'arena-archer', topology:topoStr, params:activeBrain.paramCount()};
   if(bestBrain){entry.bestBrain=bestBrain.serialize();entry.bestFitness=bestBrain.fitness||0;entry.bestElo=bestBrain.elo||ELO_BASE}
+  if(activeBrain?.pgLearner) entry.adamState = activeBrain.pgLearner.serializeAdam();
   await store.put('brains', entry);
 }
 
@@ -3126,6 +3128,8 @@ async function selectBrain(id){
   activeBrain=deserializeBrain(e.brain);
   activeBrain.fitness=e.fitness||0;
   activeBrain.elo=e.elo||ELO_BASE;
+  activeBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
+  if(e.adamState) activeBrain.pgLearner.loadAdam(e.adamState);
   generation=e.generation||1;
   totalWins=e.wins||0;
   totalPlayed=e.played||0;
@@ -3146,6 +3150,7 @@ async function newBrain(){
     generation:1, fitness:0, elo:ELO_BASE, wins:0, played:0,
     timestamp:Date.now(), game:'arena-archer', topology:'GRU×3', params:b.paramCount()});
   currentBrainId=id; store.setConfig("currentBrainId",id); activeBrain=b; generation=1; bestBrain=null;
+  activeBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
   totalWins=0; totalPlayed=0;
   toast(`Nouveau : ${name}`); updateLabUI();
 }
@@ -3166,6 +3171,7 @@ async function duplicateCurrent(){
 
 async function resetCurrent(){
   activeBrain=new MultiExpertBrain();
+  activeBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
   generation=1; bestBrain=null; hallOfFame=[];
   totalWins=0; totalPlayed=0;
   await saveCurrent(); toast('Reset'); updateLabUI();
@@ -3210,6 +3216,7 @@ async function importBrainFile(event){
       timestamp:Date.now(), game:'arena-archer', topology:'GRU×3',
       params:brain.paramCount(), imported:true});
     currentBrainId=id; activeBrain=brain;
+    activeBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
     generation=data.generation||1; bestBrain=brain.clone();
     toast(`Importé : ${name}`); updateLabUI();
   }catch(e){ toast('Erreur import: '+e.message); }
@@ -5079,6 +5086,7 @@ async function confirmNewBrain(){
     timestamp:Date.now(),game:'arena-archer',
     topology:`GRU(H=${H})×3+ARB(${arbSize})`,params:b.paramCount()});
   currentBrainId=id;store.setConfig('currentBrainId',id);activeBrain=b;generation=1;bestBrain=null;
+  activeBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
   totalWins=0;totalPlayed=0;
   closeBrainModal();
   toast(`Créé : ${name} (${b.paramCount()} params)`);
@@ -5738,6 +5746,8 @@ window.confirmNewBrain = async function(){
 
   window.currentBrainId = id;
   window.store.setConfig('currentBrainId', id);
+  b.pgLearner = new PolicyGradientLearner(0.001, 0.97);
+  activeBrain  = b;
   window.activeBrain   = b;
   window.generation    = 1;
   window.bestBrain     = null;
@@ -5806,13 +5816,10 @@ console.log('[NeuralArena] Patch v3 chargé : SelfAttention + Récapitulatif');
 
 // ── 1. DenseLayer : auto-cache _lastX et _lastZ ─────────────────
 (function patchDenseLayerCache(){
-  const _origFwd = DenseLayer.prototype.forward;
   DenseLayer.prototype.forward = function(x){
-    // Recalcule z pour le cache (overhead minimal : ~16×16 = 256 mult)
     const z = this.W.map((row,i) => this.b[i] + row.reduce((s,w,j)=>s+w*x[j],0));
-    this._lastX = x;   // référence directe (valide immédiatement après appel)
+    this._lastX = x;   // référence stable : toujours slicée dans step() juste après
     this._lastZ = z;
-    // Appliquer activation
     if(this.act==='sigmoid') return z.map(v=>1/(1+Math.exp(-Math.max(-10,Math.min(10,v)))));
     if(this.act==='relu')    return z.map(v=>v>0?v:v*0.01);
     return z;
@@ -5864,20 +5871,29 @@ class PolicyGradientLearner {
     return G.map(g => (g - mean)/std);
   }
 
-  // Backprop à travers une couche dense
-  // cache : {x, z}  — valeurs sauvegardées lors du forward de ce frame
-  // dOut  : gradient de la loss par rapport à la sortie de cette couche
+  // Backprop à travers une couche dense avec activation (relu/leaky-relu)
+  // dOut  : ∂L/∂output (gradient post-activation depuis la couche suivante)
   // retourne {dW, db, dX}
   _backDense(layer, cache, dOut){
     const {x, z} = cache;
     const dz = dOut.map((da,i) => {
+      if(layer.act==='relu') return da * (z[i] > 0 ? 1 : 0.01);
+      // sigmoid : ne devrait pas arriver ici (utiliser _backDenseSigmoid)
       if(layer.act==='sigmoid'){
         const s = 1/(1+Math.exp(-Math.max(-10,Math.min(10,z[i]))));
         return da * s * (1-s);
       }
-      if(layer.act==='relu') return da * (z[i] > 0 ? 1 : 0.01);
       return da;
     });
+    const dW = layer.W.map((row,i) => row.map((_,j) => dz[i] * x[j]));
+    const db = dz.slice();
+    const dX = x.map((_,j) => layer.W.reduce((s,row,i) => s + row[j]*dz[i], 0));
+    return {dW, db, dX};
+  }
+
+  // Backprop quand dz est DÉJÀ le gradient pre-activation (ex: BCE + sigmoid combinés)
+  // Pour la couche de sortie sigmoid : ∂L/∂z = -A*(a-p) sans re-appliquer σ'(z)
+  _backDensePreAct(layer, x, dz){
     const dW = layer.W.map((row,i) => row.map((_,j) => dz[i] * x[j]));
     const db = dz.slice();
     const dX = x.map((_,j) => layer.W.reduce((s,row,i) => s + row[j]*dz[i], 0));
@@ -5936,19 +5952,21 @@ class PolicyGradientLearner {
     let totalLoss = 0;
 
     for(let t=0; t<n; t++){
-      const {logits, actions, a1x, a1z, a2x, a2z, a3x, a3z} = this.buffer[t];
+      const {logits, actions, a1x, a1z, a2x, a2z, a3x} = this.buffer[t];
       const A = adv[t];
 
-      // Gradient de la politique : ∂L/∂logit_i = -A * (a_i - p_i)
-      const dOut = logits.map((p,i) => -A * (actions[i] - p));
+      // ∂L/∂z3_i = -A*(a_i - p_i)  — dérivée BCE+sigmoid combinée (pre-activation)
+      // NB: on NE multiplie PAS par σ'(z) car la simplification donne directement -(a-p)
+      const dz3 = logits.map((p,i) => -A * (actions[i] - p));
 
-      // Cross-entropy pondérée par advantage pour la loss display
+      // Loss BCE pondérée par l'advantage (pour affichage uniquement)
       totalLoss += logits.reduce((s,p,i) =>
         s - (actions[i]*Math.log(p+1e-8) + (1-actions[i])*Math.log(1-p+1e-8)), 0
       ) * Math.abs(A);
 
-      // Backprop arb3 → arb2 → arb1
-      const r3 = this._backDense(brain.arb3, {x:a3x, z:a3z}, dOut);
+      // arb3 : gradient pre-activation → pas de re-application de σ'(z)
+      const r3 = this._backDensePreAct(brain.arb3, a3x, dz3);
+      // arb2, arb1 : relu → _backDense applique relu'(z) correctement
       const r2 = this._backDense(brain.arb2, {x:a2x, z:a2z}, r3.dX);
       const r1 = this._backDense(brain.arb1, {x:a1x, z:a1z}, r2.dX);
 
@@ -5965,13 +5983,16 @@ class PolicyGradientLearner {
     const avg2d = M => M.map(r => r.map(v => v/n));
     const avg1d = v => v.map(x => x/n);
 
-    // Appliquer Adam sur les 3 couches d'arbitrage
-    this._adam(this.adamS.arb3, brain.arb3.W, avg2d(dW3), brain.arb3.b, avg1d(db3));
-    this._adam(this.adamS.arb2, brain.arb2.W, avg2d(dW2), brain.arb2.b, avg1d(db2));
-    this._adam(this.adamS.arb1, brain.arb1.W, avg2d(dW1), brain.arb1.b, avg1d(db1));
+    // Gradients moyennés (pour Adam et norme)
+    const gdW3 = avg2d(dW3), gdW2 = avg2d(dW2), gdW1 = avg2d(dW1);
 
-    // Norme du gradient (indicateur de convergence)
-    this.gradNorm = Math.sqrt(dW3.flat().reduce((s,v)=>s+v*v,0)/n + 1e-8);
+    // Appliquer Adam sur les 3 couches d'arbitrage
+    this._adam(this.adamS.arb3, brain.arb3.W, gdW3, brain.arb3.b, avg1d(db3));
+    this._adam(this.adamS.arb2, brain.arb2.W, gdW2, brain.arb2.b, avg1d(db2));
+    this._adam(this.adamS.arb1, brain.arb1.W, gdW1, brain.arb1.b, avg1d(db1));
+
+    // Norme du gradient moyen (indicateur de convergence)
+    this.gradNorm = Math.sqrt(gdW3.flat().reduce((s,v)=>s+v*v,0) + 1e-8);
 
     const avgLoss = totalLoss / n;
     this.lossHist.push(avgLoss);
@@ -6015,7 +6036,7 @@ class PolicyGradientLearner {
 // Ce callback applique le gradient learning sur activeBrain.
 window.NeuralArena = window.NeuralArena || {};
 window.NeuralArena.onRoundEnd = function(hit){
-  const brain = window.NeuralArena?.activeBrain;
+  const brain = activeBrain;
   if(!brain?.pgLearner) return;
   const won = (hit === 'player');  // 'player' = joueur humain touché = IA gagne
   const pgResult = brain.pgLearner.learn(brain, won ? 3.0 : -3.0);
