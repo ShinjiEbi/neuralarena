@@ -4791,7 +4791,7 @@ function startTrainRound(){
     framesAiming:0,  // frames où l'arc pointe vers l'ennemi ±20°
     stationaryFrames:0, lastX:trTrainees[0].x,
     shotsFired:0, shootOpps:0, preciseShots:0,
-    prevAimDiff:Math.PI, aimHeld:0,  // pour récompense delta-aim
+    prevAimDiff:null, aimHeld:0,  // null = première frame, évite spike delta artificiel
   };
 
   function runStep(){
@@ -4826,17 +4826,16 @@ function startTrainRound(){
     trShapedReward += aimPrecision*0.012*_ow.aimPrec;
     if(aimDiff<0.2) rs.framesAiming++;
 
-    // Tracking convergence de visée (pour récompense delta-based)
-    const aimDelta = rs.prevAimDiff - aimDiff;  // positif = s'approche de la cible
-    rs.prevAimDiff = aimDiff;
-    rs.aimHeld = aimDiff < 0.15 ? rs.aimHeld + 1 : Math.max(0, rs.aimHeld - 2);
-
     // ── DEEP LEARNING : collecte d'expérience par frame ──────────
     // Récompense delta-based : récompense l'amélioration de la visée, pas la rotation
     if(trBrain.pgLearner){
+      // Tracking convergence (intérieur du guard : inutile quand pgLearner absent)
+      const aimDelta = rs.prevAimDiff !== null ? rs.prevAimDiff - aimDiff : 0;
+      rs.prevAimDiff = aimDiff;
+      rs.aimHeld = aimDiff < 0.15 ? rs.aimHeld + 1 : Math.max(0, rs.aimHeld - 2);
       const pgReward =
         Math.max(0, aimDelta) * 0.05 * _ow.aimPrec   // récompense convergence (pas rotation)
-        + (rs.aimHeld > 5 ? 0.006 : 0)               // bonus maintien de la visée stable
+        + (rs.aimHeld > 5 ? 0.006 * _ow.aimPrec : 0) // bonus maintien de la visée stable
         + (out[5]>0.5 && aimDiff<0.3 ? 0.05*_ow.shootWell : 0)  // tirer bien visé
         + (out[5]>0.5 && aimDiff>0.8 ? -0.02 : 0)   // pénalité tir raté
         + 0.002 * _ow.survival;                       // survie (réduit pour éviter dominance)
