@@ -2280,6 +2280,15 @@ function eloUpdate(rating, expected, score, played){
 
 // Gain comportemental d'un round — partagé solo/multi/entraînement
 // stats : {arrowsDodged, shotsNearMiss, preciseShots, framesAiming, timer}
+// Multiplicateurs de récompense par objectif d'entraînement
+const OBJECTIVE_WEIGHTS = {
+  balanced : { aimPrec:1.0, shootWell:1.0, arrowNear:1.0, arrowDodge:1.0, wall:1.0, stationary:-1.0, survival:1.0 },
+  dodge    : { aimPrec:0.4, shootWell:1.0, arrowNear:1.0, arrowDodge:3.0, wall:2.0, stationary:-2.0, survival:1.0 },
+  aim      : { aimPrec:3.0, shootWell:2.0, arrowNear:1.0, arrowDodge:1.0, wall:1.0, stationary:-1.0, survival:1.0 },
+  mobility : { aimPrec:1.0, shootWell:1.0, arrowNear:1.0, arrowDodge:1.0, wall:2.0, stationary:-3.0, survival:1.0 },
+  aggro    : { aimPrec:1.0, shootWell:3.0, arrowNear:2.0, arrowDodge:1.0, wall:0.5, stationary:-1.0, survival:1.0 },
+};
+
 function computeFitnessGain(stats, won, timer){
   const dodge        = Math.min((stats.arrowsDodged  ||0)*1.0,  10);
   const nearMiss     = Math.min((stats.shotsNearMiss ||0)*0.8,   8);
@@ -4694,7 +4703,8 @@ async function trainingStart(){
       const b=trBrain.clone();
       if(i>0) b.mutate(0.3,0.4); // varier la pop initiale
       b.fitness=trBrain.fitness; b.elo=trBrain.elo;
-      trPopulation.push({brain:b,fitness:b.fitness,elo:b.elo,wins:0,played:0,shapedScore:0});
+      if(trBrain.pgLearner) b.pgLearner = new PolicyGradientLearner(0.001, 0.97);
+      trPopulation.push({brain:b,fitness:b.fitness,elo:b.elo,wins:0,played:0,shapedScore:0,totalFrames:0,adamState:null,skills:null});
     }
     trPopGeneration=0;
   } else {
@@ -4720,9 +4730,11 @@ function startTrainRound(){
   // En mode population : choisir le prochain individu à évaluer (round-robin)
   if(popMode){
     const idx = trRoundsDone % trPopulation.length;
-    trBrain = trPopulation[idx].brain;
-    // Attacher un pgLearner si absent (cerveaux de population)
+    const popEntry = trPopulation[idx];
+    trBrain = popEntry.brain;
+    // Attacher/restaurer pgLearner depuis l'état Adam sauvegardé
     if(!trBrain.pgLearner) trBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
+    if(popEntry.adamState) trBrain.pgLearner.loadAdam(popEntry.adamState);
     // Tous les N rounds = 1 génération → sélection + croisement
     if(trRoundsDone>0 && trRoundsDone % trPopulation.length === 0){
       _evolvePopulation();
@@ -4808,18 +4820,19 @@ function startTrainRound(){
     if(aimDiff>Math.PI) aimDiff=Math.PI*2-aimDiff;
 
     // 1. Viser précisément : récompense graduelle et forte
+    const _ow = OBJECTIVE_WEIGHTS[trConfig.objective] || OBJECTIVE_WEIGHTS.balanced;
     const aimPrecision=Math.max(0,(0.4-aimDiff)/0.4); // 1=parfait, 0=>23°
-    trShapedReward += aimPrecision*0.012;
+    trShapedReward += aimPrecision*0.012*_ow.aimPrec;
     if(aimDiff<0.2) rs.framesAiming++;
 
     // ── DEEP LEARNING : collecte d'expérience par frame ──────────
     // Récompense dense par frame pour REINFORCE
     if(trBrain.pgLearner){
       const pgReward =
-        aimPrecision * 0.008                         // viser bien
-        + (out[5]>0.5 && aimDiff<0.3 ? 0.05 : 0)   // tirer bien visé
-        + (out[5]>0.5 && aimDiff>0.8 ? -0.02 : 0)  // pénalité tir raté
-        + 0.005;                                      // survie par frame
+        aimPrecision * 0.008 * _ow.aimPrec           // viser bien
+        + (out[5]>0.5 && aimDiff<0.3 ? 0.05*_ow.shootWell : 0)  // tirer bien visé
+        + (out[5]>0.5 && aimDiff>0.8 ? -0.02 : 0)   // pénalité tir raté
+        + 0.005 * _ow.survival;                       // survie par frame
       trBrain.pgLearner.step(out, pgReward, trBrain);
       // Online learning : mise à jour gradient toutes les 60 frames de simulation
       if(trRoundTimer % 60 === 0 && trBrain.pgLearner.buffer.length >= 30){
@@ -4829,9 +4842,9 @@ function startTrainRound(){
 
     // 2. Tirer quand on vise bien : la vraie récompense
     if(out[5]>0.5 && aimDiff<0.3 && ce.cd===0){
-      trShapedReward += 0.08; // grosse récompense pour tir bien visé
+      trShapedReward += 0.08 * _ow.shootWell;
     } else if(out[5]>0.5 && aimDiff>0.8){
-      trShapedReward -= 0.02; // pénalité tir en l'air
+      trShapedReward -= 0.02;
     }
 
     // 3. Flèches proches de l'ennemi
@@ -4840,8 +4853,8 @@ function startTrainRound(){
       const dx=a.x-(nearestEnemy.x+nearestEnemy.w/2);
       const dy=a.y-(nearestEnemy.y+nearestEnemy.h/2);
       const d=Math.sqrt(dx*dx+dy*dy);
-      if(d<60){ trShapedReward+=0.04; rs.shotsNearMiss+=0.3; }
-      else if(d<120){ trShapedReward+=0.015; rs.shotsNearMiss+=0.1; }
+      if(d<60){ trShapedReward+=0.04*_ow.arrowNear; rs.shotsNearMiss+=0.3; }
+      else if(d<120){ trShapedReward+=0.015*_ow.arrowNear; rs.shotsNearMiss+=0.1; }
     }
 
     // 4. Esquiver les flèches ennemies
@@ -4849,16 +4862,21 @@ function startTrainRound(){
       if(a.st) continue;
       const dx=a.x-(ce.x+ce.w/2), dy=a.y-(ce.y+ce.h/2);
       const d=Math.sqrt(dx*dx+dy*dy);
-      if(d<80) rs.arrowsDodged+=0.1;
+      if(d<80) rs.arrowsDodged += 0.1 * _ow.arrowDodge;
     }
 
     // Tracking compétences par frame
     if(ce.cd===0) rs.shootOpps++;
     if(out[5]>0.5 && ce.cd===0){ rs.shotsFired++; if(aimDiff<0.3) rs.preciseShots++; }
-    if(Math.abs(ce.vx)<0.5 && ce.gnd) rs.stationaryFrames++;
+    if(Math.abs(ce.vx)<0.5 && ce.gnd){
+      rs.stationaryFrames++;
+      trShapedReward += 0.003 * _ow.stationary; // négatif si objectif dodge/mobility
+    }
+    // Bonus mobilité si objectif mobility/dodge et déplacement rapide
+    if(_ow.stationary < -1.0 && Math.abs(ce.vx) > 1.5) trShapedReward += 0.002;
 
     // 5. Pénalité mur
-    if(ce.x<25||ce.x>WW-45) trShapedReward-=0.008;
+    if(ce.x<25||ce.x>WW-45) trShapedReward -= 0.008 * _ow.wall;
 
     // Agents scriptés
     for(let i=0;i<trAgentObjs.length;i++){
@@ -4930,13 +4948,15 @@ function startTrainRound(){
 
     // Mode population : stocker le score pour sélection
     if(popMode){
-      const idx=trRoundsDone % trPopulation.length || trPopulation.length-1;
-      const popIdx=(trRoundsDone-1) % trPopulation.length;
-      trPopulation[popIdx].shapedScore += totalGain;
+      const popIdx = (trRoundsDone - 1 + trPopulation.length) % trPopulation.length;
+      trPopulation[popIdx].shapedScore += totalGain / Math.max(trRoundTimer, 1) * 1000;
+      trPopulation[popIdx].totalFrames  = (trPopulation[popIdx].totalFrames||0) + trRoundTimer;
       trPopulation[popIdx].played++;
       if(won) trPopulation[popIdx].wins++;
-      trPopulation[popIdx].fitness=trBrain.fitness;
-      trPopulation[popIdx].elo=trBrain.elo;
+      trPopulation[popIdx].fitness = trBrain.fitness;
+      trPopulation[popIdx].elo    = trBrain.elo;
+      trPopulation[popIdx].skills = trBrain.skills ? {...trBrain.skills} : {};
+      if(trBrain.pgLearner) trPopulation[popIdx].adamState = trBrain.pgLearner.serializeAdam();
     }
 
     if(won){
@@ -4969,17 +4989,32 @@ function startTrainRound(){
     // Mutation (seulement en mode individuel — pop gère sa propre évolution)
     if(!popMode) selectMutationStrategy(trBrain,trStag,won,trHof,trBestBrain);
 
-    trEvoHistory.push({round:trRoundsDone,elo:trBrain.elo,fitness:Math.round(trBrain.fitness)});
+    if(popMode && trPopulation.length > 0){
+      const elos = trPopulation.map(p=>p.elo||ELO_BASE);
+      trEvoHistory.push({round:trRoundsDone, elo:trBrain.elo, fitness:Math.round(trBrain.fitness),
+        eloMin:Math.min(...elos), eloMax:Math.max(...elos)});
+    } else {
+      trEvoHistory.push({round:trRoundsDone, elo:trBrain.elo, fitness:Math.round(trBrain.fitness)});
+    }
 
     const lvlLabel=trConfig.curriculum?['ROOKIE','FIGHTER','VETERAN','MASTER'][trCurriculumLevel-1]:'';
     const wr=trCurriculumTotal>0?Math.round(trCurriculumWins/trCurriculumTotal*100):0;
-    const popInfo=popMode?` · Pop gen ${trPopGeneration}`:'';
     const pg = trBrain?.pgLearner;
     const pgInfo = pg && pg.roundsLearned > 0
-      ? ` · ∇ loss:${(pg.lossHist.slice(-5).reduce((a,b)=>a+b,0)/Math.max(pg.lossHist.slice(-5).length,1)).toFixed(3)}`
+      ? ` · ∇${(pg.lossHist.slice(-5).reduce((a,b)=>a+b,0)/Math.max(pg.lossHist.slice(-5).length,1)).toFixed(3)}`
       : '';
-    document.getElementById('tr-status').textContent=
-      `Round ${trRoundsDone}/${trConfig.rounds} · ELO ${trBrain.elo} · ${lvlLabel} ${wr}%${popInfo}${pgInfo}`;
+    const objLabel = trConfig.objective && trConfig.objective !== 'balanced'
+      ? ` · ${trConfig.objective.toUpperCase()}` : '';
+    if(popMode){
+      const popElos = trPopulation.map(p=>p.elo||ELO_BASE);
+      const popMean = Math.round(popElos.reduce((a,b)=>a+b,0)/popElos.length);
+      const bestElo = Math.max(...popElos);
+      document.getElementById('tr-status').textContent=
+        `Gén ${trPopGeneration} · Round ${trRoundsDone}/${trConfig.rounds} · Champion ${bestElo} · Moy ${popMean}${pgInfo}${objLabel}`;
+    } else {
+      document.getElementById('tr-status').textContent=
+        `Round ${trRoundsDone}/${trConfig.rounds} · ELO ${trBrain.elo} · ${lvlLabel} ${wr}%${pgInfo}${objLabel}`;
+    }
 
     if(trRoundsDone%10===0) saveTrainResults();
     else _syncActiveBrainLive(); // sync RAM sans écrire disque
@@ -5024,10 +5059,10 @@ function _evolvePopulation(){
   const N=trPopulation.length;
   const keep=Math.max(2,Math.floor(N*0.25)); // garder top 25%
 
-  // Trier par score shaped normalisé
+  // Trier par score shaped normalisé par durée totale
   trPopulation.sort((a,b)=>{
-    const sa=a.played>0?a.shapedScore/a.played:-999;
-    const sb=b.played>0?b.shapedScore/b.played:-999;
+    const sa = a.totalFrames>0 ? a.shapedScore/a.totalFrames : -999;
+    const sb = b.totalFrames>0 ? b.shapedScore/b.totalFrames : -999;
     return sb-sa;
   });
 
@@ -5036,6 +5071,10 @@ function _evolvePopulation(){
   trBrain=champion.brain.clone();
   trBrain.fitness=champion.fitness;
   trBrain.elo=champion.elo;
+  trBrain.skills=champion.skills ? {...champion.skills} : {};
+  // Transférer l'état Adam du champion
+  trBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
+  if(champion.adamState) trBrain.pgLearner.loadAdam(champion.adamState);
 
   // Sauvegarder le champion toutes les 5 générations
   if(trPopGeneration%5===0){
@@ -5047,11 +5086,14 @@ function _evolvePopulation(){
   const elite=trPopulation.slice(0,keep);
   const newPop=[];
 
-  // 1. Garder l'élite
+  // 1. Garder l'élite — copier pgLearner et skills
   for(const e of elite){
     const b=e.brain.clone();
     b.fitness=e.fitness; b.elo=e.elo;
-    newPop.push({brain:b,fitness:b.fitness,elo:b.elo,wins:0,played:0,shapedScore:0});
+    b.pgLearner = new PolicyGradientLearner(0.001, 0.97);
+    if(e.adamState) b.pgLearner.loadAdam(e.adamState);
+    newPop.push({brain:b,fitness:b.fitness,elo:b.elo,wins:0,played:0,shapedScore:0,
+                 totalFrames:0,adamState:e.adamState||null,skills:e.skills?{...e.skills}:{}});
   }
 
   // 2. Croisements élite × élite
@@ -5062,7 +5104,11 @@ function _evolvePopulation(){
     child.mutate(evoParams.mutRateWin,evoParams.mutPower);
     child.fitness=(a.fitness+b.fitness)/2;
     child.elo=Math.round((a.elo+b.elo)/2);
-    newPop.push({brain:child,fitness:child.fitness,elo:child.elo,wins:0,played:0,shapedScore:0});
+    child.pgLearner = new PolicyGradientLearner(0.001, 0.97);
+    const bestP = a.fitness >= b.fitness ? a : b;
+    if(bestP.brain.pgLearner) child.pgLearner.baseline = bestP.brain.pgLearner.baseline;
+    newPop.push({brain:child,fitness:child.fitness,elo:child.elo,wins:0,played:0,shapedScore:0,
+                 totalFrames:0,adamState:null,skills:{}});
   }
 
   // 3. Remplir le reste avec mutations aléatoires de l'élite
@@ -5071,7 +5117,23 @@ function _evolvePopulation(){
     const child=src.brain.clone();
     child.mutate(evoParams.mutRateLoss,evoParams.mutPower*1.5);
     child.fitness=src.fitness; child.elo=src.elo;
-    newPop.push({brain:child,fitness:child.fitness,elo:child.elo,wins:0,played:0,shapedScore:0});
+    child.pgLearner = new PolicyGradientLearner(0.001, 0.97);
+    newPop.push({brain:child,fitness:child.fitness,elo:child.elo,wins:0,played:0,shapedScore:0,
+                 totalFrames:0,adamState:null,skills:{}});
+  }
+
+  // Injection de diversité : remplacer bottom 10% par des cerveaux fortement mutés
+  const freshCount = Math.max(1, Math.floor(N * 0.10));
+  for(let d=0; d<freshCount; d++){
+    const replIdx = newPop.length - 1 - d;
+    const base = trBestBrain || trHof[0] || champion.brain;
+    const fresh = base.clone();
+    fresh.mutate(0.5, 0.6);
+    fresh.pgLearner = new PolicyGradientLearner(0.001, 0.97);
+    fresh.fitness = champion.fitness * 0.5;
+    fresh.elo     = champion.elo;
+    newPop[replIdx] = {brain:fresh,fitness:fresh.fitness,elo:fresh.elo,wins:0,played:0,shapedScore:0,
+                       totalFrames:0,adamState:null,skills:{}};
   }
 
   trPopulation=newPop;
@@ -5106,11 +5168,13 @@ async function saveTrainResults(){
   const entry=await store.get('brains',trConfig.brainId);
   if(!entry) return;
 
-  // En mode population : champion = meilleur score moyen
+  // En mode population : champion = meilleur score normalisé par durée
+  let champEntry = null;
   const brainToSave = trPopulation.length>0
     ? (() => {
         const sorted = [...trPopulation].sort((a,b)=>
-          (b.shapedScore/Math.max(b.played,1))-(a.shapedScore/Math.max(a.played,1)));
+          (b.totalFrames>0?b.shapedScore/b.totalFrames:-999)-(a.totalFrames>0?a.shapedScore/a.totalFrames:-999));
+        champEntry = sorted[0];
         return sorted[0]?.brain || trBrain;
       })()
     : trBrain;
@@ -5119,10 +5183,13 @@ async function saveTrainResults(){
   entry.fitness    = brainToSave.fitness;
   entry.elo        = brainToSave.elo;
   entry.peakElo    = Math.max(entry.peakElo||0, entry.elo);
-  entry.skills     = trBrain.skills || {};
+  entry.skills     = (champEntry?.skills) || trBrain.skills || {};
   entry.generation = (entry.generation||1) + Math.max(trRoundsDone,1);
-  // Sauvegarder l'état Adam pour continuité entre sessions
-  if(trBrain?.pgLearner) entry.adamState = trBrain.pgLearner.serializeAdam();
+  // Sauvegarder l'état Adam : utiliser celui du champion en mode pop
+  const adamToSave = trPopulation.length>0
+    ? (champEntry?.adamState || trBrain?.pgLearner?.serializeAdam())
+    : trBrain?.pgLearner?.serializeAdam();
+  if(adamToSave) entry.adamState = adamToSave;
   await store.put('brains', entry);
 
   // Sync activeBrain si c'est le cerveau actif en solo
@@ -5141,9 +5208,11 @@ function _syncActiveBrainLive(){
   if(trConfig.brainId!==currentBrainId) return;
   // En mode pop : utiliser le meilleur individu évalué jusqu'ici
   const src = trPopulation.length>0
-    ? (trPopulation.reduce((b,c)=>
-        (c.played>0&&c.shapedScore/c.played > (b.played>0?b.shapedScore/b.played:-Infinity))?c:b,
-        trPopulation[0])?.brain || trBrain)
+    ? (trPopulation.reduce((best,c)=>{
+        const sc = c.totalFrames>0 ? c.shapedScore/c.totalFrames : -Infinity;
+        const sb = best.totalFrames>0 ? best.shapedScore/best.totalFrames : -Infinity;
+        return sc > sb ? c : best;
+      }, trPopulation[0])?.brain || trBrain)
     : trBrain;
   activeBrain = src.clone();
   activeBrain.fitness = src.fitness;
@@ -5210,6 +5279,26 @@ function drawTrainGraph(){
   }
 
   const N=trEvoHistory.length;
+
+  // Bande min/max ELO population (mode pop uniquement)
+  const hasSpread = trEvoHistory.some(p=>p.eloMin!==undefined);
+  if(hasSpread && N>1){
+    ctx.fillStyle='rgba(240,192,64,0.10)';
+    ctx.beginPath();
+    trEvoHistory.forEach((pt,i)=>{
+      const x=pad.l+gW*(i/(N-1));
+      const y=pad.t+gH*(1-((pt.eloMax||pt.elo)-minE)/(maxE-minE));
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    for(let i=N-1;i>=0;i--){
+      const pt=trEvoHistory[i];
+      const x=pad.l+gW*(i/(N-1));
+      const y=pad.t+gH*(1-((pt.eloMin||pt.elo)-minE)/(maxE-minE));
+      ctx.lineTo(x,y);
+    }
+    ctx.closePath(); ctx.fill();
+  }
+
   // Courbe ELO
   ctx.strokeStyle=GRAPH_COLORS[0];ctx.lineWidth=2;ctx.beginPath();
   trEvoHistory.forEach((pt,i)=>{
@@ -5230,18 +5319,22 @@ function drawTrainGraph(){
 
   // Radar des compétences
   const rc=document.getElementById('brain-radar');
-  if(rc && trBrain?.skills){
+  const skillsToShow = (trPopulation.length>0 && trPopulation[0]?.skills)
+    ? trPopulation[0].skills : trBrain?.skills;
+  if(rc && skillsToShow){
     const ctx2=rc.getContext('2d');
     ctx2.fillStyle='#10081e'; ctx2.fillRect(0,0,rc.width,rc.height);
     drawRadarChart(ctx2, 90, 90, 70,
-      SKILL_KEYS.map(k=>trBrain.skills[k]||0), SKILL_LABELS, SKILL_FILL, SKILL_STROKE);
+      SKILL_KEYS.map(k=>skillsToShow[k]||0), SKILL_LABELS, SKILL_FILL, SKILL_STROKE);
   }
 
   // Légende
   const legend=document.getElementById('chart-legend');
   if(legend) legend.innerHTML=`
-    <div class="legend-item"><div class="legend-dot" style="background:${GRAPH_COLORS[0]}"></div><span style="color:${GRAPH_COLORS[0]};font-size:5px">ELO (${trBrain?.elo||'?'})</span></div>
-    <div class="legend-item"><div class="legend-dot" style="background:${GRAPH_COLORS[2]}"></div><span style="color:${GRAPH_COLORS[2]};font-size:5px">Fitness (${Math.round(trBrain?.fitness||0)})</span></div>`;
+    <div class="legend-item"><div class="legend-dot" style="background:${GRAPH_COLORS[0]}"></div><span style="color:${GRAPH_COLORS[0]};font-size:5px">ELO Champion (${trBrain?.elo||'?'})</span></div>
+    <div class="legend-item"><div class="legend-dot" style="background:${GRAPH_COLORS[2]}"></div><span style="color:${GRAPH_COLORS[2]};font-size:5px">Fitness (${Math.round(trBrain?.fitness||0)})</span></div>
+    ${hasSpread?`<div class="legend-item"><div class="legend-dot" style="background:rgba(240,192,64,0.4)"></div><span style="color:#f0c040;font-size:5px">Dispersion pop</span></div>`:''}`;
+
 }
 
 // ================================================================
