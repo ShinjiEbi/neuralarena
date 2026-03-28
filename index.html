@@ -4742,6 +4742,7 @@ function startTrainRound(){
   }
 
   trRoundTimer=0; trRoundOver=false; trTrapProj=[]; trShapedReward=0;
+  let trRoundOutcome = null; // 'win'|'lose'|'draw' — fixe le bug de re-scan des flèches
   trTraps.forEach(t=>{
     if(t.type==='collapse'){t.triggered=false;t.fallTimer=0;t.fallen=false;t.y=t.origY;}
     if(t.type==='mine'){t.triggered=false;t.triggerTimer=0;t.active=true;}
@@ -4901,13 +4902,13 @@ function startTrainRound(){
       else{p.vy+=AGRAV;p.vx*=ADRAG;p.vy*=ADRAG;p.x+=p.vx;p.y+=p.vy;p.life--;}
       if(p.life<=0||p.x<-50||p.x>WW+50||p.y>WH+50){trTrapProj.splice(i,1);continue;}
       if(p.x>ce.x&&p.x<ce.x+ce.w&&p.y>ce.y&&p.y<ce.y+ce.h){
-        boom(p.x,p.y,ce.col); trTrapProj.splice(i,1); trRoundOver=true; return;
+        boom(p.x,p.y,ce.col); trTrapProj.splice(i,1); trRoundOver=true; trRoundOutcome='lose'; return;
       }
     }
 
     const hit=checkTrainHits();
-    if(hit!==null){ trRoundOver=true; }
-    if(trRoundTimer>60*35) trRoundOver=true;
+    if(hit!==null){ trRoundOver=true; trRoundOutcome=hit; }
+    if(trRoundTimer>60*35){ trRoundOver=true; trRoundOutcome=trRoundOutcome||'draw'; }
   }
 
   function checkTrainHits(){
@@ -4933,8 +4934,7 @@ function startTrainRound(){
   }
 
   function onRoundEnd(){
-    const lastHit=checkTrainHits();
-    const won = lastHit==='win' || (trRoundTimer<=60*35 && lastHit!=='lose');
+    const won = trRoundOutcome === 'win';
     trRoundsDone++;
 
     // Curriculum tracking
