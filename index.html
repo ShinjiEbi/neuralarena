@@ -2929,6 +2929,10 @@ function gameLoop(){
             const aimQ=Math.max(0,(0.4-aimDiff)/0.4);
             const pgReward=aimQ*0.008+(out[5]>0.5&&aimDiff<0.3?0.05:0)+(out[5]>0.5&&aimDiff>0.8?-0.02:0)+0.005;
             brain.pgLearner.step(out, pgReward, brain);
+            // Online learning pendant le jeu (toutes les 60 frames)
+            if(roundTimer % 60 === 0 && brain.pgLearner.buffer.length >= 30){
+              brain.pgLearner.learnOnline(brain);
+            }
           }
         }
       }
@@ -4723,6 +4727,10 @@ function startTrainRound(){
         + (out[5]>0.5 && aimDiff>0.8 ? -0.02 : 0)  // pénalité tir raté
         + 0.005;                                      // survie par frame
       trBrain.pgLearner.step(out, pgReward, trBrain);
+      // Online learning : mise à jour gradient toutes les 60 frames de simulation
+      if(trRoundTimer % 60 === 0 && trBrain.pgLearner.buffer.length >= 30){
+        trBrain.pgLearner.learnOnline(trBrain);
+      }
     }
 
     // 2. Tirer quand on vise bien : la vraie récompense
@@ -5626,6 +5634,72 @@ class PolicyGradientLearner {
     return {loss: avgLoss, gradNorm: this.gradNorm};
   }
 
+  // Mise à jour en ligne toutes les ~60 frames (pendant le jeu)
+  // nStep : taille du mini-batch, lrScale : fraction du lr de base
+  learnOnline(brain, nStep=60, lrScale=0.3){
+    const n = Math.min(nStep, this.buffer.length);
+    if(n < 15) return null;
+
+    // Extraire les n entrées les plus anciennes
+    const batch = this.buffer.splice(0, n);
+
+    // Retours tronqués n-step, bootstrappés sur la baseline courante
+    const G = new Array(n);
+    let run = this.baseline;
+    for(let t = n-1; t >= 0; t--){
+      run = batch[t].reward + this.gamma * run;
+      G[t] = run;
+    }
+    const mean = G.reduce((a,b)=>a+b,0)/n;
+    const std  = Math.sqrt(G.reduce((a,b)=>a+(b-mean)**2,0)/n + 1e-8);
+    this.baseline = 0.95*this.baseline + 0.05*mean;
+    const adv = G.map(g => (g-mean)/std);
+
+    this.adamT++;
+    const savedLr = this.lr;
+    this.lr = savedLr * lrScale;
+
+    const zeroLike2d = M => M.map(r => r.map(()=>0));
+    const zeroLike1d = v => v.map(()=>0);
+    let dW3=zeroLike2d(brain.arb3.W), db3=zeroLike1d(brain.arb3.b);
+    let dW2=zeroLike2d(brain.arb2.W), db2=zeroLike1d(brain.arb2.b);
+    let dW1=zeroLike2d(brain.arb1.W), db1=zeroLike1d(brain.arb1.b);
+    let totalLoss = 0;
+
+    for(let t=0; t<n; t++){
+      const {logits, actions, a1x, a1z, a2x, a2z, a3x} = batch[t];
+      const A = adv[t];
+      const dz3 = logits.map((p,i) => -A*(actions[i]-p));
+      totalLoss += logits.reduce((s,p,i) =>
+        s - (actions[i]*Math.log(p+1e-8) + (1-actions[i])*Math.log(1-p+1e-8)), 0
+      ) * Math.abs(A);
+      const r3 = this._backDensePreAct(brain.arb3, a3x, dz3);
+      const r2 = this._backDense(brain.arb2, {x:a2x, z:a2z}, r3.dX);
+      const r1 = this._backDense(brain.arb1, {x:a1x, z:a1z}, r2.dX);
+      for(let i=0;i<dW3.length;i++) for(let j=0;j<dW3[i].length;j++) dW3[i][j]+=r3.dW[i][j];
+      for(let i=0;i<db3.length;i++) db3[i]+=r3.db[i];
+      for(let i=0;i<dW2.length;i++) for(let j=0;j<dW2[i].length;j++) dW2[i][j]+=r2.dW[i][j];
+      for(let i=0;i<db2.length;i++) db2[i]+=r2.db[i];
+      for(let i=0;i<dW1.length;i++) for(let j=0;j<dW1[i].length;j++) dW1[i][j]+=r1.dW[i][j];
+      for(let i=0;i<db1.length;i++) db1[i]+=r1.db[i];
+    }
+
+    const avg2d = M => M.map(r => r.map(v=>v/n));
+    const avg1d = v => v.map(x=>x/n);
+    const gdW3=avg2d(dW3), gdW2=avg2d(dW2), gdW1=avg2d(dW1);
+    this._adam(this.adamS.arb3, brain.arb3.W, gdW3, brain.arb3.b, avg1d(db3));
+    this._adam(this.adamS.arb2, brain.arb2.W, gdW2, brain.arb2.b, avg1d(db2));
+    this._adam(this.adamS.arb1, brain.arb1.W, gdW1, brain.arb1.b, avg1d(db1));
+    this.gradNorm = Math.sqrt(gdW3.flat().reduce((s,v)=>s+v*v,0) + 1e-8);
+    this.lr = savedLr;
+
+    const avgLoss = totalLoss / n;
+    this.lossHist.push(avgLoss);
+    if(this.lossHist.length > 30) this.lossHist.shift();
+    this.onlineLearned = (this.onlineLearned||0) + 1;
+    return {loss: avgLoss, n};
+  }
+
   serializeAdam(){
     return {
       t        : this.adamT,
@@ -5633,22 +5707,24 @@ class PolicyGradientLearner {
       baseline : this.baseline,
       rounds   : this.roundsLearned,
       lossHist : this.lossHist,
+      online   : this.onlineLearned||0,
     };
   }
 
   loadAdam(d){
     if(!d) return;
-    this.adamT        = d.t        || 0;
-    this.adamS        = d.s        || {arb1:{}, arb2:{}, arb3:{}};
-    this.baseline     = d.baseline || 0;
-    this.roundsLearned= d.rounds   || 0;
-    this.lossHist     = d.lossHist || [];
+    this.adamT         = d.t        || 0;
+    this.adamS         = d.s        || {arb1:{}, arb2:{}, arb3:{}};
+    this.baseline      = d.baseline || 0;
+    this.roundsLearned = d.rounds   || 0;
+    this.lossHist      = d.lossHist || [];
+    this.onlineLearned = d.online   || 0;
   }
 
   uiSummary(){
     const last10 = this.lossHist.slice(-10);
     const avgL = last10.length ? (last10.reduce((a,b)=>a+b,0)/last10.length).toFixed(3) : '—';
-    return `DL∇ rounds:${this.roundsLearned} loss:${avgL} |∇|:${this.gradNorm.toFixed(4)}`;
+    return `DL∇ rounds:${this.roundsLearned} live:${this.onlineLearned||0} loss:${avgL} |∇|:${this.gradNorm.toFixed(4)}`;
   }
 }
 
