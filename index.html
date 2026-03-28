@@ -5498,7 +5498,7 @@ function glStep(){
         return;
       }
     }
-    if(glTimer >= GL_MAX_S2){ glNext(); }
+    if(glTimer >= GL_MAX_S2){ glResults[glCurrent]='s2fail'; glNext(); }
   }
 }
 
@@ -5506,7 +5506,7 @@ function glNext(){
   const next = glCurrent + 1;
   if(next >= glCandidates.length){
     // Aucun parfait — meilleur effort (s1 > none)
-    const best = glResults.findIndex(r=>r==='s1');
+    const best = glResults.findIndex(r=>r==='s2fail'||r==='s1');
     glFinish(glCandidates[best >= 0 ? best : 0]);
     return;
   }
@@ -5549,8 +5549,8 @@ function glUpdateStatus(){
   const bar = document.getElementById('gl-candidates-bar');
   if(bar) bar.innerHTML = glCandidates.map((_,i)=>{
     const r   = glResults[i];
-    const col = r==='pass'?'#40ff80':r==='s1'?'#f0c040':r==='none'?'#602020':i===glCurrent?'#00c8ff':'#1e1630';
-    const ico = r==='pass'?'✓':r==='s1'?'½':r==='none'?'✗':i===glCurrent?'▶':'·';
+    const col = r==='pass'?'#40ff80':r==='s2fail'?'#804020':r==='s1'?'#f0c040':r==='none'?'#602020':i===glCurrent?'#00c8ff':'#1e1630';
+    const ico = r==='pass'?'✓':r==='s2fail'?'½':r==='s1'?'⟳':r==='none'?'✗':i===glCurrent?'▶':'·';
     return `<div style="width:30px;height:22px;background:${col};color:#0d0818;font-size:8px;font-family:monospace;display:flex;align-items:center;justify-content:center;font-weight:bold">${ico}</div>`;
   }).join('');
   const el = document.getElementById('gl-status');
@@ -5588,7 +5588,7 @@ function glDrawFrame(){
     ctx.globalAlpha = 0.75;
     ctx.beginPath(); ctx.moveTo(GL_FINISH_X, 12); ctx.lineTo(GL_FINISH_X, WH-30); ctx.stroke();
     ctx.restore();
-    ctx.fillStyle='#40ff80'; ctx.font=`bold ${20}px monospace`;
+    ctx.fillStyle='#40ff80'; ctx.font=`bold ${Math.round(20/sc)}px monospace`;
     ctx.fillText('GOAL', GL_FINISH_X+12, WH-45);
   }
 
