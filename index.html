@@ -525,48 +525,65 @@ body:not(.observe-mode) #cam-hint{display:none}
 
 <!-- =============== MODAL CRÉATION CERVEAU =============== -->
 <div id="brain-create-modal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(13,8,24,0.95);align-items:center;justify-content:center;flex-direction:column">
-  <div style="background:var(--card);border:2px solid var(--border);max-width:340px;width:90%;padding:16px;box-shadow:4px 4px 0 rgba(0,0,0,0.6)">
-    <div style="font-family:'Press Start 2P';font-size:9px;color:var(--gold);margin-bottom:14px;text-shadow:2px 2px 0 #7a4400">NOUVEAU CERVEAU</div>
+  <div style="background:var(--card);border:2px solid var(--border);max-width:460px;width:92%;padding:16px;box-shadow:4px 4px 0 rgba(0,0,0,0.6)">
 
-    <div class="param-group">
-      <span class="param-label">TOPOLOGIE</span>
-      <div class="param-row">
-        <span class="param-name">Taille couche cachée GRU</span>
-        <input type="range" class="param-slider" id="bc-h" min="4" max="24" step="2" value="8" oninput="document.getElementById('bv-h').textContent=this.value;updateBrainPreview()">
-        <span class="param-val" id="bv-h">8</span>
+    <!-- PANEL CONFIG -->
+    <div id="gl-config-panel">
+      <div style="font-family:'Press Start 2P';font-size:9px;color:var(--gold);margin-bottom:14px;text-shadow:2px 2px 0 #7a4400">NOUVEAU CERVEAU</div>
+
+      <div class="param-group">
+        <span class="param-label">TOPOLOGIE</span>
+        <div class="param-row">
+          <span class="param-name">Taille couche cachée GRU</span>
+          <input type="range" class="param-slider" id="bc-h" min="4" max="24" step="2" value="8" oninput="document.getElementById('bv-h').textContent=this.value;updateBrainPreview()">
+          <span class="param-val" id="bv-h">8</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">Sortie par expert</span>
+          <input type="range" class="param-slider" id="bc-out" min="2" max="8" step="1" value="4" oninput="document.getElementById('bv-out').textContent=this.value;updateBrainPreview()">
+          <span class="param-val" id="bv-out">4</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">Couche arbitre</span>
+          <input type="range" class="param-slider" id="bc-arb" min="4" max="16" step="2" value="8" oninput="document.getElementById('bv-arb').textContent=this.value;updateBrainPreview()">
+          <span class="param-val" id="bv-arb">8</span>
+        </div>
       </div>
-      <div class="param-row">
-        <span class="param-name">Sortie par expert</span>
-        <input type="range" class="param-slider" id="bc-out" min="2" max="8" step="1" value="4" oninput="document.getElementById('bv-out').textContent=this.value;updateBrainPreview()">
-        <span class="param-val" id="bv-out">4</span>
+
+      <div class="param-group">
+        <span class="param-label">INITIALISATION</span>
+        <div class="param-row">
+          <span class="param-name">Poids initial (Xavier σ)</span>
+          <input type="range" class="param-slider" id="bc-xavier" min="0.1" max="2.0" step="0.1" value="1.0" oninput="document.getElementById('bv-xavier').textContent=parseFloat(this.value).toFixed(1)">
+          <span class="param-val" id="bv-xavier">1.0</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">ELO de départ</span>
+          <input type="range" class="param-slider" id="bc-elo" min="800" max="1600" step="50" value="1200" oninput="document.getElementById('bv-elo').textContent=this.value">
+          <span class="param-val" id="bv-elo">1200</span>
+        </div>
       </div>
-      <div class="param-row">
-        <span class="param-name">Couche arbitre</span>
-        <input type="range" class="param-slider" id="bc-arb" min="4" max="16" step="2" value="8" oninput="document.getElementById('bv-arb').textContent=this.value;updateBrainPreview()">
-        <span class="param-val" id="bv-arb">8</span>
+
+      <div id="brain-preview-info" style="font-size:5px;color:#6040a0;background:var(--surface);border:1px solid var(--border);padding:8px;margin-bottom:12px;line-height:2"></div>
+
+      <div style="display:flex;gap:8px">
+        <button class="btn small" onclick="closeBrainModal()">Annuler</button>
+        <button class="btn small primary" onclick="confirmNewBrain()">▶ Tester</button>
       </div>
     </div>
 
-    <div class="param-group">
-      <span class="param-label">INITIALISATION</span>
-      <div class="param-row">
-        <span class="param-name">Poids initial (Xavier σ)</span>
-        <input type="range" class="param-slider" id="bc-xavier" min="0.1" max="2.0" step="0.1" value="1.0" oninput="document.getElementById('bv-xavier').textContent=parseFloat(this.value).toFixed(1)">
-        <span class="param-val" id="bv-xavier">1.0</span>
-      </div>
-      <div class="param-row">
-        <span class="param-name">ELO de départ</span>
-        <input type="range" class="param-slider" id="bc-elo" min="800" max="1600" step="50" value="1200" oninput="document.getElementById('bv-elo').textContent=this.value">
-        <span class="param-val" id="bv-elo">1200</span>
+    <!-- PANEL GAUNTLET -->
+    <div id="gl-gauntlet-panel" style="display:none">
+      <div style="font-family:'Press Start 2P';font-size:9px;color:var(--gold);margin-bottom:10px;text-shadow:2px 2px 0 #7a4400">SÉLECTION EN COURS</div>
+      <canvas id="gauntlet-canvas" width="560" height="190" style="width:100%;display:block;border:1px solid #2e2448;background:#0d0818;margin-bottom:8px"></canvas>
+      <div id="gl-candidates-bar" style="display:flex;gap:3px;margin-bottom:7px"></div>
+      <div id="gl-status" style="font-size:6px;color:#8060c0;margin-bottom:10px;line-height:2;min-height:14px"></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn small" onclick="glAbort()">✕ Annuler</button>
+        <button class="btn small" onclick="glSkip()">→ Candidat suivant</button>
       </div>
     </div>
 
-    <div id="brain-preview-info" style="font-size:5px;color:#6040a0;background:var(--surface);border:1px solid var(--border);padding:8px;margin-bottom:12px;line-height:2"></div>
-
-    <div style="display:flex;gap:8px">
-      <button class="btn small" onclick="closeBrainModal()">Annuler</button>
-      <button class="btn small primary" onclick="confirmNewBrain()">✓ Créer</button>
-    </div>
   </div>
 </div>
 
@@ -1417,6 +1434,18 @@ const platforms=[
   {x:830,y:330,w:100,h:14},{x:700,y:140,w:100,h:14},
   {x:900,y:180,w:120,h:14},
 ];
+
+// Arène simplifiée utilisée pendant le gauntlet de création
+const GL_PLATFORMS = [
+  {x:0,     y:0,     w:WW,  h:12},
+  {x:0,     y:0,     w:12,  h:WH},
+  {x:WW-12, y:0,     w:12,  h:WH},
+  {x:0,     y:WH-30, w:WW,  h:30},
+];
+const GL_FINISH_X = WW - 200;  // ligne d'arrivée étape 1
+const GL_MAX_S1 = 900;          // 15 s
+const GL_MAX_S2 = 900;
+const GL_N = 8;                  // candidats par gauntlet
 
 let particles=[],camX=0,camY=0;
 
@@ -4593,6 +4622,11 @@ let trRoundTimer = 0;
 let trRoundOver = false;
 let trEvoHistory = []; // [{round, elo, fitness}]
 
+// ── GAUNTLET ────────────────────────────────────────────────────
+let glActive=false, glParams=null, glCandidates=[], glResults=[];
+let glCurrent=0, glStage=1, glTimer=0, glInterval=null;
+let glEnt=null, glDummy=null, glTarget=null;
+
 function trainingTab(name){
   document.querySelectorAll('.arena-tab').forEach((t,i)=>{
     const names=['config','graph','params','stats'];
@@ -4742,6 +4776,7 @@ function startTrainRound(){
   }
 
   trRoundTimer=0; trRoundOver=false; trTrapProj=[]; trShapedReward=0;
+  let trRoundOutcome = null; // 'win'|'lose'|'draw' — fixe le bug de re-scan des flèches
   trTraps.forEach(t=>{
     if(t.type==='collapse'){t.triggered=false;t.fallTimer=0;t.fallen=false;t.y=t.origY;}
     if(t.type==='mine'){t.triggered=false;t.triggerTimer=0;t.active=true;}
@@ -4791,6 +4826,7 @@ function startTrainRound(){
     framesAiming:0,  // frames où l'arc pointe vers l'ennemi ±20°
     stationaryFrames:0, lastX:trTrainees[0].x,
     shotsFired:0, shootOpps:0, preciseShots:0,
+    prevAimDiff:null, aimHeld:0,  // null = première frame, évite spike delta artificiel
   };
 
   function runStep(){
@@ -4826,13 +4862,18 @@ function startTrainRound(){
     if(aimDiff<0.2) rs.framesAiming++;
 
     // ── DEEP LEARNING : collecte d'expérience par frame ──────────
-    // Récompense dense par frame pour REINFORCE
+    // Récompense delta-based : récompense l'amélioration de la visée, pas la rotation
     if(trBrain.pgLearner){
+      // Tracking convergence (intérieur du guard : inutile quand pgLearner absent)
+      const aimDelta = rs.prevAimDiff !== null ? rs.prevAimDiff - aimDiff : 0;
+      rs.prevAimDiff = aimDiff;
+      rs.aimHeld = aimDiff < 0.15 ? rs.aimHeld + 1 : Math.max(0, rs.aimHeld - 2);
       const pgReward =
-        aimPrecision * 0.008 * _ow.aimPrec           // viser bien
+        Math.max(0, aimDelta) * 0.05 * _ow.aimPrec   // récompense convergence (pas rotation)
+        + (rs.aimHeld > 5 ? 0.006 * _ow.aimPrec : 0) // bonus maintien de la visée stable
         + (out[5]>0.5 && aimDiff<0.3 ? 0.05*_ow.shootWell : 0)  // tirer bien visé
         + (out[5]>0.5 && aimDiff>0.8 ? -0.02 : 0)   // pénalité tir raté
-        + 0.005 * _ow.survival;                       // survie par frame
+        + 0.002 * _ow.survival;                       // survie (réduit pour éviter dominance)
       trBrain.pgLearner.step(out, pgReward, trBrain);
       // Online learning : mise à jour gradient toutes les 60 frames de simulation
       if(trRoundTimer % 60 === 0 && trBrain.pgLearner.buffer.length >= 30){
@@ -4895,13 +4936,13 @@ function startTrainRound(){
       else{p.vy+=AGRAV;p.vx*=ADRAG;p.vy*=ADRAG;p.x+=p.vx;p.y+=p.vy;p.life--;}
       if(p.life<=0||p.x<-50||p.x>WW+50||p.y>WH+50){trTrapProj.splice(i,1);continue;}
       if(p.x>ce.x&&p.x<ce.x+ce.w&&p.y>ce.y&&p.y<ce.y+ce.h){
-        boom(p.x,p.y,ce.col); trTrapProj.splice(i,1); trRoundOver=true; return;
+        boom(p.x,p.y,ce.col); trTrapProj.splice(i,1); trRoundOver=true; trRoundOutcome='lose'; return;
       }
     }
 
     const hit=checkTrainHits();
-    if(hit!==null){ trRoundOver=true; }
-    if(trRoundTimer>60*35) trRoundOver=true;
+    if(hit!==null){ trRoundOver=true; trRoundOutcome=hit; }
+    if(trRoundTimer>60*35){ trRoundOver=true; trRoundOutcome=trRoundOutcome||'draw'; }
   }
 
   function checkTrainHits(){
@@ -4927,8 +4968,7 @@ function startTrainRound(){
   }
 
   function onRoundEnd(){
-    const lastHit=checkTrainHits();
-    const won = lastHit==='win' || (trRoundTimer<=60*35 && lastHit!=='lose');
+    const won = trRoundOutcome === 'win';
     trRoundsDone++;
 
     // Curriculum tracking
@@ -5340,10 +5380,14 @@ function drawTrainGraph(){
 // ================================================================
 //  MODAL CRÉATION CERVEAU
 function openBrainModal(){
+  // Toujours revenir au panel config à l'ouverture
+  document.getElementById('gl-config-panel').style.display   = '';
+  document.getElementById('gl-gauntlet-panel').style.display = 'none';
   updateBrainPreview();
   document.getElementById('brain-create-modal').classList.add('open');
 }
 function closeBrainModal(){
+  if(glActive){ if(glInterval){clearInterval(glInterval);glInterval=null;} glActive=false; }
   document.getElementById('brain-create-modal').classList.remove('open');
 }
 
@@ -5361,29 +5405,225 @@ function updateBrainPreview(){
     `Mémoire par round : ${H*3} valeurs GRU`;
 }
 
-async function confirmNewBrain(){
-  const H=parseInt(document.getElementById('bc-h').value)||8;
-  const outSize=parseInt(document.getElementById('bc-out').value)||4;
-  const arbSize=parseInt(document.getElementById('bc-arb').value)||8;
-  const xavierScale=parseFloat(document.getElementById('bc-xavier').value)||1.0;
-  const startElo=parseInt(document.getElementById('bc-elo').value)||ELO_BASE;
+function confirmNewBrain(){
+  const H          = parseInt(document.getElementById('bc-h').value)||8;
+  const outSize    = parseInt(document.getElementById('bc-out').value)||4;
+  const arbSize    = parseInt(document.getElementById('bc-arb').value)||8;
+  const xavierScale= parseFloat(document.getElementById('bc-xavier').value)||1.0;
+  const startElo   = parseInt(document.getElementById('bc-elo').value)||ELO_BASE;
+  startGauntlet({H, out:outSize, arb:arbSize, xavier:xavierScale, startElo});
+}
 
-  // Créer le MultiExpertBrain avec les paramètres choisis
-  const b=new MultiExpertBrain(H,outSize,arbSize,xavierScale);
-  b.elo=startElo;
+// ── GAUNTLET : sélection par parcours du combattant ──────────────
+// Étape 1 : traverser l'arène de gauche à droite (mobilité/saut)
+// Étape 2 : toucher une cible statique (visée de base)
+// 8 candidats générés ; le premier à passer les 2 étapes est retenu.
+// Si aucun passe l'étape 2, le meilleur (au moins étape 1) est gardé.
 
-  const id='brain_'+Date.now();
-  const name=await nextBrainName();
-  await store.put('brains',{id,name,creator:localCreator,brain:b.serialize(),
-    generation:1,fitness:0,elo:startElo,wins:0,played:0,
-    timestamp:Date.now(),game:'arena-archer',
-    topology:`GRU(H=${H})×3+ARB(${arbSize})`,params:b.paramCount()});
-  currentBrainId=id;store.setConfig('currentBrainId',id);activeBrain=b;generation=1;bestBrain=null;
+function startGauntlet(params){
+  glParams     = params;
+  glCandidates = [];
+  glResults    = [];
+  for(let i=0;i<GL_N;i++){
+    glCandidates.push(new MultiExpertBrain(params.H, params.out, params.arb, params.xavier));
+    glResults.push('pending');
+  }
+  document.getElementById('gl-config-panel').style.display   = 'none';
+  document.getElementById('gl-gauntlet-panel').style.display = '';
+  glActive = true;
+  glStartCandidate(0);
+}
+
+function glStartCandidate(idx){
+  glCurrent = idx;
+  glStage   = 1;
+  glTimer   = 0;
+  glCandidates[idx].resetMemory();
+  // Cerveau à gauche, ennemi fictif à droite (pour aiInputsFor)
+  glEnt   = new Ent(80, WH-62, SLOT_COLORS[0], true);
+  glDummy = new Ent(WW-120, WH-62, '#444444', false);
+  glTarget = null;
+  glUpdateStatus();
+  if(glInterval){ clearInterval(glInterval); glInterval=null; }
+  glInterval = setInterval(glTick, 1000/60);
+}
+
+function glStartStage2(){
+  glStage = 2;
+  glTimer = 0;
+  glCandidates[glCurrent].resetMemory();
+  // Cerveau à droite, cible statique à gauche avec hitbox élargie
+  glEnt    = new Ent(WW-180, WH-62, SLOT_COLORS[0], true);
+  glTarget = new Ent(100, WH-62, '#ff4444', false);
+  glTarget.w = 50; glTarget.h = 50;
+  glDummy  = glTarget;
+  glUpdateStatus();
+}
+
+function glTick(){
+  if(!glActive) return;
+  for(let i=0;i<8;i++){ if(!glActive) break; glStep(); }
+  glDrawFrame();
+}
+
+function glStep(){
+  glTimer++;
+  const brain = glCandidates[glCurrent];
+  const ce    = glEnt;
+
+  const savedPlats = platforms;
+  platforms = GL_PLATFORMS;
+  const inp = aiInputsFor(ce, glDummy, [], glTimer);
+  const out = brain.forward(inp);
+  aiProcessFor(out, ce);
+  ce.update();
+  platforms = savedPlats;
+
+  if(glStage === 1){
+    if(ce.x + ce.w >= GL_FINISH_X){
+      glResults[glCurrent] = 's1';
+      glStartStage2();
+      return;
+    }
+    if(glTimer >= GL_MAX_S1){ glResults[glCurrent]='none'; glNext(); }
+  } else {
+    const t = glTarget;
+    for(let j=ce.arr.length-1; j>=0; j--){
+      const a = ce.arr[j];
+      if(a.st) continue;
+      if(a.x>t.x && a.x<t.x+t.w && a.y>t.y && a.y<t.y+t.h){
+        boom(a.x, a.y, '#f0c040');
+        glResults[glCurrent] = 'pass';
+        glFinish(brain);
+        return;
+      }
+    }
+    if(glTimer >= GL_MAX_S2){ glNext(); }
+  }
+}
+
+function glNext(){
+  const next = glCurrent + 1;
+  if(next >= glCandidates.length){
+    // Aucun parfait — meilleur effort (s1 > none)
+    const best = glResults.findIndex(r=>r==='s1');
+    glFinish(glCandidates[best >= 0 ? best : 0]);
+    return;
+  }
+  glStartCandidate(next);
+}
+
+async function glFinish(brain){
+  if(glInterval){ clearInterval(glInterval); glInterval=null; }
+  glActive = false;
+  const {H, out, arb, startElo} = glParams;
+  brain.elo = startElo;
+  const id   = 'brain_' + Date.now();
+  const name = await nextBrainName();
+  await store.put('brains',{id, name, creator:localCreator, brain:brain.serialize(),
+    generation:1, fitness:0, elo:startElo, wins:0, played:0,
+    timestamp:Date.now(), game:'arena-archer',
+    topology:`GRU(H=${H})×3+ARB(${arb})`, params:brain.paramCount()});
+  currentBrainId=id; store.setConfig('currentBrainId',id); activeBrain=brain;
   activeBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
-  totalWins=0;totalPlayed=0;
+  generation=1; bestBrain=null; totalWins=0; totalPlayed=0;
+  const passed = glResults[glCurrent]==='pass';
   closeBrainModal();
-  toast(`Créé : ${name} (${b.paramCount()} params)`);
+  toast(`${passed?'✓ Sélectionné':'Meilleur effort'} : ${name} (candidat ${glCurrent+1}/${GL_N})`);
   updateLabUI();
+}
+
+function glSkip(){
+  if(!glActive) return;
+  glNext();
+}
+
+function glAbort(){
+  if(glInterval){ clearInterval(glInterval); glInterval=null; }
+  glActive = false;
+  document.getElementById('gl-gauntlet-panel').style.display = 'none';
+  document.getElementById('gl-config-panel').style.display   = '';
+}
+
+function glUpdateStatus(){
+  const bar = document.getElementById('gl-candidates-bar');
+  if(bar) bar.innerHTML = glCandidates.map((_,i)=>{
+    const r   = glResults[i];
+    const col = r==='pass'?'#40ff80':r==='s1'?'#f0c040':r==='none'?'#602020':i===glCurrent?'#00c8ff':'#1e1630';
+    const ico = r==='pass'?'✓':r==='s1'?'½':r==='none'?'✗':i===glCurrent?'▶':'·';
+    return `<div style="width:30px;height:22px;background:${col};color:#0d0818;font-size:8px;font-family:monospace;display:flex;align-items:center;justify-content:center;font-weight:bold">${ico}</div>`;
+  }).join('');
+  const el = document.getElementById('gl-status');
+  if(el) el.textContent = `Candidat ${glCurrent+1}/${GL_N}  ·  ${glStage===1?'ÉTAPE 1/2 : TRAVERSER →':'ÉTAPE 2/2 : VISER LA CIBLE ◎'}`;
+}
+
+function glDrawFrame(){
+  const cv = document.getElementById('gauntlet-canvas');
+  if(!cv) return;
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  const sc = Math.min(W/WW, H/WH) * 0.91;
+  const offX = (W-WW*sc)/2, offY = (H-WH*sc)/2;
+
+  ctx.fillStyle = '#0d0818';
+  ctx.fillRect(0, 0, W, H);
+  ctx.save();
+  ctx.translate(offX, offY);
+  ctx.scale(sc, sc);
+
+  // Plateformes
+  for(const p of GL_PLATFORMS){
+    ctx.fillStyle = p.h>20||p.w<=12 ? '#161028' : '#2e2448';
+    ctx.fillRect(p.x, p.y, p.w, p.h);
+  }
+  // Liseré du sol
+  ctx.fillStyle = '#5a4e80';
+  ctx.fillRect(12, WH-30, WW-24, 2);
+
+  if(glStage===1){
+    // Ligne d'arrivée
+    ctx.save();
+    ctx.setLineDash([12,6]);
+    ctx.strokeStyle = '#40ff80'; ctx.lineWidth = 3;
+    ctx.globalAlpha = 0.75;
+    ctx.beginPath(); ctx.moveTo(GL_FINISH_X, 12); ctx.lineTo(GL_FINISH_X, WH-30); ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle='#40ff80'; ctx.font=`bold ${20}px monospace`;
+    ctx.fillText('GOAL', GL_FINISH_X+12, WH-45);
+  }
+
+  if(glStage===2 && glTarget){
+    const t = glTarget;
+    const cx = t.x+t.w/2, cy = t.y+t.h/2;
+    ctx.fillStyle='#3a0808'; ctx.fillRect(t.x, t.y, t.w, t.h);
+    [[24,'#ff4444'],[15,'#ffffff'],[8,'#ff2020']].forEach(([r,col])=>{
+      ctx.strokeStyle=col; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.stroke();
+    });
+    ctx.fillStyle='#ffffff'; ctx.fillRect(cx-2,cy-2,4,4);
+  }
+
+  if(glEnt) glEnt.draw(ctx);
+
+  // Particules
+  updateParticles();
+  for(const p of particles){
+    ctx.globalAlpha = Math.max(0, p.life/40);
+    ctx.fillStyle = p.col;
+    ctx.fillRect(p.x, p.y, p.sz||2, p.sz||2);
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+
+  // HUD
+  ctx.fillStyle='rgba(13,8,24,0.85)'; ctx.fillRect(0,0,W,20);
+  ctx.font='bold 7px monospace'; ctx.textAlign='left';
+  ctx.fillStyle = glStage===1?'#40ff80':'#f0c040';
+  ctx.fillText(glStage===1?'◀ TRAVERSER ▶':'◎ VISER ET TIRER', 6, 13);
+  ctx.textAlign='right';
+  const tLeft = Math.max(0, Math.ceil(((glStage===1?GL_MAX_S1:GL_MAX_S2)-glTimer)/60));
+  ctx.fillStyle = tLeft<4?'#ff4444':'#8060c0';
+  ctx.fillText(`${tLeft}s`, W-6, 13);
 }
 //             ex: "darknode"
 //
