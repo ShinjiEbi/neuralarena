@@ -263,6 +263,7 @@ body:not(.observe-mode) #cam-hint{display:none}
       <div class="brain-meta" id="m-brain-meta">Nouveau — aucun entraînement</div>
     </div>
     <div class="menu-btns">
+      <button class="btn primary" onclick="quickPlay()">▶ JOUER</button>
       <button class="btn" onclick="showScreen('pvp')">⚔ ARÈNE PVP</button>
       <button class="btn" onclick="showScreen('training')">🎯 SALLE D'ENTRAÎNEMENT</button>
       <button class="btn" onclick="showScreen('lab')">🧠 Laboratoire IA</button>
@@ -1518,6 +1519,15 @@ function randomSpawns(n){
     positions.push({x:p.x+p.w/2-10, y:p.y-38, face:positions.length%2===0?1:-1});
   }
   return positions;
+}
+
+function quickPlay(){
+  // Lance directement une partie humain vs cerveau actif (remplace le mode solo arena-archer.js)
+  lobbySlots[0] = {type:'human', brainId: currentBrainId};
+  lobbySlots[1] = {type:'ai',    brainId: currentBrainId};
+  lobbySlots[2] = {type:'off',   brainId: currentBrainId};
+  lobbySlots[3] = {type:'off',   brainId: currentBrainId};
+  startPVP();
 }
 
 async function startPVP(){
@@ -3046,7 +3056,22 @@ async function saveCurrent(){
 
 async function loadBrains(){
   const all = await store.getAll('brains');
-  if(all.length === 0) return;
+  if(all.length === 0){
+    // Première utilisation : créer un cerveau par défaut automatiquement
+    const id = 'default';
+    const name = await nextBrainName();
+    const b = new MultiExpertBrain();
+    const entry = {id, name, creator: localCreator, brain: b.serialize(),
+      generation:1, fitness:0, elo: ELO_BASE, wins:0, played:0,
+      timestamp: Date.now(), game:'arena-archer', topology:'GRU×4+ATT', params: b.paramCount()};
+    await store.put('brains', entry);
+    currentBrainId = id;
+    activeBrain = b;
+    activeBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
+    generation = 1;
+    updateMenuUI();
+    return;
+  }
 
   // Récupérer l'ID du dernier cerveau actif depuis la config
   const savedId = await store.getConfig('currentBrainId', null);
@@ -6030,29 +6055,6 @@ class PolicyGradientLearner {
     return `DL∇ rounds:${this.roundsLearned} loss:${avgL} |∇|:${this.gradNorm.toFixed(4)}`;
   }
 }
-
-// ── 3. Callback onRoundEnd pour le mode solo (Engine + arena-archer.js) ─
-// arena-archer.js appelle NA.onRoundEnd(hit) à chaque fin de round.
-// Ce callback applique le gradient learning sur activeBrain.
-window.NeuralArena = window.NeuralArena || {};
-window.NeuralArena.onRoundEnd = function(hit){
-  const brain = activeBrain;
-  if(!brain?.pgLearner) return;
-  const won = (hit === 'player');  // 'player' = joueur humain touché = IA gagne
-  const pgResult = brain.pgLearner.learn(brain, won ? 3.0 : -3.0);
-  if(pgResult){
-    console.log(`[PG Solo] hit:${hit} loss:${pgResult.loss.toFixed(4)} |∇|:${pgResult.gradNorm.toFixed(5)}`);
-  }
-};
-
-// Pont entre la variable locale `activeBrain` et window.NeuralArena.activeBrain
-// arena-archer.js accède au cerveau via NA.activeBrain → ce getter le redirige toujours vers
-// la valeur courante de la variable locale, sans nécessiter de mises à jour manuelles.
-Object.defineProperty(window.NeuralArena, 'activeBrain', {
-  get: ()  => activeBrain,
-  set: (b) => { activeBrain = b; },
-  configurable: true
-});
 
 console.log('[NeuralArena v4] PolicyGradientLearner prêt');
 // ================================================================
