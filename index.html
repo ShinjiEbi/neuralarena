@@ -955,7 +955,7 @@ class MultiExpertBrain {
 
   serialize(){
     return{
-      type:'multi-expert-v3',
+      type:'multi-expert-v4',
       experts:this.experts.map(e=>e.serialize()),
       arb1:this.arb1.serialize(),
       arb2:this.arb2.serialize(),
@@ -966,8 +966,8 @@ class MultiExpertBrain {
 
   static deserialize(d){
     if(!d) return null;
-    // v3 : topologie actuelle (Expert 2 inSize=12, N_INPUTS=26)
-    if(d.type==='multi-expert-v3'){
+    // v4 : topologie actuelle (Expert 2 inSize=12, N_INPUTS=26)
+    if(d.type==='multi-expert-v4'){
       const b=new MultiExpertBrain(d._H||12, d._out||4, d._arb||16);
       b.experts=d.experts.map(e=>GRUExpert.deserialize(e));
       b.arb1=DenseLayer.deserialize(d.arb1);
@@ -975,9 +975,9 @@ class MultiExpertBrain {
       b.arb3=DenseLayer.deserialize(d.arb3);
       return b;
     }
-    // v2 → migration : Expert 2 avait inSize=6, maintenant 12 (poids incompatibles)
+    // v3/v2 → migration : Expert 2 avait inSize=6, maintenant 12 (poids incompatibles)
     // On préserve experts 0,1,3 + arbitrateurs, Expert 2 repart de zéro
-    if(d.type==='multi-expert-v2'){
+    if(d.type==='multi-expert-v3'||d.type==='multi-expert-v2'){
       const b=new MultiExpertBrain(d._H||12, d._out||4, d._arb||16);
       b.experts[0]=GRUExpert.deserialize(d.experts[0]);
       b.experts[1]=GRUExpert.deserialize(d.experts[1]);
@@ -986,7 +986,6 @@ class MultiExpertBrain {
       b.arb1=DenseLayer.deserialize(d.arb1);
       b.arb2=DenseLayer.deserialize(d.arb2);
       b.arb3=DenseLayer.deserialize(d.arb3);
-      console.log('[NeuralArena] Cerveau v2→v3 migré (Expert TERRAIN recréé)');
       return b;
     }
     // v1 legacy → recréer fresh (incompatible topologie)
@@ -1009,8 +1008,9 @@ class MultiExpertBrain {
 // Helper universel de désérialisation
 function deserializeBrain(data){
   if(!data) return new MultiExpertBrain();
-  if(data.type==='multi-expert-v3') return MultiExpertBrain.deserialize(data);
-  if(data.type==='multi-expert-v2') return MultiExpertBrain.deserialize(data); // migre auto v2→v3
+  if(data.type==='multi-expert-v4') return MultiExpertBrain.deserialize(data);
+  if(data.type==='multi-expert-v3') return MultiExpertBrain.deserialize(data); // migre auto v3→v4
+  if(data.type==='multi-expert-v2') return MultiExpertBrain.deserialize(data); // migre auto v2→v4
   // v1 legacy → nouveau cerveau fresh (topologie incompatible)
   if(data.type==='multi-expert-v1'){
     const b=new MultiExpertBrain();
@@ -5799,10 +5799,10 @@ class SelfAttentionLayer {
     return _origParamCount.call(this) + (this.attention?.paramCount()||0);
   };
 
-  // ── Nouveau serialize v3 ──────────────────────────────────────
+  // ── Nouveau serialize v4 (SelfAttention + capteurs spatiaux) ─────
   proto.serialize = function(){
     return{
-      type:'multi-expert-v3',
+      type:'multi-expert-v4',
       experts:this.experts.map(e=>e.serialize()),
       arb1:this.arb1.serialize(),
       arb2:this.arb2.serialize(),
@@ -5819,33 +5819,45 @@ class SelfAttentionLayer {
     if(src.attention) target.attention = src.attention.clone();
   };
 
-  console.log('[NeuralArena] MultiExpertBrain patché → v3 (SelfAttention)');
+  console.log('[NeuralArena] MultiExpertBrain patché → v4 (SelfAttention + capteurs spatiaux)');
 })();
 
-// ── Patcher deserializeBrain pour gérer v3 ───────────────────────
+// ── Patcher deserializeBrain pour gérer v4 et migrer v3/v2 ──────
 const _origDeserialize = window.deserializeBrain;
 window.deserializeBrain = function(data){
   if(!data) return new MultiExpertBrain();
-  // v3
-  if(data.type==='multi-expert-v3'){
-    const b = MultiExpertBrain.deserialize ? MultiExpertBrain.deserialize(data) : new MultiExpertBrain(data._H||12, data._out||4, data._arb||16);
+  // v4 : topologie actuelle (Expert 2 inSize=12, SelfAttention)
+  if(data.type==='multi-expert-v4'){
+    const b = new MultiExpertBrain(data._H||12, data._out||4, data._arb||16);
     if(data.experts) b.experts = data.experts.map(e=>GRUExpert.deserialize(e));
     if(data.arb1)    b.arb1    = DenseLayer.deserialize(data.arb1);
     if(data.arb2)    b.arb2    = DenseLayer.deserialize(data.arb2);
     if(data.arb3)    b.arb3    = DenseLayer.deserialize(data.arb3);
     if(data.attention) b.attention = SelfAttentionLayer.deserialize(data.attention);
-    else {
-      const out = data._out||4;
-      b.attention = new SelfAttentionLayer(4, out, 1.0);
-    }
+    else b.attention = new SelfAttentionLayer(4, data._out||4, 1.0);
     return b;
   }
-  // v2 → upgrade (nouvelle attention fraîche)
+  // v3 → migration : Expert 2 avait inSize=6, maintenant 12 (poids incompatibles)
+  if(data.type==='multi-expert-v3'){
+    const b = new MultiExpertBrain(data._H||12, data._out||4, data._arb||16);
+    if(data.experts){
+      b.experts[0] = GRUExpert.deserialize(data.experts[0]);
+      b.experts[1] = GRUExpert.deserialize(data.experts[1]);
+      // experts[2] : fresh — inSize 6→12 incompatible
+      b.experts[3] = GRUExpert.deserialize(data.experts[3]);
+    }
+    if(data.arb1) b.arb1 = DenseLayer.deserialize(data.arb1);
+    if(data.arb2) b.arb2 = DenseLayer.deserialize(data.arb2);
+    if(data.arb3) b.arb3 = DenseLayer.deserialize(data.arb3);
+    if(data.attention) b.attention = SelfAttentionLayer.deserialize(data.attention);
+    else b.attention = new SelfAttentionLayer(4, data._out||4, 1.0);
+    console.log('[NeuralArena] Cerveau v3→v4 migré (Expert TERRAIN recréé)');
+    return b;
+  }
+  // v2 → upgrade (nouveau cerveau + attention fraîche)
   if(data.type==='multi-expert-v2'){
     const b = _origDeserialize(data);
-    if(!b.attention){
-      b.attention = new SelfAttentionLayer(4, data._out||4, 1.0);
-    }
+    if(!b.attention) b.attention = new SelfAttentionLayer(4, data._out||4, 1.0);
     return b;
   }
   return _origDeserialize(data);
