@@ -261,6 +261,8 @@ body:not(.observe-mode) #cam-hint{display:none}
     <div class="menu-brain-info">
       <div class="brain-name" id="m-brain-name">Cerveau par défaut</div>
       <div class="brain-meta" id="m-brain-meta">Nouveau — aucun entraînement</div>
+      <canvas id="menu-radar" width="160" height="160"
+        style="display:block;margin:6px auto 0;opacity:0.9"></canvas>
     </div>
     <div class="menu-btns">
       <button class="btn primary" onclick="quickPlay()">▶ JOUER</button>
@@ -449,10 +451,16 @@ body:not(.observe-mode) #cam-hint{display:none}
     </div>
 
     <!-- GRAPHIQUE -->
-    <div id="panel-graph" style="display:none">
-      <div style="font-size:5px;color:#6040a0;margin-bottom:6px">ELO et Fitness du cerveau entraîné</div>
-      <canvas id="evo-canvas" width="600" height="200"></canvas>
-      <div class="chart-legend" id="chart-legend"></div>
+    <div id="panel-graph" style="display:none;flex-direction:row;gap:10px;align-items:flex-start;padding:8px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:5px;color:#6040a0;margin-bottom:4px">ELO · Fitness</div>
+        <canvas id="evo-canvas" width="400" height="180"></canvas>
+        <div class="chart-legend" id="chart-legend"></div>
+      </div>
+      <div style="flex:0 0 180px;text-align:center">
+        <div style="font-size:5px;color:#6040a0;margin-bottom:4px">Profil de compétences</div>
+        <canvas id="brain-radar" width="180" height="180"></canvas>
+      </div>
     </div>
 
     <!-- PARAMÈTRES ÉVOLUTION -->
@@ -2187,6 +2195,77 @@ function updateParticles(){for(let i=particles.length-1;i>=0;i--){const p=partic
 
 const ELO_BASE = 1200;
 
+// ── SKILLS : 6 dimensions de compétence ─────────────────────────────────────
+function updateSkills(skills, rs, totalFrames){
+  const α=0.15, maxT=60*35;
+  const rawDodge    = Math.min((rs.arrowsDodged||0)/20*100, 100);
+  const rawAim      = Math.min((rs.framesAiming||0)/Math.max(totalFrames,1)*250, 100);
+  const rawPrec     = (rs.shotsFired||0)>0
+    ? Math.min((rs.preciseShots||0)/(rs.shotsFired||1)*100, 100)
+    : (skills.precision||0);
+  const rawSurvival = Math.min(totalFrames/maxT*100, 100);
+  const rawAggro    = (rs.shootOpps||0)>0
+    ? Math.min((rs.shotsFired||0)/(rs.shootOpps||1)*100, 100) : 0;
+  const rawMobility = Math.min(
+    (1-(rs.stationaryFrames||0)/Math.max(totalFrames,1))*100, 100);
+  const up=(old,raw)=>(old||0)*(1-α)+raw*α;
+  return {
+    dodge   : up(skills.dodge,    rawDodge),
+    aim     : up(skills.aim,      rawAim),
+    precision:up(skills.precision,rawPrec),
+    survival: up(skills.survival, rawSurvival),
+    aggro   : up(skills.aggro,    rawAggro),
+    mobility: up(skills.mobility, rawMobility),
+  };
+}
+
+function computeGlobalFitness(skills){
+  if(!skills) return 0;
+  return Math.min(100, Math.max(0,
+    (skills.dodge||0)*0.20 + (skills.aim||0)*0.20 +
+    (skills.precision||0)*0.20 + (skills.survival||0)*0.15 +
+    (skills.aggro||0)*0.15 + (skills.mobility||0)*0.10));
+}
+
+function drawRadarChart(ctx, cx, cy, r, vals, labels, fillCol, strokeCol){
+  const N=vals.length, step=Math.PI*2/N, off=-Math.PI/2;
+  [0.25,0.5,0.75,1].forEach(p=>{
+    ctx.beginPath();
+    for(let i=0;i<N;i++){
+      const a=off+i*step;
+      const x=cx+Math.cos(a)*r*p, y=cy+Math.sin(a)*r*p;
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle=`rgba(255,255,255,${p===1?0.15:0.07})`;
+    ctx.lineWidth=0.5; ctx.stroke();
+  });
+  for(let i=0;i<N;i++){
+    const a=off+i*step;
+    ctx.beginPath(); ctx.moveTo(cx,cy);
+    ctx.lineTo(cx+Math.cos(a)*r, cy+Math.sin(a)*r);
+    ctx.strokeStyle='rgba(255,255,255,0.12)'; ctx.lineWidth=0.5; ctx.stroke();
+  }
+  ctx.beginPath();
+  for(let i=0;i<N;i++){
+    const a=off+i*step, v=Math.max(0,Math.min(1,(vals[i]||0)/100));
+    const x=cx+Math.cos(a)*r*v, y=cy+Math.sin(a)*r*v;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  }
+  ctx.closePath(); ctx.fillStyle=fillCol; ctx.fill();
+  ctx.strokeStyle=strokeCol; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.font='7px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle=strokeCol;
+  for(let i=0;i<N;i++){
+    const a=off+i*step;
+    ctx.fillText(labels[i], cx+Math.cos(a)*(r+16), cy+Math.sin(a)*(r+16));
+  }
+}
+const SKILL_KEYS=['dodge','aim','precision','survival','aggro','mobility'];
+const SKILL_LABELS=['ESQUIVE','VISÉE','PRÉCIS','SURVIE','AGGRO','MOBIL'];
+const SKILL_FILL='rgba(96,200,255,0.15)';
+const SKILL_STROKE='#60c8ff';
+
 function eloExpected(ra, rb){ return 1/(1+Math.pow(10,(rb-ra)/400)); }
 
 // K-factor dynamique : dépend du nombre de parties ET de l'écart ELO
@@ -2196,7 +2275,7 @@ function eloUpdate(rating, expected, score, played){
   // Bonus si adversaire beaucoup plus fort (récompense les upsets)
   const surprise = Math.max(1, 1 + (1-expected)*1.5);
   const K = Kbase * surprise;
-  return Math.round(rating + K * (score - expected));
+  return Math.max(400, Math.round(rating + K * (score - expected)));
 }
 
 // Gain comportemental d'un round — partagé solo/multi/entraînement
@@ -3178,6 +3257,16 @@ function updateMenuUI(){
     document.getElementById('m-brain-name').textContent = localCreator+'#???';
   });
   document.getElementById('m-brain-meta').textContent=`ELO ${activeBrain.elo||ELO_BASE} · Gen ${generation} · Fitness ${Math.round(activeBrain.fitness||0)}`;
+  // Radar du cerveau actif
+  store.get('brains', currentBrainId).then(e=>{
+    const rc=document.getElementById('menu-radar');
+    if(!rc) return;
+    const ctx=rc.getContext('2d');
+    ctx.fillStyle='#1a0e2e'; ctx.fillRect(0,0,rc.width,rc.height);
+    const skills = e?.skills || activeBrain?.skills || {};
+    drawRadarChart(ctx, 80, 80, 60,
+      SKILL_KEYS.map(k=>skills[k]||0), SKILL_LABELS, SKILL_FILL, SKILL_STROKE);
+  });
 }
 
 async function updateLabUI(){
@@ -3185,11 +3274,15 @@ async function updateLabUI(){
   let html=`<div style="margin-bottom:12px;font-size:10px;color:#444;display:flex;justify-content:space-between;align-items:center"><span>${all.length} cerveau(x)</span><span style="color:var(--accent);font-size:9px;letter-spacing:1px">👤 ${sanitize(localCreator)}</span></div>`;
   for(const e of all.sort((a,b)=>(b.elo||ELO_BASE)-(a.elo||ELO_BASE))){
     const cur=e.id===currentBrainId;
-    const eloStr=e.elo?`🏆${e.elo}`:'🏆?';
+    const eloStr=e.elo?`🏆${e.elo}${e.peakElo&&e.peakElo>e.elo?` ▲${e.peakElo}`:''}` :'🏆?';
     const typeTag=e.brain&&e.brain.type==='multi-expert-v1'?'<span style="color:var(--accent)">GRU×3</span>':'<span style="color:#444">legacy</span>';
     const creatorTag=e.creator&&e.creator!==localCreator?`<span style="color:#3a5a6a">📡 ${sanitize(e.creator)}</span>`:'';
     const delBtn=cur?'':`<button class="btn small warn" style="font-size:5px;padding:3px 7px;margin-left:auto;flex-shrink:0" onclick="event.stopPropagation();deleteBrain('${e.id}')">🗑</button>`;
-    html+=`<div class="brain-card ${cur?'active-brain':''}" onclick="selectBrain('${e.id}')"><div class="bc-header"><span class="bc-name">${sanitize(e.name||e.id)} ${cur?'● ACTIF':''}</span><span class="bc-gen">Gen ${e.generation||'?'}</span>${delBtn}</div><div class="bc-stats"><span>${eloStr}</span><span>⚡${Math.round(e.fitness||0)}</span><span>🎯 ${e.wins||0}W/${e.played||0}P</span><span>🧠 ${e.params||'?'}p</span>${typeTag}${creatorTag}${e.imported?'<span>📥 importé</span>':''}</div></div>`;
+    const skillBar=(v,col)=>`<div style="flex:1;height:3px;border-radius:2px;background:#2a1a3a"><div style="width:${Math.round(v||0)}%;height:100%;background:${col};border-radius:2px"></div></div>`;
+    const sk=e.skills||{};
+    const skillColors=['#ff6060','#f0c040','#60ff80','#60c8ff','#ff80ff','#ffaa40'];
+    const skillsHtml=`<div style="display:flex;gap:3px;margin-top:4px;align-items:center">${SKILL_KEYS.map((k,i)=>`<div style="flex:1;text-align:center"><div style="font-size:4px;color:${skillColors[i]};margin-bottom:1px">${SKILL_LABELS[i].slice(0,3)}</div>${skillBar(sk[k],skillColors[i])}</div>`).join('')}</div>`;
+    html+=`<div class="brain-card ${cur?'active-brain':''}" onclick="selectBrain('${e.id}')"><div class="bc-header"><span class="bc-name">${sanitize(e.name||e.id)} ${cur?'● ACTIF':''}</span><span class="bc-gen">Gen ${e.generation||'?'}</span>${delBtn}</div><div class="bc-stats"><span>${eloStr}</span><span>⚡${Math.round(e.fitness||0)}</span><span>🎯 ${e.wins||0}W/${e.played||0}P</span><span>🧠 ${e.params||'?'}p</span>${typeTag}${creatorTag}${e.imported?'<span>📥 importé</span>':''}</div>${skillsHtml}</div>`;
   }
   html+=`<div class="lab-actions"><button class="btn small primary" onclick="openBrainModal()">+ Nouveau</button><button class="btn small" onclick="duplicateCurrent()">📋 Dupliquer</button><button class="btn small warn" onclick="resetCurrent()">🗑 Reset actif</button></div>`;
   document.getElementById('lab-content').innerHTML=html;
@@ -4498,7 +4591,7 @@ function trainingTab(name){
   });
   ['config','graph','params','stats'].forEach(n=>{
     const el=document.getElementById('panel-'+n);
-    if(el) el.style.display=n===name?'':'none';
+    if(el) el.style.display=n===name?(n==='graph'?'flex':''):'none';
   });
   if(name==='graph') drawTrainGraph();
   if(name==='stats') renderStats();
@@ -4685,6 +4778,7 @@ function startTrainRound(){
     arrowsDodged:0, shotsNearMiss:0, platformChanges:0, lastPlatY:-1,
     framesAiming:0,  // frames où l'arc pointe vers l'ennemi ±20°
     stationaryFrames:0, lastX:trTrainees[0].x,
+    shotsFired:0, shootOpps:0, preciseShots:0,
   };
 
   function runStep(){
@@ -4758,6 +4852,11 @@ function startTrainRound(){
       if(d<80) rs.arrowsDodged+=0.1;
     }
 
+    // Tracking compétences par frame
+    if(ce.cd===0) rs.shootOpps++;
+    if(out[5]>0.5 && ce.cd===0){ rs.shotsFired++; if(aimDiff<0.3) rs.preciseShots++; }
+    if(Math.abs(ce.vx)<0.5 && ce.gnd) rs.stationaryFrames++;
+
     // 5. Pénalité mur
     if(ce.x<25||ce.x>WW-45) trShapedReward-=0.008;
 
@@ -4826,7 +4925,8 @@ function startTrainRound(){
     const totalGain  = aimBonus + shotBonus + dodgeBonus + shaped + (won ? evoParams.winBonus : 0);
 
     const prevFit=trBrain.fitness||0;
-    trBrain.fitness = updateFitness(prevFit, totalGain, won);
+    trBrain.skills  = updateSkills(trBrain.skills||{}, rs, trRoundTimer);
+    trBrain.fitness = computeGlobalFitness(trBrain.skills);
 
     // Mode population : stocker le score pour sélection
     if(popMode){
@@ -5018,6 +5118,8 @@ async function saveTrainResults(){
   entry.brain      = brainToSave.serialize();
   entry.fitness    = brainToSave.fitness;
   entry.elo        = brainToSave.elo;
+  entry.peakElo    = Math.max(entry.peakElo||0, entry.elo);
+  entry.skills     = trBrain.skills || {};
   entry.generation = (entry.generation||1) + Math.max(trRoundsDone,1);
   // Sauvegarder l'état Adam pour continuité entre sessions
   if(trBrain?.pgLearner) entry.adamState = trBrain.pgLearner.serializeAdam();
@@ -5125,6 +5227,15 @@ function drawTrainGraph(){
     i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
   });
   ctx.stroke();ctx.setLineDash([]);
+
+  // Radar des compétences
+  const rc=document.getElementById('brain-radar');
+  if(rc && trBrain?.skills){
+    const ctx2=rc.getContext('2d');
+    ctx2.fillStyle='#10081e'; ctx2.fillRect(0,0,rc.width,rc.height);
+    drawRadarChart(ctx2, 90, 90, 70,
+      SKILL_KEYS.map(k=>trBrain.skills[k]||0), SKILL_LABELS, SKILL_FILL, SKILL_STROKE);
+  }
 
   // Légende
   const legend=document.getElementById('chart-legend');
