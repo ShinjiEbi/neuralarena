@@ -4626,6 +4626,7 @@ let trEvoHistory = []; // [{round, elo, fitness}]
 let glActive=false, glParams=null, glCandidates=[], glResults=[];
 let glCurrent=0, glStage=1, glTimer=0, glInterval=null;
 let glEnt=null, glDummy=null, glTarget=null;
+let glPhase='testing'; // 'testing' | 'choosing'
 
 function trainingTab(name){
   document.querySelectorAll('.arena-tab').forEach((t,i)=>{
@@ -5430,7 +5431,14 @@ function startGauntlet(params){
   }
   document.getElementById('gl-config-panel').style.display   = 'none';
   document.getElementById('gl-gauntlet-panel').style.display = '';
+  glPhase  = 'testing';
   glActive = true;
+  // Restaurer les boutons de test si on relance depuis le choix
+  const btns = document.querySelector('#gl-gauntlet-panel div[style*="display:flex"]');
+  if(btns) btns.innerHTML = `
+    <button class="btn small" onclick="glAbort()">✕ Annuler</button>
+    <button class="btn small" onclick="glSkip()">→ Candidat suivant</button>
+  `;
   glStartCandidate(0);
 }
 
@@ -5508,7 +5516,7 @@ function glStep(){
       if(a.x>t.x && a.x<t.x+t.w && a.y>t.y && a.y<t.y+t.h){
         boom(a.x, a.y, '#f0c040');
         glResults[glCurrent] = 'pass';
-        glFinish(brain);
+        glNext(); // continue — user choisit à la fin
         return;
       }
     }
@@ -5519,12 +5527,37 @@ function glStep(){
 function glNext(){
   const next = glCurrent + 1;
   if(next >= glCandidates.length){
-    // Aucun parfait — meilleur effort (s1 > none)
-    const best = glResults.findIndex(r=>r==='s2fail'||r==='s1');
-    glFinish(glCandidates[best >= 0 ? best : 0]);
+    // Tous testés → phase choix, l'utilisateur décide
+    glPhase = 'choosing';
+    glActive = false;
+    if(glInterval){ clearInterval(glInterval); glInterval=null; }
+    glDrawFrame(); // dernière frame figée
+    glShowChoiceUI();
     return;
   }
   glStartCandidate(next);
+}
+
+function glShowChoiceUI(){
+  const bar = document.getElementById('gl-candidates-bar');
+  if(bar) bar.innerHTML = glCandidates.map((_,i)=>{
+    const r   = glResults[i];
+    const col = r==='pass'?'#40ff80':r==='s2fail'?'#804020':r==='s1'?'#f0c040':r==='none'?'#602020':'#1e1630';
+    const ico = r==='pass'?'✓':r==='s2fail'?'½':r==='s1'?'⟳':r==='none'?'✗':`${i+1}`;
+    return `<div onclick="glChoose(${i})" title="Candidat ${i+1}: ${r}" style="cursor:pointer;width:36px;height:30px;background:${col};color:#0d0818;font-size:9px;font-family:monospace;display:flex;align-items:center;justify-content:center;font-weight:bold;border:2px solid transparent;box-sizing:border-box">${ico}</div>`;
+  }).join('');
+  const el = document.getElementById('gl-status');
+  if(el) el.textContent = 'Cliquez sur un candidat pour l\'ajouter';
+  const btns = document.querySelector('#gl-gauntlet-panel div[style*="display:flex"]');
+  if(btns) btns.innerHTML = `
+    <button class="btn small" onclick="glAbort()">✕ Annuler</button>
+    <button class="btn small" onclick="startGauntlet(glParams)">↺ Recommencer</button>
+  `;
+}
+
+function glChoose(i){
+  glCurrent = i;
+  glFinish(glCandidates[i]);
 }
 
 async function glFinish(brain){
@@ -5548,7 +5581,10 @@ async function glFinish(brain){
 }
 
 function glSkip(){
-  if(!glActive) return;
+  if(!glActive || glPhase !== 'testing') return;
+  // Marquer résultat partiel selon l'étape en cours
+  if(glStage === 2) glResults[glCurrent] = 's2fail';
+  else glResults[glCurrent] = 'none';
   glNext();
 }
 
