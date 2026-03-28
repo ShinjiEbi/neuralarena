@@ -661,6 +661,19 @@ body:not(.observe-mode) #cam-hint{display:none}
 <div id="toast"></div>
 
 <script>
+// ── Gestionnaire d'erreurs global ─────────────────────────────────
+window.onerror = (msg, src, line, col, err) => {
+  const t = document.getElementById('toast');
+  if(t){ t.textContent = `JS ERR ligne ${line}: ${msg}`; t.style.opacity='1'; setTimeout(()=>t.style.opacity='0', 6000); }
+  console.error('[NeuralArena ERR]', msg, 'ligne', line, err);
+  return false;
+};
+window.addEventListener('unhandledrejection', e => {
+  const msg = e.reason?.message || String(e.reason);
+  const t = document.getElementById('toast');
+  if(t){ t.textContent = `ERR async: ${msg}`; t.style.opacity='1'; setTimeout(()=>t.style.opacity='0', 6000); }
+  console.error('[NeuralArena ASYNC ERR]', e.reason);
+});
 // ================================================================
 //  NEURAL NETWORK
 // ================================================================
@@ -1521,13 +1534,18 @@ function randomSpawns(n){
   return positions;
 }
 
-function quickPlay(){
+async function quickPlay(){
   // Lance directement une partie humain vs cerveau actif (remplace le mode solo arena-archer.js)
   lobbySlots[0] = {type:'human', brainId: currentBrainId};
   lobbySlots[1] = {type:'ai',    brainId: currentBrainId};
   lobbySlots[2] = {type:'off',   brainId: currentBrainId};
   lobbySlots[3] = {type:'off',   brainId: currentBrainId};
-  startPVP();
+  try {
+    await startPVP();
+  } catch(e) {
+    toast('Erreur lancement: ' + (e.message || e));
+    console.error('[quickPlay]', e);
+  }
 }
 
 async function startPVP(){
