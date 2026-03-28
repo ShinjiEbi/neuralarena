@@ -5446,6 +5446,7 @@ function glStartCandidate(idx){
   glUpdateStatus();
   if(glInterval){ clearInterval(glInterval); glInterval=null; }
   glInterval = setInterval(glTick, 1000/60);
+  setTimeout(glDrawFrame, 50); // frame initiale immédiate
 }
 
 function glStartStage2(){
@@ -5462,8 +5463,21 @@ function glStartStage2(){
 
 function glTick(){
   if(!glActive) return;
-  for(let i=0;i<8;i++){ if(!glActive) break; glStep(); }
-  glDrawFrame();
+  try {
+    for(let i=0;i<8;i++){ if(!glActive) break; glStep(); }
+    glDrawFrame();
+  } catch(e) {
+    clearInterval(glInterval); glInterval=null; glActive=false;
+    console.error('[Gauntlet]', e);
+    const cv=document.getElementById('gauntlet-canvas');
+    if(cv){
+      const ctx=cv.getContext('2d');
+      ctx.fillStyle='#0d0818'; ctx.fillRect(0,0,cv.width,cv.height);
+      ctx.fillStyle='#ff4444'; ctx.font='bold 8px monospace'; ctx.textAlign='left';
+      const lines=[e.message||String(e),...(e.stack||'').split('\n').slice(0,3)];
+      lines.forEach((l,i)=>ctx.fillText(l.slice(0,80), 6, 20+i*12));
+    }
+  }
 }
 
 function glStep(){
@@ -5550,7 +5564,7 @@ function glUpdateStatus(){
   if(bar) bar.innerHTML = glCandidates.map((_,i)=>{
     const r   = glResults[i];
     const col = r==='pass'?'#40ff80':r==='s2fail'?'#804020':r==='s1'?'#f0c040':r==='none'?'#602020':i===glCurrent?'#00c8ff':'#1e1630';
-    const ico = r==='pass'?'✓':r==='s2fail'?'½':r==='s1'?'⟳':r==='none'?'✗':i===glCurrent?'▶':'·';
+    const ico = r==='pass'?'✓':r==='s2fail'?'½':r==='s1'?'⟳':r==='none'?'✗':`${i+1}`;
     return `<div style="width:30px;height:22px;background:${col};color:#0d0818;font-size:8px;font-family:monospace;display:flex;align-items:center;justify-content:center;font-weight:bold">${ico}</div>`;
   }).join('');
   const el = document.getElementById('gl-status');
@@ -5573,12 +5587,12 @@ function glDrawFrame(){
 
   // Plateformes
   for(const p of GL_PLATFORMS){
-    ctx.fillStyle = p.h>20||p.w<=12 ? '#161028' : '#2e2448';
+    ctx.fillStyle = p.h>20||p.w<=12 ? '#1e1640' : '#2e2448';
     ctx.fillRect(p.x, p.y, p.w, p.h);
   }
-  // Liseré du sol
-  ctx.fillStyle = '#5a4e80';
-  ctx.fillRect(12, WH-30, WW-24, 2);
+  // Liseré du sol (visible)
+  ctx.fillStyle = '#7060a8';
+  ctx.fillRect(12, WH-30, WW-24, 3);
 
   if(glStage===1){
     // Ligne d'arrivée
