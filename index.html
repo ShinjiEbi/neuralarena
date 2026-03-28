@@ -5467,21 +5467,17 @@ function glTick(){
 }
 
 function glStep(){
+  if(!glActive) return;
   glTimer++;
   const brain = glCandidates[glCurrent];
   const ce    = glEnt;
 
-  // Muter l'array en place (platforms est const, on ne peut pas le réassigner)
-  const savedPlats = platforms.splice(0, platforms.length);
-  platforms.push(...GL_PLATFORMS);
-
+  // Pas de swap de platforms : le tableau réel contient déjà un sol plein-largeur
+  // ({x:0,y:WH-30,w:WW,h:30}) suffisant pour les deux étapes du gauntlet.
   const inp = aiInputsFor(ce, glDummy, [], glTimer);
   const out = brain.forward(inp);
   aiProcessFor(out, ce);
   ce.update();
-
-  platforms.splice(0, platforms.length);
-  platforms.push(...savedPlats);
 
   if(glStage === 1){
     if(ce.x + ce.w >= GL_FINISH_X){
