@@ -6523,37 +6523,7 @@ window.backToCreateModal = function(){
   }
 };
 
-window.confirmNewBrain = async function(){
-  const H         = parseInt(document.getElementById('bc-h')?.value)||8;
-  const outSize   = parseInt(document.getElementById('bc-out')?.value)||4;
-  const arbSize   = parseInt(document.getElementById('bc-arb')?.value)||8;
-  const xavierScale = parseFloat(document.getElementById('bc-xavier')?.value)||1.0;
-  const startElo  = parseInt(document.getElementById('bc-elo')?.value)||(window.ELO_BASE||1200);
-
-  const b = new MultiExpertBrain(H, outSize, arbSize, xavierScale);
-  b.elo = startElo;
-
-  const id   = 'brain_'+Date.now();
-  const name = await window.nextBrainName();
-  await window.store.put('brains',{id, name, creator:window.localCreator||'anon',
-    brain:b.serialize(), generation:1, fitness:0, elo:startElo,
-    wins:0, played:0, timestamp:Date.now(), game:'arena-archer',
-    topology:'GRU(H='+H+')×4+ATT+ARB('+arbSize+')', params:b.paramCount()});
-
-  window.currentBrainId = id;
-  window.store.setConfig('currentBrainId', id);
-  b.pgLearner = new PolicyGradientLearner(0.001, 0.97);
-  activeBrain  = b;
-  window.activeBrain   = b;
-  window.generation    = 1;
-  window.bestBrain     = null;
-  window.totalWins     = 0;
-  window.totalPlayed   = 0;
-
-  window.closeBrainModal();
-  window.toast('Créé : '+name+' ('+b.paramCount()+' params · v3+ATT)');
-  window.updateLabUI();
-};
+// confirmNewBrain : défini dans le code principal — lance le gauntlet de sélection.
 
 // Patcher le bouton du modal au chargement
 document.addEventListener('DOMContentLoaded', ()=>{
