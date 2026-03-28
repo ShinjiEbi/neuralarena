@@ -575,7 +575,7 @@ body:not(.observe-mode) #cam-hint{display:none}
     <!-- PANEL GAUNTLET -->
     <div id="gl-gauntlet-panel" style="display:none">
       <div style="font-family:'Press Start 2P';font-size:9px;color:var(--gold);margin-bottom:10px;text-shadow:2px 2px 0 #7a4400">SÉLECTION EN COURS</div>
-      <canvas id="gauntlet-canvas" width="560" height="190" style="width:100%;display:block;border:1px solid #2e2448;background:#0d0818;margin-bottom:8px"></canvas>
+      <canvas id="gauntlet-canvas" width="560" height="280" style="width:100%;display:block;border:1px solid #2e2448;background:#0d0818;margin-bottom:8px"></canvas>
       <div id="gl-candidates-bar" style="display:flex;gap:3px;margin-bottom:7px"></div>
       <div id="gl-status" style="font-size:6px;color:#8060c0;margin-bottom:10px;line-height:2;min-height:14px"></div>
       <div style="display:flex;gap:8px">
@@ -5453,8 +5453,8 @@ function glStartStage2(){
   glStage = 2;
   glTimer = 0;
   glCandidates[glCurrent].resetMemory();
-  // Cerveau à droite, cible statique à gauche avec hitbox élargie
-  glEnt    = new Ent(WW-180, WH-62, SLOT_COLORS[0], true);
+  // Cerveau au centre, cible statique à gauche
+  glEnt    = new Ent(500, WH-62, SLOT_COLORS[0], true);
   glTarget = new Ent(100, WH-62, '#ff4444', false);
   glTarget.w = 50; glTarget.h = 50;
   glDummy  = glTarget;
@@ -5576,13 +5576,35 @@ function glDrawFrame(){
   if(!cv) return;
   const ctx = cv.getContext('2d');
   const W = cv.width, H = cv.height;
-  const sc = Math.min(W/WW, H/WH) * 0.91;
-  const offX = (W-WW*sc)/2, offY = (H-WH*sc)/2;
+
+  // ── Caméra follow : fenêtre sur le monde ──────────────────────
+  const VIEW_H = 400; // unités monde affichées verticalement
+  const viewY  = WH - VIEW_H; // toujours le bas de l'arène
+
+  let viewX, viewW;
+  if(glStage===2 && glTarget && glEnt){
+    // Montrer entity + cible
+    const lx = Math.min(glEnt.x, glTarget.x) - 60;
+    const rx = Math.max(glEnt.x+glEnt.w, glTarget.x+glTarget.w) + 60;
+    viewX = Math.max(0, lx);
+    viewW = Math.min(WW, rx) - viewX;
+  } else if(glEnt){
+    // Suivre l'entity en Stage 1 — montrer l'espace devant
+    viewW = 700;
+    viewX = Math.max(0, Math.min(glEnt.x - 80, WW - viewW));
+  } else {
+    viewX = 0; viewW = WW;
+  }
+
+  const sc   = Math.min(W/viewW, H/VIEW_H);
+  const offX = (W - viewW*sc)/2;
+  const offY = (H - VIEW_H*sc)/2;
 
   ctx.fillStyle = '#0d0818';
   ctx.fillRect(0, 0, W, H);
   ctx.save();
-  ctx.translate(offX, offY);
+  // canvas_pos = offX + (world_x - viewX)*sc
+  ctx.translate(offX - viewX*sc, offY - viewY*sc);
   ctx.scale(sc, sc);
 
   // Plateformes
@@ -5590,26 +5612,23 @@ function glDrawFrame(){
     ctx.fillStyle = p.h>20||p.w<=12 ? '#1e1640' : '#2e2448';
     ctx.fillRect(p.x, p.y, p.w, p.h);
   }
-  // Liseré du sol (visible)
   ctx.fillStyle = '#7060a8';
   ctx.fillRect(12, WH-30, WW-24, 3);
 
   if(glStage===1){
-    // Ligne d'arrivée
     ctx.save();
     ctx.setLineDash([12,6]);
-    ctx.strokeStyle = '#40ff80'; ctx.lineWidth = 3;
-    ctx.globalAlpha = 0.75;
-    ctx.beginPath(); ctx.moveTo(GL_FINISH_X, 12); ctx.lineTo(GL_FINISH_X, WH-30); ctx.stroke();
+    ctx.strokeStyle='#40ff80'; ctx.lineWidth=3; ctx.globalAlpha=0.75;
+    ctx.beginPath(); ctx.moveTo(GL_FINISH_X, viewY); ctx.lineTo(GL_FINISH_X, WH-30); ctx.stroke();
     ctx.restore();
     ctx.fillStyle='#40ff80'; ctx.font=`bold ${Math.round(20/sc)}px monospace`;
-    ctx.fillText('GOAL', GL_FINISH_X+12, WH-45);
+    ctx.fillText('GOAL', GL_FINISH_X+12, WH-48);
   }
 
   if(glStage===2 && glTarget){
-    const t = glTarget;
-    const cx = t.x+t.w/2, cy = t.y+t.h/2;
-    ctx.fillStyle='#3a0808'; ctx.fillRect(t.x, t.y, t.w, t.h);
+    const t=glTarget;
+    const cx=t.x+t.w/2, cy=t.y+t.h/2;
+    ctx.fillStyle='#3a0808'; ctx.fillRect(t.x,t.y,t.w,t.h);
     [[24,'#ff4444'],[15,'#ffffff'],[8,'#ff2020']].forEach(([r,col])=>{
       ctx.strokeStyle=col; ctx.lineWidth=2;
       ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.stroke();
@@ -5619,25 +5638,24 @@ function glDrawFrame(){
 
   if(glEnt) glEnt.draw(ctx);
 
-  // Particules
   updateParticles();
   for(const p of particles){
-    ctx.globalAlpha = Math.max(0, p.life/40);
-    ctx.fillStyle = p.col;
-    ctx.fillRect(p.x, p.y, p.sz||2, p.sz||2);
+    ctx.globalAlpha=Math.max(0,p.life/40);
+    ctx.fillStyle=p.col;
+    ctx.fillRect(p.x,p.y,p.sz||2,p.sz||2);
   }
-  ctx.globalAlpha = 1;
+  ctx.globalAlpha=1;
   ctx.restore();
 
   // HUD
-  ctx.fillStyle='rgba(13,8,24,0.85)'; ctx.fillRect(0,0,W,20);
-  ctx.font='bold 7px monospace'; ctx.textAlign='left';
-  ctx.fillStyle = glStage===1?'#40ff80':'#f0c040';
-  ctx.fillText(glStage===1?'◀ TRAVERSER ▶':'◎ VISER ET TIRER', 6, 13);
+  ctx.fillStyle='rgba(13,8,24,0.9)'; ctx.fillRect(0,0,W,22);
+  ctx.font='bold 8px monospace'; ctx.textAlign='left';
+  ctx.fillStyle=glStage===1?'#40ff80':'#f0c040';
+  ctx.fillText(glStage===1?'TRAVERSER →':'◎ VISER & TIRER', 6, 15);
   ctx.textAlign='right';
-  const tLeft = Math.max(0, Math.ceil(((glStage===1?GL_MAX_S1:GL_MAX_S2)-glTimer)/60));
-  ctx.fillStyle = tLeft<4?'#ff4444':'#8060c0';
-  ctx.fillText(`${tLeft}s`, W-6, 13);
+  const tLeft=Math.max(0,Math.ceil(((glStage===1?GL_MAX_S1:GL_MAX_S2)-glTimer)/60));
+  ctx.fillStyle=tLeft<4?'#ff4444':'#8060c0';
+  ctx.fillText(`${tLeft}s`,W-6,15);
 }
 //             ex: "darknode"
 //
