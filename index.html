@@ -580,7 +580,7 @@ body:not(.observe-mode) #cam-hint{display:none}
       <div id="gl-status" style="font-size:6px;color:#8060c0;margin-bottom:10px;line-height:2;min-height:14px"></div>
       <div style="display:flex;gap:8px">
         <button class="btn small" onclick="glAbort()">✕ Annuler</button>
-        <button class="btn small" onclick="glSkip()">→ Candidat suivant</button>
+        <button class="btn small" onclick="glSkip()">→ Passer</button>
       </div>
     </div>
 
@@ -1443,9 +1443,9 @@ const GL_PLATFORMS = [
   {x:0,     y:WH-30, w:WW,  h:30},
 ];
 const GL_FINISH_X = WW - 200;  // ligne d'arrivée étape 1
-const GL_MAX_S1 = 900;          // 15 s
-const GL_MAX_S2 = 900;
-const GL_N = 8;                  // candidats par gauntlet
+const GL_MAX_S1 = 900;  // 15 s étape 1
+const GL_MAX_S2 = 900;  // 15 s étape 2
+const GL_MAX_S3 = 900;  // 15 s étape 3
 
 let particles=[],camX=0,camY=0;
 
@@ -4623,10 +4623,12 @@ let trRoundOver = false;
 let trEvoHistory = []; // [{round, elo, fitness}]
 
 // ── GAUNTLET ────────────────────────────────────────────────────
-let glActive=false, glParams=null, glCandidates=[], glResults=[];
-let glCurrent=0, glStage=1, glTimer=0, glInterval=null;
-let glEnt=null, glDummy=null, glTarget=null;
-let glPhase='testing'; // 'testing' | 'choosing'
+let glActive=false, glParams=null;
+let glTested=0;  // nombre de cerveaux générés depuis le début
+let glStage=1, glTimer=0, glInterval=null;
+let glEnt=null, glDummy=null, glTarget=null, glRookie=null;
+let glCurrentBrain=null;
+let glHistory=[]; // 'none'|'s2'|'s3'|'pass' pour chaque cerveau testé
 
 function trainingTab(name){
   document.querySelectorAll('.arena-tab').forEach((t,i)=>{
@@ -5422,51 +5424,64 @@ function confirmNewBrain(){
 // Si aucun passe l'étape 2, le meilleur (au moins étape 1) est gardé.
 
 function startGauntlet(params){
-  glParams     = params;
-  glCandidates = [];
-  glResults    = [];
-  for(let i=0;i<GL_N;i++){
-    glCandidates.push(new MultiExpertBrain(params.H, params.out, params.arb, params.xavier));
-    glResults.push('pending');
-  }
+  glParams  = params;
+  glTested  = 0;
+  glHistory = [];
   document.getElementById('gl-config-panel').style.display   = 'none';
   document.getElementById('gl-gauntlet-panel').style.display = '';
-  glPhase  = 'testing';
-  glActive = true;
-  // Restaurer les boutons de test si on relance depuis le choix
-  const btns = document.querySelector('#gl-gauntlet-panel div[style*="display:flex"]');
-  if(btns) btns.innerHTML = `
-    <button class="btn small" onclick="glAbort()">✕ Annuler</button>
-    <button class="btn small" onclick="glSkip()">→ Candidat suivant</button>
-  `;
-  glStartCandidate(0);
+  glActive  = true;
+  glNextCandidate();
 }
 
-function glStartCandidate(idx){
-  glCurrent = idx;
-  glStage   = 1;
-  glTimer   = 0;
-  glCandidates[idx].resetMemory();
-  // Cerveau à gauche, ennemi fictif à droite (pour aiInputsFor)
-  glEnt   = new Ent(80, WH-62, SLOT_COLORS[0], true);
-  glDummy = new Ent(WW-120, WH-62, '#444444', false);
+function glNextCandidate(){
+  glCurrentBrain = new MultiExpertBrain(glParams.H, glParams.out, glParams.arb, glParams.xavier);
+  glTested++;
+  glStage  = 1;
+  glTimer  = 0;
+  glCurrentBrain.resetMemory();
+  glEnt    = new Ent(80, WH-62, SLOT_COLORS[0], true);
+  glDummy  = new Ent(WW-120, WH-62, '#444444', false);
   glTarget = null;
+  glRookie = null;
   glUpdateStatus();
   if(glInterval){ clearInterval(glInterval); glInterval=null; }
   glInterval = setInterval(glTick, 1000/60);
-  setTimeout(glDrawFrame, 50); // frame initiale immédiate
+  setTimeout(glDrawFrame, 50);
 }
 
 function glStartStage2(){
   glStage = 2;
   glTimer = 0;
-  glCandidates[glCurrent].resetMemory();
-  // Cerveau au centre, cible statique à gauche
+  glCurrentBrain.resetMemory();
   glEnt    = new Ent(500, WH-62, SLOT_COLORS[0], true);
   glTarget = new Ent(100, WH-62, '#ff4444', false);
   glTarget.w = 50; glTarget.h = 50;
   glDummy  = glTarget;
+  glRookie = null;
   glUpdateStatus();
+}
+
+function glStartStage3(){
+  glStage = 3;
+  glTimer = 0;
+  glCurrentBrain.resetMemory();
+  // Candidat à droite, rookie à gauche
+  glEnt    = new Ent(WW-250, WH-62, SLOT_COLORS[0], true);
+  glRookie = new Ent(120, WH-62, '#ff6600', true);
+  glDummy  = glRookie;
+  glTarget = null;
+  glUpdateStatus();
+}
+
+// IA simple du rookie : marche vers le candidat et tire
+function glRookieThink(rookie, target){
+  const dx=(target.x+target.w/2)-(rookie.x+rookie.w/2);
+  const dy=(target.y+target.h/2)-(rookie.y+rookie.h/2);
+  if(dx > 10){ rookie.vx+=MSPD*0.25; rookie.face=1; }
+  else if(dx < -10){ rookie.vx-=MSPD*0.25; rookie.face=-1; }
+  if(rookie.gnd && Math.random()<0.012) rookie.vy=JUMP;
+  rookie.aim=Math.atan2(dy,dx);
+  if(rookie.cd===0 && Math.abs(dx)<600) rookie.shoot();
 }
 
 function glTick(){
@@ -5491,73 +5506,47 @@ function glTick(){
 function glStep(){
   if(!glActive) return;
   glTimer++;
-  const brain = glCandidates[glCurrent];
+  const brain = glCurrentBrain;
   const ce    = glEnt;
 
-  // Pas de swap de platforms : le tableau réel contient déjà un sol plein-largeur
-  // ({x:0,y:WH-30,w:WW,h:30}) suffisant pour les deux étapes du gauntlet.
-  const inp = aiInputsFor(ce, glDummy, [], glTimer);
+  const inp = aiInputsFor(ce, glDummy, glRookie ? glRookie.arr : [], glTimer);
   const out = brain.forward(inp);
   aiProcessFor(out, ce);
   ce.update();
 
   if(glStage === 1){
-    if(ce.x + ce.w >= GL_FINISH_X){
-      glResults[glCurrent] = 's1';
-      glStartStage2();
-      return;
-    }
-    if(glTimer >= GL_MAX_S1){ glResults[glCurrent]='none'; glNext(); }
-  } else {
+    if(ce.x + ce.w >= GL_FINISH_X){ glStartStage2(); return; }
+    if(glTimer >= GL_MAX_S1){ glHistory.push('none'); glNextCandidate(); }
+
+  } else if(glStage === 2){
     const t = glTarget;
     for(let j=ce.arr.length-1; j>=0; j--){
       const a = ce.arr[j];
       if(a.st) continue;
       if(a.x>t.x && a.x<t.x+t.w && a.y>t.y && a.y<t.y+t.h){
         boom(a.x, a.y, '#f0c040');
-        glResults[glCurrent] = 'pass';
-        glNext(); // continue — user choisit à la fin
+        glStartStage3();
         return;
       }
     }
-    if(glTimer >= GL_MAX_S2){ glResults[glCurrent]='s2fail'; glNext(); }
+    if(glTimer >= GL_MAX_S2){ glHistory.push('s2'); glNextCandidate(); }
+
+  } else { // stage 3 : vaincre le rookie
+    glRookieThink(glRookie, ce);
+    glRookie.update();
+    for(let j=ce.arr.length-1; j>=0; j--){
+      const a = ce.arr[j];
+      if(a.st) continue;
+      if(a.x>glRookie.x && a.x<glRookie.x+glRookie.w &&
+         a.y>glRookie.y && a.y<glRookie.y+glRookie.h){
+        boom(a.x, a.y, '#40ff80');
+        glHistory.push('pass');
+        glFinish(brain);
+        return;
+      }
+    }
+    if(glTimer >= GL_MAX_S3){ glHistory.push('s3'); glNextCandidate(); }
   }
-}
-
-function glNext(){
-  const next = glCurrent + 1;
-  if(next >= glCandidates.length){
-    // Tous testés → phase choix, l'utilisateur décide
-    glPhase = 'choosing';
-    glActive = false;
-    if(glInterval){ clearInterval(glInterval); glInterval=null; }
-    glDrawFrame(); // dernière frame figée
-    glShowChoiceUI();
-    return;
-  }
-  glStartCandidate(next);
-}
-
-function glShowChoiceUI(){
-  const bar = document.getElementById('gl-candidates-bar');
-  if(bar) bar.innerHTML = glCandidates.map((_,i)=>{
-    const r   = glResults[i];
-    const col = r==='pass'?'#40ff80':r==='s2fail'?'#804020':r==='s1'?'#f0c040':r==='none'?'#602020':'#1e1630';
-    const ico = r==='pass'?'✓':r==='s2fail'?'½':r==='s1'?'⟳':r==='none'?'✗':`${i+1}`;
-    return `<div onclick="glChoose(${i})" title="Candidat ${i+1}: ${r}" style="cursor:pointer;width:36px;height:30px;background:${col};color:#0d0818;font-size:9px;font-family:monospace;display:flex;align-items:center;justify-content:center;font-weight:bold;border:2px solid transparent;box-sizing:border-box">${ico}</div>`;
-  }).join('');
-  const el = document.getElementById('gl-status');
-  if(el) el.textContent = 'Cliquez sur un candidat pour l\'ajouter';
-  const btns = document.querySelector('#gl-gauntlet-panel div[style*="display:flex"]');
-  if(btns) btns.innerHTML = `
-    <button class="btn small" onclick="glAbort()">✕ Annuler</button>
-    <button class="btn small" onclick="startGauntlet(glParams)">↺ Recommencer</button>
-  `;
-}
-
-function glChoose(i){
-  glCurrent = i;
-  glFinish(glCandidates[i]);
 }
 
 async function glFinish(brain){
@@ -5574,18 +5563,15 @@ async function glFinish(brain){
   currentBrainId=id; store.setConfig('currentBrainId',id); activeBrain=brain;
   activeBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
   generation=1; bestBrain=null; totalWins=0; totalPlayed=0;
-  const passed = glResults[glCurrent]==='pass';
   closeBrainModal();
-  toast(`${passed?'✓ Sélectionné':'Meilleur effort'} : ${name} (candidat ${glCurrent+1}/${GL_N})`);
+  toast(`✓ Cerveau sélectionné : ${name} (testé #${glTested})`);
   updateLabUI();
 }
 
 function glSkip(){
-  if(!glActive || glPhase !== 'testing') return;
-  // Marquer résultat partiel selon l'étape en cours
-  if(glStage === 2) glResults[glCurrent] = 's2fail';
-  else glResults[glCurrent] = 'none';
-  glNext();
+  if(!glActive) return;
+  glHistory.push(glStage===3?'s3':glStage===2?'s2':'none');
+  glNextCandidate();
 }
 
 function glAbort(){
@@ -5596,15 +5582,19 @@ function glAbort(){
 }
 
 function glUpdateStatus(){
+  // Barre d'historique : dernier 20 cerveaux testés
   const bar = document.getElementById('gl-candidates-bar');
-  if(bar) bar.innerHTML = glCandidates.map((_,i)=>{
-    const r   = glResults[i];
-    const col = r==='pass'?'#40ff80':r==='s2fail'?'#804020':r==='s1'?'#f0c040':r==='none'?'#602020':i===glCurrent?'#00c8ff':'#1e1630';
-    const ico = r==='pass'?'✓':r==='s2fail'?'½':r==='s1'?'⟳':r==='none'?'✗':`${i+1}`;
-    return `<div style="width:30px;height:22px;background:${col};color:#0d0818;font-size:8px;font-family:monospace;display:flex;align-items:center;justify-content:center;font-weight:bold">${ico}</div>`;
-  }).join('');
+  if(bar){
+    const last = glHistory.slice(-20);
+    bar.innerHTML = last.map(r=>{
+      const col = r==='pass'?'#40ff80':r==='s3'?'#f06020':r==='s2'?'#f0c040':r==='none'?'#602020':'#1e1630';
+      const ico = r==='pass'?'✓':r==='s3'?'③':r==='s2'?'②':'①';
+      return `<div style="width:20px;height:20px;background:${col};color:#0d0818;font-size:7px;font-family:monospace;display:flex;align-items:center;justify-content:center;font-weight:bold;border-radius:2px">${ico}</div>`;
+    }).join('') + `<div style="width:20px;height:20px;background:#00c8ff;color:#0d0818;font-size:6px;font-family:monospace;display:flex;align-items:center;justify-content:center;font-weight:bold;border-radius:2px;animation:pulse 1s infinite">▶</div>`;
+  }
+  const stageLabel = glStage===1?'TRAVERSER →':glStage===2?'VISER ◎':'VAINCRE ⚔';
   const el = document.getElementById('gl-status');
-  if(el) el.textContent = `Candidat ${glCurrent+1}/${GL_N}  ·  ${glStage===1?'ÉTAPE 1/2 : TRAVERSER →':'ÉTAPE 2/2 : VISER LA CIBLE ◎'}`;
+  if(el) el.textContent = `Cerveau #${glTested}  ·  Étape ${glStage}/3 : ${stageLabel}`;
 }
 
 function glDrawFrame(){
@@ -5618,14 +5608,13 @@ function glDrawFrame(){
   const viewY  = WH - VIEW_H; // toujours le bas de l'arène
 
   let viewX, viewW;
-  if(glStage===2 && glTarget && glEnt){
-    // Montrer entity + cible
-    const lx = Math.min(glEnt.x, glTarget.x) - 60;
-    const rx = Math.max(glEnt.x+glEnt.w, glTarget.x+glTarget.w) + 60;
-    viewX = Math.max(0, lx);
-    viewW = Math.min(WW, rx) - viewX;
+  const other = glStage===3 ? glRookie : (glStage===2 ? glTarget : null);
+  if(other && glEnt){
+    const lx = Math.min(glEnt.x, other.x) - 80;
+    const rx = Math.max(glEnt.x+glEnt.w, other.x+other.w) + 80;
+    viewW = Math.max(500, Math.min(WW, rx - lx));
+    viewX = Math.max(0, Math.min(lx, WW - viewW));
   } else if(glEnt){
-    // Suivre l'entity en Stage 1 — montrer l'espace devant
     viewW = 700;
     viewX = Math.max(0, Math.min(glEnt.x - 80, WW - viewW));
   } else {
@@ -5672,7 +5661,8 @@ function glDrawFrame(){
     ctx.fillStyle='#ffffff'; ctx.fillRect(cx-2,cy-2,4,4);
   }
 
-  if(glEnt) glEnt.draw(ctx);
+  if(glRookie) glRookie.draw(ctx);
+  if(glEnt)   glEnt.draw(ctx);
 
   updateParticles();
   for(const p of particles){
@@ -5686,12 +5676,14 @@ function glDrawFrame(){
   // HUD
   ctx.fillStyle='rgba(13,8,24,0.9)'; ctx.fillRect(0,0,W,22);
   ctx.font='bold 8px monospace'; ctx.textAlign='left';
-  ctx.fillStyle=glStage===1?'#40ff80':'#f0c040';
-  ctx.fillText(glStage===1?'TRAVERSER →':'◎ VISER & TIRER', 6, 15);
+  const hudCol = glStage===1?'#40ff80':glStage===2?'#f0c040':'#ff6600';
+  ctx.fillStyle = hudCol;
+  ctx.fillText(glStage===1?'① TRAVERSER →':glStage===2?'② VISER ◎':'③ VAINCRE ⚔', 6, 15);
   ctx.textAlign='right';
-  const tLeft=Math.max(0,Math.ceil(((glStage===1?GL_MAX_S1:GL_MAX_S2)-glTimer)/60));
+  const glMax = glStage===1?GL_MAX_S1:glStage===2?GL_MAX_S2:GL_MAX_S3;
+  const tLeft = Math.max(0,Math.ceil((glMax-glTimer)/60));
   ctx.fillStyle=tLeft<4?'#ff4444':'#8060c0';
-  ctx.fillText(`${tLeft}s`,W-6,15);
+  ctx.fillText(`#${glTested} · ${tLeft}s`,W-6,15);
 }
 //             ex: "darknode"
 //
