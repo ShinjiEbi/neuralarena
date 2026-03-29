@@ -190,6 +190,11 @@ body:not(.observe-mode) #cam-hint{display:none}
 .tr-agent-lvl{display:flex;gap:3px}
 .tr-agent-lvl-btn{font-family:'Press Start 2P',monospace;font-size:5px;padding:3px 6px;border:2px solid var(--border);background:none;color:#6040a0;cursor:pointer}
 .tr-agent-lvl-btn.active{border-color:var(--gold);color:var(--gold);background:rgba(240,160,48,0.1)}
+.tr-trainer-btn{display:flex;flex-direction:column;align-items:center;padding:4px 5px;border:2px solid var(--border);background:var(--card);cursor:pointer;min-width:48px;gap:1px;transition:border-color 0.2s,background 0.2s}
+.tr-trainer-btn.active{background:#1a0e2e}
+.tr-trainer-name{font-family:'Press Start 2P',monospace;font-size:6px;font-weight:bold}
+.tr-trainer-sub{font-size:4px;color:#5a4070}
+.tr-trainer-quote{font-size:5px;color:#5a4070;font-style:italic;margin-top:4px;padding:3px 8px;border-left:2px solid var(--border);line-height:1.5}
 .tr-agent-del{font-size:10px;color:#ff4444;cursor:pointer;padding:2px 6px;background:none;border:none}
 .tr-brain-btn{font-family:'Press Start 2P',monospace;font-size:5px;padding:5px 8px;border:2px solid var(--border);background:var(--card);color:#8060c0;cursor:pointer}
 .tr-brain-btn.active{border-color:var(--gold);color:var(--gold);background:rgba(240,160,48,0.08)}
@@ -545,6 +550,8 @@ body:not(.observe-mode) #cam-hint{display:none}
     <!-- PANEL CONFIG -->
     <div id="gl-config-panel">
       <div style="font-family:'Press Start 2P';font-size:9px;color:var(--gold);margin-bottom:14px;text-shadow:2px 2px 0 #7a4400">NOUVEAU CERVEAU</div>
+
+      <div id="bc-seed-info" style="font-size:6px;margin-bottom:10px;padding:4px 8px;background:#1a0e2e;border:1px solid var(--border);color:#6040a0"></div>
 
       <div class="param-group">
         <span class="param-label">TOPOLOGIE</span>
@@ -2201,17 +2208,18 @@ function aiInputsFor(me, target, allArrows, timer){
   ];
 }
 
-function aiProcessFor(out, ent){
-  // Déplacement
+function aiProcessFor(out, ent, target=null){
   if(out[0]>0.5){ ent.vx-=MSPD*0.4; ent.face=-1; }
   if(out[1]>0.5){ ent.vx+=MSPD*0.4; ent.face=1; }
-  // Saut
   if(out[2]>0.5 && ent.gnd) ent.vy=JUMP;
-  // Visée différentielle (vitesse proportionnelle à l'activation)
   const aimSpeed = 0.18;
   ent.aim += (out[4]-out[3]) * aimSpeed;
-  // Tir
   if(out[5]>0.5) ent.shoot();
+  if(out[6]>0.5 && target){
+    const dx=(target.x+target.w/2)-(ent.x+ent.w/2);
+    const dy=(target.y+target.h/2)-(ent.y+ent.h/2);
+    ent.aim = Math.atan2(dy, dx);
+  }
 }
 
 function boom(x,y,col){
@@ -4192,19 +4200,29 @@ function drawStatsHistory(id){
 //  SCRIPTED AGENT — IA codée à la main (4 niveaux)
 class ScriptedAgent {
   constructor(level=1){
-    this.level = level; // 1=ROOKIE 2=FIGHTER 3=VETERAN 4=MASTER
+    this.level = level; // 1=KURO 2=SERA 3=VENN 4=RYUN
     this.mem = {
       jumpCooldown:0, retreatDir:0, retreatTimer:0,
-      patternBuf:[], losSearchDir:0, losSearchTimer:0,
+      patternBuf:[], losSearchDir:0, losSearchTimer:0, platSearchTimer:0,
+      shootCooldown:0,  // discipline de tir (L2+)
+      frozenTimer:0,    // pause confusion KURO (L1)
+      missStreak:0,     // frames sans impact proche (L3+)
+      prevEnemyVy:0,    // suivi vy ennemi pour détection apex (L4)
     };
   }
 
   act(me, enemy, enemyArrows, traps, timer){
     const m = this.mem;
-    m.jumpCooldown  = Math.max(0, m.jumpCooldown-1);
-    m.retreatTimer  = Math.max(0, m.retreatTimer-1);
-    m.losSearchTimer= Math.max(0, m.losSearchTimer-1);
+    m.jumpCooldown   = Math.max(0, m.jumpCooldown-1);
+    m.retreatTimer   = Math.max(0, m.retreatTimer-1);
+    m.losSearchTimer = Math.max(0, m.losSearchTimer-1);
     m.platSearchTimer= Math.max(0, (m.platSearchTimer||0)-1);
+    m.shootCooldown  = Math.max(0, m.shootCooldown-1);
+    m.frozenTimer    = Math.max(0, m.frozenTimer-1);
+
+    // L1 — KURO : confusion aléatoire (pause totale)
+    if(this.level===1 && m.frozenTimer>0) return;
+    if(this.level===1 && Math.random()<0.0015) m.frozenTimer=40+Math.floor(Math.random()*40);
 
     const dx   = enemy.x - me.x;
     const dy   = enemy.y - me.y;
@@ -4283,10 +4301,12 @@ class ScriptedAgent {
       m.losSearchTimer = 0;
 
       if(this.level === 1){
+        // KURO : mouvement erratique — inverse parfois brusquement
         if(timer % 90 < 45) moveX = dx > 0 ? 1 : -1;
         else moveX = Math.random() < 0.5 ? 1 : -1;
+        if(timer % 70 === 0 && Math.random()<0.35) moveX *= -1; // inversion surprise
       } else {
-        const optDist = this.level >= 3 ? 380 : 280;
+        const optDist = this.level >= 3 ? 300 : 280;
         if(dist > optDist + 80) moveX = dx > 0 ? 1 : -1;
         else if(dist < optDist - 80) moveX = dx > 0 ? -1 : 1;
         if(m.retreatTimer > 0) moveX = m.retreatDir;
@@ -4311,11 +4331,24 @@ class ScriptedAgent {
         }
         // Esquive flèches venant du dessous (plongeantes vers le haut)
         if(adist < 100 && a.vy < -2 && ay < 0 && Math.abs(ax) < 40){
-          moveX = Math.random() < 0.5 ? 1 : -1;
-          m.retreatDir = moveX;
-          m.retreatTimer = 15;
+          // L4 RYUN : esquive perpendiculaire au vecteur flèche
+          if(this.level >= 4){
+            const perpX = a.vy !== 0 ? Math.sign(a.vx * a.vy > 0 ? -1 : 1) : (Math.random()<0.5?1:-1);
+            moveX = perpX; m.retreatDir=perpX; m.retreatTimer=20;
+          } else {
+            moveX = Math.random() < 0.5 ? 1 : -1;
+            m.retreatDir = moveX; m.retreatTimer = 15;
+          }
         }
       }
+    }
+
+    // ── CONSCIENCE DES PIÈGES (L3+) ────────────────────────────
+    if(this.level >= 3 && moveX !== 0){
+      const mineAhead = traps.filter(t=>t.type==='mine'&&t.active)
+        .some(t=>Math.hypot(t.x+8-(me.x+me.w/2), t.y+8-(me.y+me.h/2))<80
+                && Math.sign((t.x+8)-(me.x+me.w/2))===moveX);
+      if(mineAhead){ moveX*=-1; m.retreatDir=moveX; m.retreatTimer=30; }
     }
 
     // ── SAUT ──────────────────────────────────────────────────
@@ -4365,12 +4398,19 @@ class ScriptedAgent {
       const predY = enemy.y + enemy.vy * tof * (this.level >= 3 ? 0.8 : 0.2);
       targetAim = Math.atan2(predY - me.y, predX - me.x);
 
+      // L4 RYUN : prédiction complète avec gravité, pas de bruit intentionnel
       if(this.level >= 4){
-        if(timer % 200 < 40) targetAim += (Math.random()-0.5) * 0.6;
-        m.patternBuf.push({x:enemy.x,y:enemy.y});
+        const tof4 = dist / ASPD;
+        const predX4 = enemy.x + enemy.vx * tof4;
+        const predY4 = enemy.y + enemy.vy * tof4 - 0.5 * AGRAV * tof4 * tof4 * 0.25;
+        targetAim = Math.atan2(predY4 - me.y, predX4 - me.x);
+        m.patternBuf.push({x:enemy.x, y:enemy.y, vy:enemy.vy});
         if(m.patternBuf.length > 60) m.patternBuf.shift();
       }
     }
+
+    // L1 KURO : bruit d'aim ±12°
+    if(this.level === 1) targetAim += (Math.random()-0.5) * 0.42;
 
     // Appliquer rotation de visée (commun)
     if(this.level >= 2 || !hasHighGround){
@@ -4390,12 +4430,25 @@ class ScriptedAgent {
     while(diff2 < -Math.PI) diff2 += Math.PI*2;
     const aimErr = Math.abs(diff2);
 
-    // Seuil de tir plus permissif en position haute (angle plongeant = cible plus large)
     const highGroundBonus = hasHighGround ? 1.3 : 1.0;
-    const shootThresh = (this.level === 1 ? 0.5 : this.level === 2 ? 0.32 : this.level === 3 ? 0.18 : 0.13) * highGroundBonus;
-    const shootChance = this.level === 1 ? 0.15 : 1.0;
-    if(aimErr < shootThresh && dist < 900 && me.cd === 0 && !blocked){
+    const shootThresh = (this.level===1?0.50:this.level===2?0.32:this.level===3?0.15:0.12)*highGroundBonus;
+    const shootChance = this.level === 1 ? 0.18 : 1.0;
+
+    if(aimErr < shootThresh && dist < 900 && me.cd === 0 && !blocked && m.shootCooldown === 0){
       doShoot = Math.random() < shootChance;
+      if(doShoot) m.shootCooldown = this.level===1?0:this.level===2?18:this.level===3?10:6;
+    }
+
+    // L4 RYUN : forcer tir au passage à l'apex du saut ennemi
+    if(this.level >= 4 && me.cd === 0 && !blocked){
+      const atApex = m.prevEnemyVy < 0 && enemy.vy >= 0 && !enemy.gnd;
+      if(atApex && aimErr < 0.28) doShoot = true;
+    }
+    m.prevEnemyVy = enemy.vy;
+
+    // L4 RYUN : mode berserk (>60% du round écoulé → distance cible 100px)
+    if(this.level >= 4 && timer > 60*22 && !hasHighGround && dist > 120){
+      moveX = dx > 0 ? 1 : -1; // foncer sur l'ennemi
     }
 
     // ── APPLIQUER ─────────────────────────────────────────────
@@ -4430,6 +4483,38 @@ class ScriptedAgent {
 
 // ELO fictif des agents scriptés par niveau
 const AGENT_ELO = [1100, 1350, 1600, 1900];
+
+// ── DONNÉES DES ENTRAÎNEURS ──────────────────────────────────────
+const TRAINER_DATA = [
+  { name:'KURO',  title:'le Fantôme',      color:'#aaaaaa',
+    quotes:{ start:  ["Euh... on commence ?","J'essaie de mon mieux...","Tu vas sûrement gagner."],
+             win:    ["... j'ai gagné ?","C'était peut-être un accident.","Hmm."],
+             lose:   ["Bah voilà.","Ça m'arrive tout le temps.","Je l'avais senti."],
+             streak: ["Arrête. Tu me humilies.","D'accord, t'as compris le truc."] }},
+  { name:'SERA',  title:"l'Arbalétrier",   color:'#60c8ff',
+    quotes:{ start:  ["Concentre-toi. Chaque tir compte.","La technique avant tout.","Viser, c'est observer."],
+             win:    ["La précision prime toujours.","Position dominante, victoire assurée.","Sois patient."],
+             lose:   ["Bien visé.","Tu comprends la géométrie.","Intéressant choix d'angle."],
+             streak: ["Tu commences à viser correctement.","Retiens cet angle."] }},
+  { name:'VENN',  title:'le Chasseur',     color:'#f0c040',
+    quotes:{ start:  ["Je t'ai dans le viseur. Bonne chance.","La chasse commence.","Cours. Ça ne changera rien."],
+             win:    ["On ne fuit pas le chasseur.","Trop prévisible.","Je t'avais cerné dès le début."],
+             lose:   ["Tu commences à chasser toi aussi.","Plus intéressant.","Méfie-toi. J'adapte."],
+             streak: ["Impressionnant. Vraiment.","Le chasseur devient la proie ?"] }},
+  { name:'RYUN',  title:'le Maître',       color:'#ff6060',
+    quotes:{ start:  ["Montre-moi ce que ton cerveau a appris.","Tes patterns sont transparents.","Intéressant spécimen."],
+             win:    ["Pas encore. Continue.","Prévisible.","Je vois chaque mouvement avant toi."],
+             lose:   ["Inattendu. Bien.","Tu évolues.","Conserve cet instinct."],
+             streak: ["Tu m'obliges à changer de stratégie.","Voilà une IA qui apprend vraiment."] }},
+];
+
+function trainerQuote(level, bank){
+  const t = TRAINER_DATA[(level||1)-1];
+  if(!t) return '';
+  const arr = t.quotes[bank] || [];
+  if(!arr.length) return '';
+  return `[${t.name}] « ${arr[Math.floor(Math.random()*arr.length)]} »`;
+}
 
 // ================================================================
 //  PIÈGES (TRAPS)
@@ -4743,16 +4828,24 @@ function trSetBrain(id){ trConfig.brainId=id; renderTrBrainSel(); }
 
 function renderTrAgents(){
   const el=document.getElementById('tr-agents');
-  el.innerHTML=trConfig.agents.map((a,i)=>`
-    <div class="tr-agent-row">
-      <span style="font-size:5px;color:#6040a0;flex-shrink:0">IA ${i+1}</span>
-      <div class="tr-agent-lvl">
-        ${['ROOKIE','FIGHTER','VETERAN','MASTER'].map((lbl,li)=>`
-          <button class="tr-agent-lvl-btn ${a.level===li+1?'active':''}"
-            onclick="trSetAgentLvl(${i},${li+1})">${lbl}</button>`).join('')}
-      </div>
+  el.innerHTML=trConfig.agents.map((a,i)=>{
+    const trainerBtns=TRAINER_DATA.map((td,li)=>`
+      <button class="tr-trainer-btn ${a.level===li+1?'active':''}"
+        style="${a.level===li+1?`border-color:${td.color};background:#1a0e2e`:''}"
+        onclick="trSetAgentLvl(${i},${li+1})">
+        <span class="tr-trainer-name" style="color:${td.color}">${td.name}</span>
+        <span class="tr-trainer-sub">${td.title}</span>
+      </button>`).join('');
+    const selT=TRAINER_DATA[a.level-1];
+    return `<div class="tr-agent-row" style="flex-wrap:wrap;gap:4px">
+      <span style="font-size:5px;color:#6040a0;flex-shrink:0;align-self:center">IA ${i+1}</span>
+      <div class="tr-agent-lvl">${trainerBtns}</div>
       <button class="tr-agent-del" onclick="trRemoveAgent(${i})">✕</button>
-    </div>`).join('');
+      <div class="tr-trainer-quote" style="border-color:${selT.color}88;color:${selT.color}99;width:100%">
+        ${selT.quotes.start[0]}
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function trAddAgent(){
@@ -4784,6 +4877,8 @@ let trCurriculumLevel = 1;   // niveau courant
 let trCurriculumWins = 0;    // victoires depuis dernier changement
 let trCurriculumTotal = 0;   // rounds depuis dernier changement
 let trShapedReward = 0;      // récompense shaped accumulée dans le round
+let trHofRoundElo  = null;   // ELO du cerveau HoF adversaire ce round (null = agent scripté)
+let _trainerLevel  = 1;      // niveau de l'entraîneur actif (pour roleplay)
 
 // ── GÉNÉRATION PAR OBJECTIFS ─────────────────────────────────────
 const TR_GEN_WIN_SIZE = 20;  // fenêtre glissante pour le taux de victoire
@@ -4867,8 +4962,12 @@ async function trainingStart(){
 
   // Agents
   const lvl = trConfig.curriculum ? trCurriculumLevel : trConfig.agents[0].level;
+  _trainerLevel = lvl;
   trAgentObjs=trConfig.agents.map(()=>new ScriptedAgent(lvl));
   trTraps=buildTraps(trConfig.traps);
+
+  // Roleplay : greeting de l'entraîneur
+  setTimeout(()=>toast(trainerQuote(_trainerLevel,'start')), 800);
 
   startTrainRound();
 }
@@ -4908,11 +5007,15 @@ function startTrainRound(){
     if(wr>=0.6 && trCurriculumLevel<4){
       trCurriculumLevel++;
       trCurriculumWins=0; trCurriculumTotal=0;
-      toast(`Niveau ↑ ${['ROOKIE','FIGHTER','VETERAN','MASTER'][trCurriculumLevel-1]}`);
+      _trainerLevel = trCurriculumLevel;
+      const td=TRAINER_DATA[_trainerLevel-1];
+      setTimeout(()=>toast(`⚔ ${td.name} ${td.title} : « ${td.quotes.start[0]} »`), 400);
     } else if(wr<0.25 && trCurriculumLevel>1){
       trCurriculumLevel--;
       trCurriculumWins=0; trCurriculumTotal=0;
-      toast(`Niveau ↓ ${['ROOKIE','FIGHTER','VETERAN','MASTER'][trCurriculumLevel-1]}`);
+      _trainerLevel = trCurriculumLevel;
+      const td=TRAINER_DATA[_trainerLevel-1];
+      setTimeout(()=>toast(`↓ ${td.name} ${td.title} reprend l'entraînement.`), 400);
     }
     const lvl=trConfig.curriculum?trCurriculumLevel:trConfig.agents[0].level;
     trAgentObjs.forEach(a=>a.level=lvl);
@@ -4929,13 +5032,26 @@ function startTrainRound(){
   trTrainees.push(cervEnt);
   trAgentObjs.forEach((ag,i)=>{
     const sp=spawnPositions[i+1];
-    const ent=new Ent(sp.x,sp.y,SLOT_COLORS[i+1],true); ent.face=sp.face;
+    // Couleur de l'entité = couleur du trainer (premier agent uniquement)
+    const entCol = i===0 ? (TRAINER_DATA[_trainerLevel-1]?.color||SLOT_COLORS[1]) : SLOT_COLORS[i+1];
+    const ent=new Ent(sp.x,sp.y,entCol,true); ent.face=sp.face;
     trTrainees.push(ent);
   });
   trBrain.resetMemory();
   trAgentObjs.forEach(a=>{
     a.mem={lastEnemyX:0,lastEnemyY:0,jumpCooldown:0,retreatDir:0,retreatTimer:0,patternBuf:[],lastShot:0};
   });
+
+  // Self-play : 25 % des rounds affrontent un cerveau HoF passé (ELO > 1350)
+  trHofRoundElo = null;
+  if(!popMode && trHof.length > 0 && (trBrain.elo||ELO_BASE) > 1350 && Math.random() < 0.25){
+    const hofBrain = trHof[Math.floor(Math.random()*trHof.length)];
+    hofBrain.resetMemory();
+    trHofRoundElo = hofBrain.elo || ELO_BASE; // ELO réel de l'adversaire HoF pour onRoundEnd
+    trAgentObjs[0] = { level:1, mem:{},
+      act(ent, ce, arrows){ aiProcessFor(hofBrain.forward(aiInputsFor(ent,ce,arrows,trRoundTimer)), ent, ce); }
+    };
+  }
 
   const stepsPerFrame=trConfig.speed===0?1000:trConfig.speed;
   if(trInterval){clearInterval(trInterval);trInterval=null;}
@@ -4963,7 +5079,7 @@ function startTrainRound(){
     const enemyArrows=trTrainees.slice(1).flatMap(e=>e.arr);
     const inp=aiInputsFor(ce,nearestEnemy,enemyArrows,trRoundTimer);
     const out=trBrain.forward(inp);
-    aiProcessFor(out,ce);
+    aiProcessFor(out, ce, nearestEnemy);
     ce.face=nearestEnemy.x<ce.x?-1:1;
     ce.update();
 
@@ -5023,7 +5139,10 @@ function startTrainRound(){
       if(a.st) continue;
       const dx=a.x-(ce.x+ce.w/2), dy=a.y-(ce.y+ce.h/2);
       const d=Math.sqrt(dx*dx+dy*dy);
-      if(d<80) rs.arrowsDodged += 0.1 * _ow.arrowDodge;
+      if(d<80){
+        rs.arrowsDodged    += 0.1  * _ow.arrowDodge;
+        trShapedReward     += 0.005 * _ow.arrowDodge;
+      }
     }
 
     // Tracking compétences par frame
@@ -5080,7 +5199,9 @@ function startTrainRound(){
       for(let i=1;i<trTrainees.length;i++){
         const opp=trTrainees[i];
         if(a.x>opp.x&&a.x<opp.x+opp.w&&a.y>opp.y&&a.y<opp.y+opp.h){
-          boom(a.x,a.y,opp.col);ce.arr.splice(j,1);return 'win';
+          boom(a.x,a.y,opp.col);ce.arr.splice(j,1);
+          trShapedReward += 0.5; // récompense immédiate : flèche qui touche
+          return 'win';
         }
       }
     }
@@ -5095,11 +5216,17 @@ function startTrainRound(){
     trCurriculumTotal++;
     if(won) trCurriculumWins++;
 
+    // Rotation des objectifs tous les 40 rounds en mode curriculum
+    if(trConfig.curriculum && trRoundsDone % 40 === 0 && trRoundsDone > 0){
+      const cycle = ['balanced','aim','dodge','aggro','mobility'];
+      trConfig.objective = cycle[Math.floor(trRoundsDone / 40) % cycle.length];
+    }
+
     // Gain = comportement + shaped + victoire
     const aimBonus   = Math.min(rs.framesAiming / (60*35) * 15, 15); // max 15 : viser
     const shotBonus  = Math.min(rs.shotsNearMiss * 0.5, 10);          // max 10 : précision
     const dodgeBonus = Math.min(rs.arrowsDodged  * 0.4, 5);           // max 5  : esquive
-    const shaped     = Math.max(-5, Math.min(trShapedReward * 80, 12)); // shaped clamped
+    const shaped     = Math.max(-5, Math.min(trShapedReward * 60, 16)); // shaped clamped (cap élargi pour hit reward)
     const totalGain  = aimBonus + shotBonus + dodgeBonus + shaped + (won ? evoParams.winBonus : 0);
 
     const prevFit=trBrain.fitness||0;
@@ -5132,12 +5259,22 @@ function startTrainRound(){
 
     // ELO
     const agentLvl = trConfig.curriculum ? trCurriculumLevel : (trAgentObjs[0]?.level||1);
-    const agentElo = AGENT_ELO[agentLvl-1] || AGENT_ELO[0];
+    const agentElo = trHofRoundElo ?? (AGENT_ELO[agentLvl-1] || AGENT_ELO[0]);
     const prevElo=trBrain.elo||ELO_BASE;
     trBrain.elo=Math.max(400,eloUpdate(prevElo,eloExpected(prevElo,agentElo),won?1:0,trRoundsDone));
 
     // ── Vérification palier de génération ────────────────────────
     if(!popMode) checkGenerationAdvancement(won, trBrain, trRoundsDone);
+
+    // ── Roleplay : quote de l'entraîneur ─────────────────────────
+    if(!popMode){
+      // Quote tous les 7 rounds (trainer réagit à son résultat)
+      if(trRoundsDone % 7 === 0)
+        setTimeout(()=>toast(trainerQuote(_trainerLevel, won?'lose':'win')), 300);
+      // Série de 3 victoires consécutives → l'entraîneur est impressionné
+      if(won && trCurriculumWins > 0 && trCurriculumWins % 3 === 0 && trCurriculumTotal <= trCurriculumWins + 4)
+        setTimeout(()=>toast(trainerQuote(_trainerLevel,'streak')), 1000);
+    }
 
     // ── DEEP LEARNING : gradient update avant mutation ────────────
     // Le policy gradient affine les couches d'arbitrage par gradient réel.
@@ -5160,7 +5297,8 @@ function startTrainRound(){
       trEvoHistory.push({round:trRoundsDone, elo:trBrain.elo, fitness:Math.round(trBrain.fitness)});
     }
 
-    const lvlLabel=trConfig.curriculum?['ROOKIE','FIGHTER','VETERAN','MASTER'][trCurriculumLevel-1]:'';
+    const td=TRAINER_DATA[_trainerLevel-1]||TRAINER_DATA[0];
+    const lvlLabel=trConfig.curriculum?td.name:td.name;
     const wr=trCurriculumTotal>0?Math.round(trCurriculumWins/trCurriculumTotal*100):0;
     const pg = trBrain?.pgLearner;
     const pgInfo = pg && pg.roundsLearned > 0
@@ -5403,6 +5541,21 @@ function drawTrainFrame(){
     ctx.fillStyle='#ff8020';ctx.fillRect(Math.round(p.x-3),Math.round(p.y-1),6,2);
   }
   for(const e of trTrainees) e.draw(ctx);
+
+  // Nameplate au-dessus de l'entraîneur (trTrainees[1])
+  if(trTrainees.length > 1 && _trainerLevel){
+    const td=TRAINER_DATA[_trainerLevel-1];
+    const ent=trTrainees[1];
+    const ex=offX+(ent.x+ent.w/2)*sc, ey=offY+(ent.y)*sc-10;
+    ctx.font='bold 6px "Press Start 2P",monospace';
+    ctx.textAlign='center';
+    ctx.fillStyle='rgba(13,8,24,0.75)';
+    const tw=ctx.measureText(td.name).width;
+    ctx.fillRect(ex-tw/2-3,ey-8,tw+6,10);
+    ctx.fillStyle=td.color;
+    ctx.fillText(td.name,ex,ey);
+  }
+
   ctx.restore();
 
   ctx.fillStyle='rgba(13,8,24,0.7)';ctx.fillRect(0,0,W,24);
@@ -5412,10 +5565,11 @@ function drawTrainFrame(){
   ctx.fillText(`CERVEAU ELO ${trBrain?.elo||'?'}${popInfo}`,6,15);
   ctx.fillStyle='#8060c0';ctx.textAlign='right';
   ctx.fillText(`Round ${trRoundsDone+1}/${trConfig.rounds}`,W-6,15);
-  trAgentObjs.forEach((ag,i)=>{
-    ctx.fillStyle=ag.color;ctx.textAlign='center';
-    ctx.fillText(ag.label,(i+1)*W/(trAgentObjs.length+1),15);
-  });
+  if(_trainerLevel){
+    const td=TRAINER_DATA[_trainerLevel-1];
+    ctx.fillStyle=td.color; ctx.textAlign='center';
+    ctx.fillText(`${td.name} ${td.title}`, W/2, 15);
+  }
 }
 
 function drawTrainGraph(){
@@ -5503,9 +5657,21 @@ function drawTrainGraph(){
 // ================================================================
 //  MODAL CRÉATION CERVEAU
 function openBrainModal(){
-  // Toujours revenir au panel config à l'ouverture
   document.getElementById('gl-config-panel').style.display   = '';
   document.getElementById('gl-gauntlet-panel').style.display = 'none';
+  // Bandeau cerveau source
+  const seedEl = document.getElementById('bc-seed-info');
+  if(seedEl){
+    if(activeBrain && currentBrainId){
+      store.get('brains', currentBrainId).then(e=>{
+        const n = e?.name || currentBrainId;
+        const elo = activeBrain.elo || ELO_BASE;
+        seedEl.innerHTML = `⚡ Basé sur : <b style="color:#60ff80">${sanitize(n)}</b> — ELO ${elo} · Gén. ${e?.generation||1}`;
+      });
+    } else {
+      seedEl.innerHTML = '<span style="color:#5a4070">Cerveau aléatoire (aucun cerveau actif)</span>';
+    }
+  }
   updateBrainPreview();
   document.getElementById('brain-create-modal').classList.add('open');
 }
@@ -5534,7 +5700,8 @@ function confirmNewBrain(){
   const arbSize    = parseInt(document.getElementById('bc-arb').value)||8;
   const xavierScale= parseFloat(document.getElementById('bc-xavier').value)||1.0;
   const startElo   = parseInt(document.getElementById('bc-elo').value)||ELO_BASE;
-  startGauntlet({H, out:outSize, arb:arbSize, xavier:xavierScale, startElo});
+  const seedBrain  = (activeBrain && currentBrainId) ? activeBrain : null;
+  startGauntlet({H, out:outSize, arb:arbSize, xavier:xavierScale, startElo, seedBrain});
 }
 
 // ── GAUNTLET : sélection par parcours du combattant ──────────────
@@ -5554,7 +5721,15 @@ function startGauntlet(params){
 }
 
 function glNextCandidate(){
-  glCurrentBrain = new MultiExpertBrain(glParams.H, glParams.out, glParams.arb, glParams.xavier);
+  if(glParams.seedBrain){
+    glCurrentBrain = glParams.seedBrain.clone();
+    // Mutation croissante : explore plus loin à chaque candidat raté
+    const rate  = Math.min(0.10 + glTested * 0.03, 0.40);
+    const power = Math.min(0.15 + glTested * 0.04, 0.50);
+    glCurrentBrain.mutate(rate, power);
+  } else {
+    glCurrentBrain = new MultiExpertBrain(glParams.H, glParams.out, glParams.arb, glParams.xavier);
+  }
   glTested++;
   glStage  = 1;
   glTimer  = 0;
@@ -5672,19 +5847,28 @@ function glStep(){
 async function glFinish(brain){
   if(glInterval){ clearInterval(glInterval); glInterval=null; }
   glActive = false;
-  const {H, out, arb, startElo} = glParams;
-  brain.elo = startElo;
-  const id   = 'brain_' + Date.now();
-  const name = await nextBrainName();
+  const {H, out, arb, startElo, seedBrain} = glParams;
+
+  // Filiation : si issu du cerveau actif, hérite ELO + génération
+  const srcEntry = seedBrain ? await store.get('brains', currentBrainId) : null;
+  brain.elo = srcEntry ? (srcEntry.elo || startElo) : startElo;
+
+  const id         = 'brain_' + Date.now();
+  const name       = srcEntry ? await cloneBrainName(srcEntry.name) : await nextBrainName();
+  const newGen     = srcEntry ? ((srcEntry.generation||1) + 1) : 1;
+  const topology   = srcEntry ? (srcEntry.topology||'GRU×3') : `GRU(H=${H})×3+ARB(${arb})`;
+
   await store.put('brains',{id, name, creator:localCreator, brain:brain.serialize(),
-    generation:1, fitness:0, elo:startElo, wins:0, played:0,
-    timestamp:Date.now(), game:'arena-archer',
-    topology:`GRU(H=${H})×3+ARB(${arb})`, params:brain.paramCount()});
+    generation:newGen, fitness:0, elo:brain.elo, wins:0, played:0,
+    timestamp:Date.now(), game:'arena-archer', topology, params:brain.paramCount()});
   currentBrainId=id; store.setConfig('currentBrainId',id); activeBrain=brain;
   activeBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
-  generation=1; bestBrain=null; totalWins=0; totalPlayed=0;
+  generation=newGen; bestBrain=null; totalWins=0; totalPlayed=0;
   closeBrainModal();
-  toast(`✓ Cerveau sélectionné : ${name} (testé #${glTested})`);
+  const msg = srcEntry
+    ? `✓ ${name} — Gén. ${newGen}, depuis ${srcEntry.name} (candidat #${glTested})`
+    : `✓ Cerveau sélectionné : ${name} (candidat #${glTested})`;
+  toast(msg);
   updateLabUI();
 }
 
