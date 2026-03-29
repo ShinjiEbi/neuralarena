@@ -60,18 +60,43 @@ html,body{background:var(--bg);color:var(--text);font-family:'Press Start 2P',mo
 #game-area{position:relative;flex:1;overflow:hidden;min-height:0}
 canvas#game{display:block;width:100%;height:100%;position:absolute;top:0;left:0;image-rendering:pixelated;image-rendering:crisp-edges}
 /* JOYSTICKS */
-#touch-pad{display:none;flex-direction:row;justify-content:space-between;align-items:flex-end;height:150px;flex-shrink:0;position:relative;background:rgba(13,8,24,0.97);border-top:2px solid rgba(240,160,48,0.12);pointer-events:none}
+#touch-pad{display:none;flex-direction:row;justify-content:space-between;align-items:flex-end;height:clamp(130px,22vh,180px);flex-shrink:0;position:relative;background:rgba(13,8,24,0.97);border-top:2px solid rgba(240,160,48,0.12);pointer-events:none}
 #touch-pad.on{display:flex}
-.joy-zone{position:relative;width:50%;height:150px;pointer-events:auto;-webkit-tap-highlight-color:transparent;flex-shrink:0}
-.joy-base{position:absolute;width:100px;height:100px;border-radius:50%;border:2px solid rgba(240,160,48,0.15);background:rgba(240,160,48,0.03);pointer-events:none;bottom:16px;left:28px}
-.joy-base.right-base{left:auto;right:80px}
-.joy-knob{position:absolute;width:42px;height:42px;border-radius:50%;pointer-events:none;transition:transform 0.05s;top:50%;left:50%;transform:translate(-50%,-50%)}
-.joy-knob.move-knob{background:radial-gradient(circle,rgba(96,200,255,0.3),rgba(96,200,255,0.06));border:2px solid rgba(96,200,255,0.25)}
-.joy-knob.aim-knob{background:radial-gradient(circle,rgba(255,80,80,0.3),rgba(255,80,80,0.06));border:2px solid rgba(255,80,80,0.25)}
-.joy-label{position:absolute;font-family:'Press Start 2P',monospace;font-size:5px;letter-spacing:1px;pointer-events:none;opacity:0.12;bottom:120px;left:48px}
-.joy-label.right-label{left:auto;right:95px}
-.jump-btn{position:absolute;bottom:18px;right:16px;width:52px;height:52px;border:2px solid rgba(240,160,48,0.3);background:rgba(240,160,48,0.08);display:flex;align-items:center;justify-content:center;font-family:'Press Start 2P',monospace;font-size:6px;color:rgba(240,160,48,0.5);pointer-events:auto;-webkit-tap-highlight-color:transparent;transition:all 0.08s}
-.jump-btn.held{background:rgba(240,160,48,0.2);border-color:rgba(240,160,48,0.6);color:var(--gold);transform:scale(0.92)}
+.joy-zone{position:relative;width:50%;height:clamp(130px,22vh,180px);pointer-events:auto;-webkit-tap-highlight-color:transparent;flex-shrink:0}
+.joy-base{position:absolute;width:clamp(80px,18vw,110px);height:clamp(80px,18vw,110px);border-radius:50%;border:2px solid rgba(240,160,48,0.18);background:rgba(240,160,48,0.04);pointer-events:none;bottom:clamp(10px,2vh,20px);left:clamp(16px,4vw,32px)}
+.joy-base.right-base{left:auto;right:clamp(60px,15vw,90px)}
+.joy-knob{position:absolute;width:clamp(36px,8vw,48px);height:clamp(36px,8vw,48px);border-radius:50%;pointer-events:none;transition:transform 0.05s;top:50%;left:50%;transform:translate(-50%,-50%)}
+.joy-knob.move-knob{background:radial-gradient(circle,rgba(96,200,255,0.35),rgba(96,200,255,0.06));border:2px solid rgba(96,200,255,0.3)}
+.joy-knob.aim-knob{background:radial-gradient(circle,rgba(255,80,80,0.35),rgba(255,80,80,0.06));border:2px solid rgba(255,80,80,0.3)}
+.joy-label{position:absolute;font-family:'Press Start 2P',monospace;font-size:5px;letter-spacing:1px;pointer-events:none;opacity:0.15;bottom:clamp(95px,17vh,125px);left:clamp(36px,9vw,56px)}
+.joy-label.right-label{left:auto;right:clamp(72px,18vw,108px)}
+.jump-btn{position:absolute;bottom:clamp(12px,2vh,22px);right:clamp(10px,2.5vw,20px);width:clamp(52px,12vw,68px);height:clamp(52px,12vw,68px);border:2px solid rgba(240,160,48,0.35);background:rgba(240,160,48,0.1);display:flex;align-items:center;justify-content:center;font-family:'Press Start 2P',monospace;font-size:clamp(5px,1.2vw,7px);color:rgba(240,160,48,0.55);pointer-events:auto;-webkit-tap-highlight-color:transparent;transition:all 0.08s;border-radius:4px}
+.jump-btn.held{background:rgba(240,160,48,0.28);border-color:rgba(240,160,48,0.7);color:var(--gold);transform:scale(0.92)}
+
+/* CTRL HINT (desktop) */
+#ctrl-hint-game{position:absolute;bottom:8px;right:10px;font-size:6px;color:rgba(255,255,255,0.13);pointer-events:none;z-index:15;letter-spacing:1px;line-height:1.8;text-align:right}
+body.is-touch #ctrl-hint-game{display:none}
+canvas#game.crosshair{cursor:crosshair}
+
+/* RESPONSIVE */
+@media (max-height:500px) and (orientation:landscape){
+  #touch-pad,.joy-zone{height:110px}
+  .joy-base{width:66px;height:66px;bottom:8px;left:14px}
+  .joy-base.right-base{right:56px}
+  .joy-knob{width:30px;height:30px}
+  .jump-btn{width:46px;height:46px;bottom:8px;right:8px}
+  .joy-label{display:none}
+}
+@media (max-width:400px){
+  .menu-btns{width:92vw}
+  .menu-stats{gap:8px}
+  .menu-stat{padding:6px 8px}
+  #multi-hud{height:38px}
+}
+@media (min-width:600px){
+  #touch-pad{height:160px}
+  .joy-zone{height:160px}
+}
 #game-overlay{position:fixed;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(13,8,24,0.92);z-index:100;transition:opacity 0.2s}
 #game-overlay.hidden{opacity:0;pointer-events:none}
 #game-overlay h2{font-family:'Press Start 2P',monospace;font-size:13px;margin-bottom:10px;color:var(--gold);text-shadow:3px 3px 0 #7a4400,0 0 20px rgba(240,160,48,0.4)}
@@ -338,6 +363,7 @@ body:not(.observe-mode) #cam-hint{display:none}
       <div id="mhud-center"><span class="gen-val" id="mh-round">Round 1</span> · <span id="mh-timer" style="color:var(--warn)">0:40</span></div>
     </div>
     <div id="cam-hint">ZQSD · DRAG · SCROLL = zoom · ESPACE = reset</div>
+    <div id="ctrl-hint-game">WASD · sauter↑ · espace=tir<br>🖱 viser · clic=tir</div>
     <div id="game-overlay" class="hidden">
       <h2 id="ov-title"></h2>
       <div class="ov-sub" id="ov-sub"></div>
@@ -1433,6 +1459,10 @@ let freeCam=false;
 let freeCamVx=0,freeCamVy=0;
 let camZoom=1;
 let dragCam={active:false,startX:0,startY:0,startCamX:0,startCamY:0};
+// ── Mouse aiming (desktop) ────────────────────────────────────────
+const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+let mousePos={x:0,y:0}; // CSS pixels relative to canvas
+let mouseShoot=false;    // Left button held
 // ── Stagnation detection ──────────────────────────────────────────
 let stagnationCounter=0;
 
@@ -1733,17 +1763,28 @@ function updateMultiHUD(){
 function setupFreeCam(){
   const canvas=document.getElementById('game');
 
-  // Mouse drag
+  // Mouse drag (free cam) + aim tracking (play mode)
   canvas.addEventListener('mousedown',e=>{
-    if(!freeCam)return;
-    dragCam={active:true,startX:e.clientX,startY:e.clientY,startCamX:camX,startCamY:camY};
+    if(freeCam){
+      dragCam={active:true,startX:e.clientX,startY:e.clientY,startCamX:camX,startCamY:camY};
+    } else if(e.button===0){
+      mouseShoot=true;
+    }
   });
   window.addEventListener('mousemove',e=>{
-    if(!freeCam||!dragCam.active)return;
-    camX=dragCam.startCamX-(e.clientX-dragCam.startX)/camZoom;
-    camY=dragCam.startCamY-(e.clientY-dragCam.startY)/camZoom;
+    // Toujours tracker la position souris pour la visée
+    const rect=canvas.getBoundingClientRect();
+    mousePos.x=e.clientX-rect.left;
+    mousePos.y=e.clientY-rect.top;
+    if(freeCam&&dragCam.active){
+      camX=dragCam.startCamX-(e.clientX-dragCam.startX)/camZoom;
+      camY=dragCam.startCamY-(e.clientY-dragCam.startY)/camZoom;
+    }
   });
-  window.addEventListener('mouseup',()=>{dragCam.active=false;});
+  window.addEventListener('mouseup',e=>{
+    dragCam.active=false;
+    if(e.button===0) mouseShoot=false;
+  });
 
   // Touch drag
   canvas.addEventListener('touchstart',e=>{
@@ -3018,12 +3059,27 @@ function gameLoop(){
           if(keys['KeyD']||keys['ArrowRight']){me.vx+=MSPD*0.4;me.face=1;}
           if((keys['KeyW']||keys['KeyZ']||keys['ArrowUp'])&&me.gnd){me.vy=JUMP;}
           if(keys['Space']) me.shoot();
+
+          // ── Visée souris (desktop seulement) ──────────────────
+          if(!isTouchDevice){
+            // Convertir position souris (CSS px) en coordonnées monde
+            const worldMX=(mousePos.x-vW/2)/camZoom+vW/2+camX;
+            const worldMY=(mousePos.y-vH/2)/camZoom+vH/2+camY;
+            const pcx=me.x+me.w/2, pcy=me.y+me.h/2;
+            me.aim=Math.atan2(worldMY-pcy, worldMX-pcx);
+            if(me.aim!==0) me.face=worldMX>pcx?1:-1;
+            if(mouseShoot) me.shoot();
+          }
+
+          // ── Joystick gauche (déplacement) ─────────────────────
           if(joyState.left.active){
             const lx=joyState.left.x,ly=joyState.left.y;
             if(Math.abs(lx)>DEADZONE){me.vx+=lx*MSPD*0.5;me.face=lx>0?1:-1;}
             if(ly<-0.6&&me.gnd) me.vy=JUMP;
           }
           if(joyState.jump&&me.gnd) me.vy=JUMP;
+
+          // ── Joystick droit (visée + tir) ──────────────────────
           if(joyState.right.active){
             const rx=joyState.right.x,ry=joyState.right.y;
             const mag=Math.sqrt(rx*rx+ry*ry);
@@ -3182,18 +3238,24 @@ function gameLoop(){
 // ================================================================
 //  SCREENS
 function updateGameControls(){
-  const isTouch=('ontouchstart' in window)||navigator.maxTouchPoints>0;
   const pad=document.getElementById('touch-pad');
+  const canvas=document.getElementById('game');
   const humanIdx=playerBrains.findIndex(b=>b===null);
   const hasHuman=humanIdx>=0;
   const humanAlive=hasHuman&&playerAlive[humanIdx];
   const allAI=!hasHuman;
+
+  // Classe body pour CSS (masquer hints desktop sur mobile)
+  document.body.classList.toggle('is-touch', isTouchDevice);
+
   if(allAI||!humanAlive){
     pad.classList.remove('on');
     freeCam=true;
     document.body.classList.add('observe-mode');
+    canvas.classList.remove('crosshair');
   } else {
-    if(isTouch) pad.classList.add('on'); else pad.classList.remove('on');
+    if(isTouchDevice){ pad.classList.add('on'); canvas.classList.remove('crosshair'); }
+    else { pad.classList.remove('on'); canvas.classList.add('crosshair'); }
     freeCam=false;
     document.body.classList.remove('observe-mode');
   }
