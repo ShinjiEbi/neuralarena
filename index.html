@@ -2201,17 +2201,18 @@ function aiInputsFor(me, target, allArrows, timer){
   ];
 }
 
-function aiProcessFor(out, ent){
-  // Déplacement
+function aiProcessFor(out, ent, target=null){
   if(out[0]>0.5){ ent.vx-=MSPD*0.4; ent.face=-1; }
   if(out[1]>0.5){ ent.vx+=MSPD*0.4; ent.face=1; }
-  // Saut
   if(out[2]>0.5 && ent.gnd) ent.vy=JUMP;
-  // Visée différentielle (vitesse proportionnelle à l'activation)
   const aimSpeed = 0.18;
   ent.aim += (out[4]-out[3]) * aimSpeed;
-  // Tir
   if(out[5]>0.5) ent.shoot();
+  if(out[6]>0.5 && target){
+    const dx=(target.x+target.w/2)-(ent.x+ent.w/2);
+    const dy=(target.y+target.h/2)-(ent.y+ent.h/2);
+    ent.aim = Math.atan2(dy, dx);
+  }
 }
 
 function boom(x,y,col){
@@ -4937,6 +4938,15 @@ function startTrainRound(){
     a.mem={lastEnemyX:0,lastEnemyY:0,jumpCooldown:0,retreatDir:0,retreatTimer:0,patternBuf:[],lastShot:0};
   });
 
+  // Self-play : 25 % des rounds affrontent un cerveau HoF passé (ELO > 1350)
+  if(!popMode && trHof.length > 0 && (trBrain.elo||ELO_BASE) > 1350 && Math.random() < 0.25){
+    const hofBrain = trHof[Math.floor(Math.random()*trHof.length)];
+    hofBrain.resetMemory();
+    trAgentObjs[0] = { level:99, mem:{},
+      act(ent, ce, arrows){ aiProcessFor(hofBrain.forward(aiInputsFor(ent,ce,arrows,trRoundTimer)), ent, ce); }
+    };
+  }
+
   const stepsPerFrame=trConfig.speed===0?1000:trConfig.speed;
   if(trInterval){clearInterval(trInterval);trInterval=null;}
 
@@ -4963,7 +4973,7 @@ function startTrainRound(){
     const enemyArrows=trTrainees.slice(1).flatMap(e=>e.arr);
     const inp=aiInputsFor(ce,nearestEnemy,enemyArrows,trRoundTimer);
     const out=trBrain.forward(inp);
-    aiProcessFor(out,ce);
+    aiProcessFor(out, ce, nearestEnemy);
     ce.face=nearestEnemy.x<ce.x?-1:1;
     ce.update();
 
@@ -5023,7 +5033,10 @@ function startTrainRound(){
       if(a.st) continue;
       const dx=a.x-(ce.x+ce.w/2), dy=a.y-(ce.y+ce.h/2);
       const d=Math.sqrt(dx*dx+dy*dy);
-      if(d<80) rs.arrowsDodged += 0.1 * _ow.arrowDodge;
+      if(d<80){
+        rs.arrowsDodged    += 0.1  * _ow.arrowDodge;
+        trShapedReward     += 0.005 * _ow.arrowDodge;
+      }
     }
 
     // Tracking compétences par frame
@@ -5080,7 +5093,9 @@ function startTrainRound(){
       for(let i=1;i<trTrainees.length;i++){
         const opp=trTrainees[i];
         if(a.x>opp.x&&a.x<opp.x+opp.w&&a.y>opp.y&&a.y<opp.y+opp.h){
-          boom(a.x,a.y,opp.col);ce.arr.splice(j,1);return 'win';
+          boom(a.x,a.y,opp.col);ce.arr.splice(j,1);
+          trShapedReward += 0.5; // récompense immédiate : flèche qui touche
+          return 'win';
         }
       }
     }
@@ -5094,6 +5109,12 @@ function startTrainRound(){
     // Curriculum tracking
     trCurriculumTotal++;
     if(won) trCurriculumWins++;
+
+    // Rotation des objectifs tous les 40 rounds en mode curriculum
+    if(trConfig.curriculum && trRoundsDone % 40 === 0 && trRoundsDone > 0){
+      const cycle = ['balanced','aim','dodge','aggro','mobility'];
+      trConfig.objective = cycle[Math.floor(trRoundsDone / 40) % cycle.length];
+    }
 
     // Gain = comportement + shaped + victoire
     const aimBonus   = Math.min(rs.framesAiming / (60*35) * 15, 15); // max 15 : viser
