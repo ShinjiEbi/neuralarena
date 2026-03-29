@@ -551,6 +551,8 @@ body:not(.observe-mode) #cam-hint{display:none}
     <div id="gl-config-panel">
       <div style="font-family:'Press Start 2P';font-size:9px;color:var(--gold);margin-bottom:14px;text-shadow:2px 2px 0 #7a4400">NOUVEAU CERVEAU</div>
 
+      <div id="bc-seed-info" style="font-size:6px;margin-bottom:10px;padding:4px 8px;background:#1a0e2e;border:1px solid var(--border);color:#6040a0"></div>
+
       <div class="param-group">
         <span class="param-label">TOPOLOGIE</span>
         <div class="param-row">
@@ -5655,9 +5657,21 @@ function drawTrainGraph(){
 // ================================================================
 //  MODAL CRÉATION CERVEAU
 function openBrainModal(){
-  // Toujours revenir au panel config à l'ouverture
   document.getElementById('gl-config-panel').style.display   = '';
   document.getElementById('gl-gauntlet-panel').style.display = 'none';
+  // Bandeau cerveau source
+  const seedEl = document.getElementById('bc-seed-info');
+  if(seedEl){
+    if(activeBrain && currentBrainId){
+      store.get('brains', currentBrainId).then(e=>{
+        const n = e?.name || currentBrainId;
+        const elo = activeBrain.elo || ELO_BASE;
+        seedEl.innerHTML = `⚡ Basé sur : <b style="color:#60ff80">${sanitize(n)}</b> — ELO ${elo} · Gén. ${e?.generation||1}`;
+      });
+    } else {
+      seedEl.innerHTML = '<span style="color:#5a4070">Cerveau aléatoire (aucun cerveau actif)</span>';
+    }
+  }
   updateBrainPreview();
   document.getElementById('brain-create-modal').classList.add('open');
 }
@@ -5686,7 +5700,8 @@ function confirmNewBrain(){
   const arbSize    = parseInt(document.getElementById('bc-arb').value)||8;
   const xavierScale= parseFloat(document.getElementById('bc-xavier').value)||1.0;
   const startElo   = parseInt(document.getElementById('bc-elo').value)||ELO_BASE;
-  startGauntlet({H, out:outSize, arb:arbSize, xavier:xavierScale, startElo});
+  const seedBrain  = (activeBrain && currentBrainId) ? activeBrain : null;
+  startGauntlet({H, out:outSize, arb:arbSize, xavier:xavierScale, startElo, seedBrain});
 }
 
 // ── GAUNTLET : sélection par parcours du combattant ──────────────
@@ -5706,7 +5721,15 @@ function startGauntlet(params){
 }
 
 function glNextCandidate(){
-  glCurrentBrain = new MultiExpertBrain(glParams.H, glParams.out, glParams.arb, glParams.xavier);
+  if(glParams.seedBrain){
+    glCurrentBrain = glParams.seedBrain.clone();
+    // Mutation croissante : explore plus loin à chaque candidat raté
+    const rate  = Math.min(0.10 + glTested * 0.03, 0.40);
+    const power = Math.min(0.15 + glTested * 0.04, 0.50);
+    glCurrentBrain.mutate(rate, power);
+  } else {
+    glCurrentBrain = new MultiExpertBrain(glParams.H, glParams.out, glParams.arb, glParams.xavier);
+  }
   glTested++;
   glStage  = 1;
   glTimer  = 0;
@@ -5824,19 +5847,28 @@ function glStep(){
 async function glFinish(brain){
   if(glInterval){ clearInterval(glInterval); glInterval=null; }
   glActive = false;
-  const {H, out, arb, startElo} = glParams;
-  brain.elo = startElo;
-  const id   = 'brain_' + Date.now();
-  const name = await nextBrainName();
+  const {H, out, arb, startElo, seedBrain} = glParams;
+
+  // Filiation : si issu du cerveau actif, hérite ELO + génération
+  const srcEntry = seedBrain ? await store.get('brains', currentBrainId) : null;
+  brain.elo = srcEntry ? (srcEntry.elo || startElo) : startElo;
+
+  const id         = 'brain_' + Date.now();
+  const name       = srcEntry ? await cloneBrainName(srcEntry.name) : await nextBrainName();
+  const newGen     = srcEntry ? ((srcEntry.generation||1) + 1) : 1;
+  const topology   = srcEntry ? (srcEntry.topology||'GRU×3') : `GRU(H=${H})×3+ARB(${arb})`;
+
   await store.put('brains',{id, name, creator:localCreator, brain:brain.serialize(),
-    generation:1, fitness:0, elo:startElo, wins:0, played:0,
-    timestamp:Date.now(), game:'arena-archer',
-    topology:`GRU(H=${H})×3+ARB(${arb})`, params:brain.paramCount()});
+    generation:newGen, fitness:0, elo:brain.elo, wins:0, played:0,
+    timestamp:Date.now(), game:'arena-archer', topology, params:brain.paramCount()});
   currentBrainId=id; store.setConfig('currentBrainId',id); activeBrain=brain;
   activeBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
-  generation=1; bestBrain=null; totalWins=0; totalPlayed=0;
+  generation=newGen; bestBrain=null; totalWins=0; totalPlayed=0;
   closeBrainModal();
-  toast(`✓ Cerveau sélectionné : ${name} (testé #${glTested})`);
+  const msg = srcEntry
+    ? `✓ ${name} — Gén. ${newGen}, depuis ${srcEntry.name} (candidat #${glTested})`
+    : `✓ Cerveau sélectionné : ${name} (candidat #${glTested})`;
+  toast(msg);
   updateLabUI();
 }
 
