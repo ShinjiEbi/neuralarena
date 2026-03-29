@@ -4039,7 +4039,7 @@ async function renderStats(){
   const skills = liveSkills || (e.brain ? (deserializeBrain(e.brain)?.skills || {}) : {});
 
   // ── Objectif prochaine génération ────────────────────────────
-  const target  = computeGenTarget(gen, elo);
+  const target  = computeGenTarget(gen);
   const winNow  = liveWin.length >= 5
     ? Math.round(liveWin.reduce((a,b)=>a+b,0)/liveWin.length*100) : wr;
   const wrPct   = Math.min(Math.round(winNow / (target.winRate*100) * 100), 100);
@@ -4790,8 +4790,7 @@ const TR_GEN_WIN_SIZE = 20;  // fenêtre glissante pour le taux de victoire
 let trGenWinWindow = [];     // 1=win, 0=loss sur les TR_GEN_WIN_SIZE derniers rounds
 let trGenHistory   = [];     // [{gen, elo, fitness, round, reason}]
 
-// Objectifs requis pour passer à la prochaine génération
-function computeGenTarget(currentGen, currentElo){
+function computeGenTarget(currentGen){
   const tier = currentGen<=5 ? 0 : currentGen<=15 ? 1 : currentGen<=30 ? 2 : 3;
   return {
     winRate : [0.30, 0.40, 0.50, 0.60][tier],
@@ -4799,32 +4798,28 @@ function computeGenTarget(currentGen, currentElo){
   };
 }
 
-// Appelé après chaque round — vérifie si un palier de génération est atteint
 function checkGenerationAdvancement(won, brain, round){
   trGenWinWindow.push(won ? 1 : 0);
   if(trGenWinWindow.length > TR_GEN_WIN_SIZE) trGenWinWindow.shift();
-  if(trGenWinWindow.length < TR_GEN_WIN_SIZE) return; // fenêtre pas encore remplie
+  if(trGenWinWindow.length < TR_GEN_WIN_SIZE) return;
 
   const currentGen = brain.generation || 1;
-  const target     = computeGenTarget(currentGen, brain.elo);
+  const target     = computeGenTarget(currentGen);
   const winRate    = trGenWinWindow.reduce((a,b)=>a+b,0) / TR_GEN_WIN_SIZE;
   const eloOK      = (brain.elo||ELO_BASE) >= target.elo;
   const wrOK       = winRate >= target.winRate;
   if(!eloOK && !wrOK) return;
 
-  // Palier atteint — nouvelle génération
   const reason = eloOK
     ? `ELO ${brain.elo}`
     : `${Math.round(winRate*100)}% vict. / ${TR_GEN_WIN_SIZE}`;
   brain.generation = currentGen + 1;
-  trGenWinWindow   = []; // reset la fenêtre pour la prochaine génération
+  trGenWinWindow   = [];
   trGenHistory.push({ gen:brain.generation, elo:brain.elo,
     fitness:Math.round(brain.fitness||0), round, reason });
 
-  // Mutation légère "nouveau souffle"
-  brain.mutate(0.06, 0.12);
+  brain.mutate(0.06, 0.12); // légère mutation "nouveau souffle"
   toast(`🧬 GÉN. ${brain.generation} — ${reason}`);
-  // Mettre à jour le panneau stats si visible
   if(document.getElementById('panel-stats')?.style.display !== 'none') renderStats();
 }
 
