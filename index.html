@@ -3343,7 +3343,9 @@ async function updateLabUI(){
     const sk=e.skills||{};
     const skillColors=['#ff6060','#f0c040','#60ff80','#60c8ff','#ff80ff','#ffaa40'];
     const skillsHtml=`<div style="display:flex;gap:3px;margin-top:4px;align-items:center">${SKILL_KEYS.map((k,i)=>`<div style="flex:1;text-align:center"><div style="font-size:4px;color:${skillColors[i]};margin-bottom:1px">${SKILL_LABELS[i].slice(0,3)}</div>${skillBar(sk[k],skillColors[i])}</div>`).join('')}</div>`;
-    html+=`<div class="brain-card ${cur?'active-brain':''}" onclick="selectBrain('${e.id}')"><div class="bc-header"><span class="bc-name">${sanitize(e.name||e.id)} ${cur?'● ACTIF':''}</span><span class="bc-gen">Gen ${e.generation||'?'}</span>${delBtn}</div><div class="bc-stats"><span>${eloStr}</span><span>⚡${Math.round(e.fitness||0)}</span><span>🎯 ${e.wins||0}W/${e.played||0}P</span><span>🧠 ${e.params||'?'}p</span>${typeTag}${creatorTag}${e.imported?'<span>📥 importé</span>':''}</div>${skillsHtml}</div>`;
+    const pers = PERSONALITIES[e.personality];
+    const persTag = pers ? `<span style="color:${pers.color}">${pers.icon} ${pers.name}</span>` : '';
+    html+=`<div class="brain-card ${cur?'active-brain':''}" onclick="selectBrain('${e.id}')"><div class="bc-header"><span class="bc-name">${sanitize(e.name||e.id)} ${cur?'● ACTIF':''}</span><span class="bc-gen">Gen ${e.generation||'?'}</span>${delBtn}</div><div class="bc-stats"><span>${eloStr}</span><span>⚡${Math.round(e.fitness||0)}</span><span>🎯 ${e.wins||0}W/${e.played||0}P</span><span>🧠 ${e.params||'?'}p</span>${persTag}${typeTag}${creatorTag}${e.imported?'<span>📥 importé</span>':''}</div>${skillsHtml}</div>`;
   }
   html+=`<div class="lab-actions"><button class="btn small primary" onclick="openBrainModal()">+ Nouveau</button><button class="btn small" onclick="duplicateCurrent()">📋 Dupliquer</button><button class="btn small warn" onclick="resetCurrent()">🗑 Reset actif</button></div>`;
   document.getElementById('lab-content').innerHTML=html;
@@ -4516,6 +4518,109 @@ function trainerQuote(level, bank){
   return `[${t.name}] « ${arr[Math.floor(Math.random()*arr.length)]} »`;
 }
 
+// ── PERSONNALITÉS DES CERVEAUX ───────────────────────────────────
+const PERSONALITIES = {
+  ghost: {
+    name:'Fantôme', color:'#a0a0c0', icon:'👻',
+    rewardBias:{ arrowDodge:2.5, stationary:-3.0, aimPrec:0.5, wall:2.5 },
+    quotes:{
+      roundStart:['...','Tu ne me verras pas venir.','Je suis déjà là.'],
+      win:       ['(silence)','Insaisissable.','Tu n\'étais pas prêt.'],
+      lose:      ['Je reviendrai.','...','Hmph.'],
+      rage:      ['Tu as été chanceux.','Cette fois, tu ne m\'échapperas pas.','Je ne rate pas deux fois.'],
+      taunt:     ['Je n\'étais pas concentré.','Essaie encore.'],
+    }
+  },
+  berserk: {
+    name:'Berserker', color:'#ff4040', icon:'🔥',
+    rewardBias:{ aggro:2.5, arrowNear:2.0, survival:0.4, arrowDodge:0.5 },
+    quotes:{
+      roundStart:['VIENS !','Je vais tout casser.','MONTRE-MOI TOUT !'],
+      win:       ['ENCORE !','Trop facile. Prochain !','C\'est ça ta meilleure attaque ?!'],
+      lose:      ['JE VAIS TE DÉCHIRER !','RAGE !','Ça ne se passera pas comme ça !'],
+      rage:      ['BERSERK MODE ACTIVÉ !','PLUS RIEN NE M\'ARRÊTE !!!','JE SENS LA CHALEUR !!!'],
+      taunt:     ['C\'est tout ce que t\'as ?','ALLEZ, PLUS FORT !'],
+    }
+  },
+  sniper: {
+    name:'Tireur d\'Élite', color:'#60c8ff', icon:'🎯',
+    rewardBias:{ aimPrec:3.0, shootWell:2.5, arrowNear:-0.5, mobility:0.5 },
+    quotes:{
+      roundStart:['Cible acquise.','Un seul tir suffit.','Je t\'ai déjà dans le viseur.'],
+      win:       ['Prévisible.','Comme calculé.','Distance optimale maintenue.'],
+      lose:      ['Je t\'analyserai mieux.','Intéressant schéma.','J\'ajuste mes calculs.'],
+      rage:      ['Ne bouge plus.','J\'ai ta trajectoire.','Aucune esquive ne t\'aidera.'],
+      taunt:     ['Tu croyais m\'échapper ?','J\'attendais ça depuis le début.'],
+    }
+  },
+  taunter: {
+    name:'Provocateur', color:'#f0c040', icon:'😏',
+    rewardBias:{ aggro:1.5, mobility:1.5 },
+    quotes:{
+      roundStart:['Essaie de me toucher.','Amuse-moi.','J\'espère que tu es bon...'],
+      win:       ['T\'appelles ça jouer ?','Même pas fatiguant.','Trop facile 😏'],
+      lose:      ['Ok ok, je suis sérieux maintenant.','Bon, t\'as eu de la chance.','Tu viens de commettre une erreur.'],
+      rage:      ['Tu viens de commettre UNE ERREUR.','Je vais te montrer ce que je vaux vraiment.','Fini de jouer.'],
+      taunt:     ['Trop lent 😏','Raté encore ?','Tu veux des conseils ?'],
+    }
+  },
+  tactician: {
+    name:'Calculateur', color:'#40c080', icon:'🧮',
+    rewardBias:{ mobility:2.0, wall:2.0, aimPrec:1.5 },
+    platformBonus:true,
+    quotes:{
+      roundStart:['Variables analysées.','Position optimale calculée.','Phase d\'acquisition de données.'],
+      win:       ['Résultat conforme aux projections.','Efficacité : 94%.','Séquence exécutée.'],
+      lose:      ['Données insuffisantes. Recalcul.','Erreur de variable. Correction.','Hypothèse incorrecte.'],
+      rage:      ['Recalibrage d\'urgence.','Adaptation en cours.','Nouvelle variable détectée.'],
+      taunt:     ['Ça n\'aurait pas dû fonctionner.','Ta stratégie est transparente.'],
+    }
+  },
+  loner: {
+    name:'Loup Solitaire', color:'#c060ff', icon:'🐺',
+    rewardBias:{ aggro:1.5, survival:1.5, arrowDodge:1.5 },
+    quotes:{
+      roundStart:['Je n\'ai besoin de personne.','...','On verra bien.'],
+      win:       ['C\'est dans l\'ordre des choses.','Je m\'en doutais.','Seul comme toujours.'],
+      lose:      ['La prochaine fois.','Ce n\'est pas fini.','Je n\'oublie pas.'],
+      rage:      ['Tu m\'as forcé.','Je n\'oublie pas.','Un loup acculé est dangereux.'],
+      taunt:     ['Satisfait ?','Tu n\'as rien compris à mon style.'],
+    }
+  },
+};
+const PERSONALITY_KEYS = Object.keys(PERSONALITIES);
+
+function personalityToast(event){
+  const p = PERSONALITIES[trBrainPersonality];
+  if(!p) return;
+  const bank = p.quotes[event];
+  if(!bank || !bank.length) return;
+  const quote = bank[Math.floor(Math.random()*bank.length)];
+  const brainName = document.getElementById('tr-brain-name')?.textContent?.trim() || 'Cerveau';
+  toast(`${p.icon} ${brainName} : "${quote}"`);
+}
+
+function getActivePersonalityWeights(){
+  const key = trBrainPersonality || 'ghost';
+  const p = PERSONALITIES[key];
+  const base = { ...(OBJECTIVE_WEIGHTS[trConfig.objective] || OBJECTIVE_WEIGHTS.balanced) };
+  const bias = p?.rewardBias ?? {};
+  for(const k of Object.keys(bias)){
+    if(base[k] !== undefined) base[k] *= bias[k];
+    else base[k] = bias[k];
+  }
+  // Berserker en rage : bonus aggression, moins peur des murs
+  if(key === 'berserk' && trEmotional.rage > 60){
+    base.aggro  = (base.aggro  || 1) * 1.5;
+    base.wall   = (base.wall   || 1) * 0.5;
+  }
+  // Sniper en confiance : bonus précision
+  if(key === 'sniper' && trEmotional.confidence > 60){
+    base.aimPrec = (base.aimPrec || 1) * 1.3;
+  }
+  return base;
+}
+
 // ================================================================
 //  PIÈGES (TRAPS)
 class Trap {
@@ -4879,6 +4984,13 @@ let trCurriculumTotal = 0;   // rounds depuis dernier changement
 let trShapedReward = 0;      // récompense shaped accumulée dans le round
 let trHofRoundElo  = null;   // ELO du cerveau HoF adversaire ce round (null = agent scripté)
 let _trainerLevel  = 1;      // niveau de l'entraîneur actif (pour roleplay)
+// ── Personnalité + état émotionnel ──────────────────────────────
+let trBrainPersonality = 'ghost'; // clé personnalité du cerveau actif
+let trCurrentWeights   = {};      // poids de récompense actifs (objectif × biais personnalité)
+let trEmotional = { rage:0, confidence:0, frustration:0 };
+let trConsecLosses = 0;
+let trConsecWins   = 0;
+let trRageToastShown = false;
 
 // ── GÉNÉRATION PAR OBJECTIFS ─────────────────────────────────────
 const TR_GEN_WIN_SIZE = 20;  // fenêtre glissante pour le taux de victoire
@@ -4929,6 +5041,11 @@ async function trainingStart(){
   // Attacher le learner par gradient (persistance de l'état Adam)
   trBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
   if(entry.adamState) trBrain.pgLearner.loadAdam(entry.adamState);
+  // Charger personnalité + réinitialiser état émotionnel
+  trBrainPersonality = entry.personality || PERSONALITY_KEYS[Math.floor(Math.random()*PERSONALITY_KEYS.length)];
+  trEmotional = { rage:0, confidence:0, frustration:0 };
+  trConsecLosses=0; trConsecWins=0; trRageToastShown=false;
+  trCurrentWeights = {};
   trBestBrain=null; trHof=[]; trStag=0;
   trRoundsDone=0; trRunning=true;
   trEvoHistory=[]; trGenWinWindow=[]; trGenHistory=[];
@@ -4996,6 +5113,10 @@ function startTrainRound(){
 
   trRoundTimer=0; trRoundOver=false; trTrapProj=[]; trShapedReward=0;
   let trRoundOutcome = null; // 'win'|'lose'|'draw' — fixe le bug de re-scan des flèches
+  // Poids de récompense actifs = objectif × biais personnalité × état émotionnel
+  trCurrentWeights = getActivePersonalityWeights();
+  // Toast personnalité au tout premier round seulement
+  if(trRoundsDone === 0) setTimeout(()=>personalityToast('roundStart'), 1200);
   trTraps.forEach(t=>{
     if(t.type==='collapse'){t.triggered=false;t.fallTimer=0;t.fallen=false;t.y=t.origY;}
     if(t.type==='mine'){t.triggered=false;t.triggerTimer=0;t.active=true;}
@@ -5092,7 +5213,7 @@ function startTrainRound(){
     if(aimDiff>Math.PI) aimDiff=Math.PI*2-aimDiff;
 
     // 1. Viser précisément : récompense graduelle et forte
-    const _ow = OBJECTIVE_WEIGHTS[trConfig.objective] || OBJECTIVE_WEIGHTS.balanced;
+    const _ow = trCurrentWeights;
     const aimPrecision=Math.max(0,(0.4-aimDiff)/0.4); // 1=parfait, 0=>23°
     trShapedReward += aimPrecision*0.012*_ow.aimPrec;
     if(aimDiff<0.2) rs.framesAiming++;
@@ -5108,7 +5229,9 @@ function startTrainRound(){
         Math.max(0, aimDelta) * 0.05 * _ow.aimPrec   // récompense convergence (pas rotation)
         + (rs.aimHeld > 5 ? 0.006 * _ow.aimPrec : 0) // bonus maintien de la visée stable
         + (out[5]>0.5 && aimDiff<0.3 ? 0.05*_ow.shootWell : 0)  // tirer bien visé
-        + (out[5]>0.5 && aimDiff>0.8 ? -0.02 : 0)   // pénalité tir raté
+        + (out[5]>0.5 && aimDiff>0.8 ? -0.04 : 0)   // pénalité tir raté (renforcée)
+        + (out[2]>0.5 && !ce.gnd ? -0.018 : 0)       // saut en l'air inutile
+        + ((inp[20]<0.07&&out[0]>0.5)||(inp[21]<0.07&&out[1]>0.5) ? -0.025 : 0) // marcher dans le mur
         + 0.002 * _ow.survival;                       // survie (réduit pour éviter dominance)
       trBrain.pgLearner.step(out, pgReward, trBrain);
       // Online learning : mise à jour gradient toutes les 60 frames de simulation
@@ -5121,7 +5244,7 @@ function startTrainRound(){
     if(out[5]>0.5 && aimDiff<0.3 && ce.cd===0){
       trShapedReward += 0.08 * _ow.shootWell;
     } else if(out[5]>0.5 && aimDiff>0.8){
-      trShapedReward -= 0.02;
+      trShapedReward -= 0.04; // pénalité tir raté renforcée
     }
 
     // 3. Flèches proches de l'ennemi
@@ -5157,6 +5280,20 @@ function startTrainRound(){
 
     // 5. Pénalité mur
     if(ce.x<25||ce.x>WW-45) trShapedReward -= 0.008 * _ow.wall;
+
+    // 6. Anti-spam : pénalités comportements inutiles
+    if(out[2]>0.5 && !ce.gnd)                                            trShapedReward -= 0.018;
+    if((inp[20]<0.07&&out[0]>0.5)||(inp[21]<0.07&&out[1]>0.5))          trShapedReward -= 0.025;
+
+    // 7. Tracking changement de plateforme
+    if(ce.gnd){
+      const py = Math.round(ce.y/10)*10;
+      if(py !== rs.lastPlatY && rs.lastPlatY !== -1){
+        rs.platformChanges++;
+        if(PERSONALITIES[trBrainPersonality]?.platformBonus) trShapedReward += 0.04;
+      }
+      rs.lastPlatY = py;
+    }
 
     // Agents scriptés
     for(let i=0;i<trAgentObjs.length;i++){
@@ -5266,14 +5403,39 @@ function startTrainRound(){
     // ── Vérification palier de génération ────────────────────────
     if(!popMode) checkGenerationAdvancement(won, trBrain, trRoundsDone);
 
-    // ── Roleplay : quote de l'entraîneur ─────────────────────────
+    // ── Mise à jour état émotionnel ───────────────────────────────
+    if(won){
+      trConsecWins++; trConsecLosses=0;
+      trEmotional.confidence = Math.min(100, trEmotional.confidence + 15);
+      trEmotional.rage       = Math.max(0,   trEmotional.rage - 10);
+      trEmotional.frustration= Math.max(0,   trEmotional.frustration - 10);
+    } else {
+      trConsecLosses++; trConsecWins=0;
+      trEmotional.rage       = Math.min(100, trEmotional.rage + 12);
+      trEmotional.confidence = Math.max(0,   trEmotional.confidence - 8);
+      const missRate = rs.shotsFired > 0 ? 1-(rs.preciseShots/rs.shotsFired) : 0.5;
+      trEmotional.frustration= Math.min(100, trEmotional.frustration + missRate*18);
+    }
+
+    // ── Roleplay : quote personnalité + entraîneur ────────────────
     if(!popMode){
-      // Quote tous les 7 rounds (trainer réagit à son résultat)
+      // Toast personnalité du cerveau (victoire / défaite)
+      if(trRoundsDone % 5 === 0)
+        setTimeout(()=>personalityToast(won?'win':'lose'), 400);
+      // Rage (berserker, une fois par session)
+      if(trEmotional.rage > 70 && !trRageToastShown){
+        trRageToastShown = true;
+        setTimeout(()=>personalityToast('rage'), 1200);
+      }
+      // Provocation si confiance haute + 3+ victoires consécutives
+      if(won && trEmotional.confidence > 75 && trConsecWins >= 3 && trRoundsDone % 3 === 0)
+        setTimeout(()=>personalityToast('taunt'), 1800);
+      // Quote entraîneur tous les 7 rounds
       if(trRoundsDone % 7 === 0)
-        setTimeout(()=>toast(trainerQuote(_trainerLevel, won?'lose':'win')), 300);
-      // Série de 3 victoires consécutives → l'entraîneur est impressionné
+        setTimeout(()=>toast(trainerQuote(_trainerLevel, won?'lose':'win')), 800);
+      // Série de 3 victoires → entraîneur impressionné
       if(won && trCurriculumWins > 0 && trCurriculumWins % 3 === 0 && trCurriculumTotal <= trCurriculumWins + 4)
-        setTimeout(()=>toast(trainerQuote(_trainerLevel,'streak')), 1000);
+        setTimeout(()=>toast(trainerQuote(_trainerLevel,'streak')), 1400);
     }
 
     // ── DEEP LEARNING : gradient update avant mutation ────────────
@@ -5858,16 +6020,22 @@ async function glFinish(brain){
   const newGen     = srcEntry ? ((srcEntry.generation||1) + 1) : 1;
   const topology   = srcEntry ? (srcEntry.topology||'GRU×3') : `GRU(H=${H})×3+ARB(${arb})`;
 
+  const personalityKey = srcEntry?.personality
+    || PERSONALITY_KEYS[Math.floor(Math.random()*PERSONALITY_KEYS.length)];
+  const personalityInfo = PERSONALITIES[personalityKey];
+
   await store.put('brains',{id, name, creator:localCreator, brain:brain.serialize(),
     generation:newGen, fitness:0, elo:brain.elo, wins:0, played:0,
-    timestamp:Date.now(), game:'arena-archer', topology, params:brain.paramCount()});
+    timestamp:Date.now(), game:'arena-archer', topology, params:brain.paramCount(),
+    personality:personalityKey});
   currentBrainId=id; store.setConfig('currentBrainId',id); activeBrain=brain;
   activeBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
   generation=newGen; bestBrain=null; totalWins=0; totalPlayed=0;
   closeBrainModal();
+  const persIcon = personalityInfo ? `${personalityInfo.icon} ${personalityInfo.name}` : '';
   const msg = srcEntry
-    ? `✓ ${name} — Gén. ${newGen}, depuis ${srcEntry.name} (candidat #${glTested})`
-    : `✓ Cerveau sélectionné : ${name} (candidat #${glTested})`;
+    ? `✓ ${name} — Gén. ${newGen}, depuis ${srcEntry.name} · ${persIcon}`
+    : `✓ ${name} · ${persIcon} (candidat #${glTested})`;
   toast(msg);
   updateLabUI();
 }
