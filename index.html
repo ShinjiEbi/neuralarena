@@ -60,18 +60,43 @@ html,body{background:var(--bg);color:var(--text);font-family:'Press Start 2P',mo
 #game-area{position:relative;flex:1;overflow:hidden;min-height:0}
 canvas#game{display:block;width:100%;height:100%;position:absolute;top:0;left:0;image-rendering:pixelated;image-rendering:crisp-edges}
 /* JOYSTICKS */
-#touch-pad{display:none;flex-direction:row;justify-content:space-between;align-items:flex-end;height:150px;flex-shrink:0;position:relative;background:rgba(13,8,24,0.97);border-top:2px solid rgba(240,160,48,0.12);pointer-events:none}
+#touch-pad{display:none;flex-direction:row;justify-content:space-between;align-items:flex-end;height:clamp(130px,22vh,180px);flex-shrink:0;position:relative;background:rgba(13,8,24,0.97);border-top:2px solid rgba(240,160,48,0.12);pointer-events:none}
 #touch-pad.on{display:flex}
-.joy-zone{position:relative;width:50%;height:150px;pointer-events:auto;-webkit-tap-highlight-color:transparent;flex-shrink:0}
-.joy-base{position:absolute;width:100px;height:100px;border-radius:50%;border:2px solid rgba(240,160,48,0.15);background:rgba(240,160,48,0.03);pointer-events:none;bottom:16px;left:28px}
-.joy-base.right-base{left:auto;right:80px}
-.joy-knob{position:absolute;width:42px;height:42px;border-radius:50%;pointer-events:none;transition:transform 0.05s;top:50%;left:50%;transform:translate(-50%,-50%)}
-.joy-knob.move-knob{background:radial-gradient(circle,rgba(96,200,255,0.3),rgba(96,200,255,0.06));border:2px solid rgba(96,200,255,0.25)}
-.joy-knob.aim-knob{background:radial-gradient(circle,rgba(255,80,80,0.3),rgba(255,80,80,0.06));border:2px solid rgba(255,80,80,0.25)}
-.joy-label{position:absolute;font-family:'Press Start 2P',monospace;font-size:5px;letter-spacing:1px;pointer-events:none;opacity:0.12;bottom:120px;left:48px}
-.joy-label.right-label{left:auto;right:95px}
-.jump-btn{position:absolute;bottom:18px;right:16px;width:52px;height:52px;border:2px solid rgba(240,160,48,0.3);background:rgba(240,160,48,0.08);display:flex;align-items:center;justify-content:center;font-family:'Press Start 2P',monospace;font-size:6px;color:rgba(240,160,48,0.5);pointer-events:auto;-webkit-tap-highlight-color:transparent;transition:all 0.08s}
-.jump-btn.held{background:rgba(240,160,48,0.2);border-color:rgba(240,160,48,0.6);color:var(--gold);transform:scale(0.92)}
+.joy-zone{position:relative;width:50%;height:clamp(130px,22vh,180px);pointer-events:auto;-webkit-tap-highlight-color:transparent;flex-shrink:0}
+.joy-base{position:absolute;width:clamp(80px,18vw,110px);height:clamp(80px,18vw,110px);border-radius:50%;border:2px solid rgba(240,160,48,0.18);background:rgba(240,160,48,0.04);pointer-events:none;bottom:clamp(10px,2vh,20px);left:clamp(16px,4vw,32px)}
+.joy-base.right-base{left:auto;right:clamp(60px,15vw,90px)}
+.joy-knob{position:absolute;width:clamp(36px,8vw,48px);height:clamp(36px,8vw,48px);border-radius:50%;pointer-events:none;transition:transform 0.05s;top:50%;left:50%;transform:translate(-50%,-50%)}
+.joy-knob.move-knob{background:radial-gradient(circle,rgba(96,200,255,0.35),rgba(96,200,255,0.06));border:2px solid rgba(96,200,255,0.3)}
+.joy-knob.aim-knob{background:radial-gradient(circle,rgba(255,80,80,0.35),rgba(255,80,80,0.06));border:2px solid rgba(255,80,80,0.3)}
+.joy-label{position:absolute;font-family:'Press Start 2P',monospace;font-size:5px;letter-spacing:1px;pointer-events:none;opacity:0.15;bottom:clamp(95px,17vh,125px);left:clamp(36px,9vw,56px)}
+.joy-label.right-label{left:auto;right:clamp(72px,18vw,108px)}
+.jump-btn{position:absolute;bottom:clamp(12px,2vh,22px);right:clamp(10px,2.5vw,20px);width:clamp(52px,12vw,68px);height:clamp(52px,12vw,68px);border:2px solid rgba(240,160,48,0.35);background:rgba(240,160,48,0.1);display:flex;align-items:center;justify-content:center;font-family:'Press Start 2P',monospace;font-size:clamp(5px,1.2vw,7px);color:rgba(240,160,48,0.55);pointer-events:auto;-webkit-tap-highlight-color:transparent;transition:all 0.08s;border-radius:4px}
+.jump-btn.held{background:rgba(240,160,48,0.28);border-color:rgba(240,160,48,0.7);color:var(--gold);transform:scale(0.92)}
+
+/* CTRL HINT (desktop) */
+#ctrl-hint-game{position:absolute;bottom:8px;right:10px;font-size:6px;color:rgba(255,255,255,0.13);pointer-events:none;z-index:15;letter-spacing:1px;line-height:1.8;text-align:right}
+body.is-touch #ctrl-hint-game{display:none}
+canvas#game.crosshair{cursor:crosshair}
+
+/* RESPONSIVE */
+@media (max-height:500px) and (orientation:landscape){
+  #touch-pad,.joy-zone{height:110px}
+  .joy-base{width:66px;height:66px;bottom:8px;left:14px}
+  .joy-base.right-base{right:56px}
+  .joy-knob{width:30px;height:30px}
+  .jump-btn{width:46px;height:46px;bottom:8px;right:8px}
+  .joy-label{display:none}
+}
+@media (max-width:400px){
+  .menu-btns{width:92vw}
+  .menu-stats{gap:8px}
+  .menu-stat{padding:6px 8px}
+  #multi-hud{height:38px}
+}
+@media (min-width:600px){
+  #touch-pad{height:160px}
+  .joy-zone{height:160px}
+}
 #game-overlay{position:fixed;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(13,8,24,0.92);z-index:100;transition:opacity 0.2s}
 #game-overlay.hidden{opacity:0;pointer-events:none}
 #game-overlay h2{font-family:'Press Start 2P',monospace;font-size:13px;margin-bottom:10px;color:var(--gold);text-shadow:3px 3px 0 #7a4400,0 0 20px rgba(240,160,48,0.4)}
@@ -338,6 +363,7 @@ body:not(.observe-mode) #cam-hint{display:none}
       <div id="mhud-center"><span class="gen-val" id="mh-round">Round 1</span> · <span id="mh-timer" style="color:var(--warn)">0:40</span></div>
     </div>
     <div id="cam-hint">ZQSD · DRAG · SCROLL = zoom · ESPACE = reset</div>
+    <div id="ctrl-hint-game">WASD · sauter↑ · espace=tir<br>🖱 viser · clic=tir</div>
     <div id="game-overlay" class="hidden">
       <h2 id="ov-title"></h2>
       <div class="ov-sub" id="ov-sub"></div>
@@ -1433,6 +1459,10 @@ let freeCam=false;
 let freeCamVx=0,freeCamVy=0;
 let camZoom=1;
 let dragCam={active:false,startX:0,startY:0,startCamX:0,startCamY:0};
+// ── Mouse aiming (desktop) ────────────────────────────────────────
+const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+let mousePos={x:0,y:0}; // CSS pixels relative to canvas
+let mouseShoot=false;    // Left button held
 // ── Stagnation detection ──────────────────────────────────────────
 let stagnationCounter=0;
 
@@ -1733,17 +1763,28 @@ function updateMultiHUD(){
 function setupFreeCam(){
   const canvas=document.getElementById('game');
 
-  // Mouse drag
+  // Mouse drag (free cam) + aim tracking (play mode)
   canvas.addEventListener('mousedown',e=>{
-    if(!freeCam)return;
-    dragCam={active:true,startX:e.clientX,startY:e.clientY,startCamX:camX,startCamY:camY};
+    if(freeCam){
+      dragCam={active:true,startX:e.clientX,startY:e.clientY,startCamX:camX,startCamY:camY};
+    } else if(e.button===0){
+      mouseShoot=true;
+    }
   });
   window.addEventListener('mousemove',e=>{
-    if(!freeCam||!dragCam.active)return;
-    camX=dragCam.startCamX-(e.clientX-dragCam.startX)/camZoom;
-    camY=dragCam.startCamY-(e.clientY-dragCam.startY)/camZoom;
+    // Toujours tracker la position souris pour la visée
+    const rect=canvas.getBoundingClientRect();
+    mousePos.x=e.clientX-rect.left;
+    mousePos.y=e.clientY-rect.top;
+    if(freeCam&&dragCam.active){
+      camX=dragCam.startCamX-(e.clientX-dragCam.startX)/camZoom;
+      camY=dragCam.startCamY-(e.clientY-dragCam.startY)/camZoom;
+    }
   });
-  window.addEventListener('mouseup',()=>{dragCam.active=false;});
+  window.addEventListener('mouseup',e=>{
+    dragCam.active=false;
+    if(e.button===0) mouseShoot=false;
+  });
 
   // Touch drag
   canvas.addEventListener('touchstart',e=>{
@@ -3018,12 +3059,27 @@ function gameLoop(){
           if(keys['KeyD']||keys['ArrowRight']){me.vx+=MSPD*0.4;me.face=1;}
           if((keys['KeyW']||keys['KeyZ']||keys['ArrowUp'])&&me.gnd){me.vy=JUMP;}
           if(keys['Space']) me.shoot();
+
+          // ── Visée souris (desktop seulement) ──────────────────
+          if(!isTouchDevice){
+            // Convertir position souris (CSS px) en coordonnées monde
+            const worldMX=(mousePos.x-vW/2)/camZoom+vW/2+camX;
+            const worldMY=(mousePos.y-vH/2)/camZoom+vH/2+camY;
+            const pcx=me.x+me.w/2, pcy=me.y+me.h/2;
+            me.aim=Math.atan2(worldMY-pcy, worldMX-pcx);
+            if(me.aim!==0) me.face=worldMX>pcx?1:-1;
+            if(mouseShoot) me.shoot();
+          }
+
+          // ── Joystick gauche (déplacement) ─────────────────────
           if(joyState.left.active){
             const lx=joyState.left.x,ly=joyState.left.y;
             if(Math.abs(lx)>DEADZONE){me.vx+=lx*MSPD*0.5;me.face=lx>0?1:-1;}
             if(ly<-0.6&&me.gnd) me.vy=JUMP;
           }
           if(joyState.jump&&me.gnd) me.vy=JUMP;
+
+          // ── Joystick droit (visée + tir) ──────────────────────
           if(joyState.right.active){
             const rx=joyState.right.x,ry=joyState.right.y;
             const mag=Math.sqrt(rx*rx+ry*ry);
@@ -3182,18 +3238,24 @@ function gameLoop(){
 // ================================================================
 //  SCREENS
 function updateGameControls(){
-  const isTouch=('ontouchstart' in window)||navigator.maxTouchPoints>0;
   const pad=document.getElementById('touch-pad');
+  const canvas=document.getElementById('game');
   const humanIdx=playerBrains.findIndex(b=>b===null);
   const hasHuman=humanIdx>=0;
   const humanAlive=hasHuman&&playerAlive[humanIdx];
   const allAI=!hasHuman;
+
+  // Classe body pour CSS (masquer hints desktop sur mobile)
+  document.body.classList.toggle('is-touch', isTouchDevice);
+
   if(allAI||!humanAlive){
     pad.classList.remove('on');
     freeCam=true;
     document.body.classList.add('observe-mode');
+    canvas.classList.remove('crosshair');
   } else {
-    if(isTouch) pad.classList.add('on'); else pad.classList.remove('on');
+    if(isTouchDevice){ pad.classList.add('on'); canvas.classList.remove('crosshair'); }
+    else { pad.classList.remove('on'); canvas.classList.add('crosshair'); }
     freeCam=false;
     document.body.classList.remove('observe-mode');
   }
@@ -3343,7 +3405,9 @@ async function updateLabUI(){
     const sk=e.skills||{};
     const skillColors=['#ff6060','#f0c040','#60ff80','#60c8ff','#ff80ff','#ffaa40'];
     const skillsHtml=`<div style="display:flex;gap:3px;margin-top:4px;align-items:center">${SKILL_KEYS.map((k,i)=>`<div style="flex:1;text-align:center"><div style="font-size:4px;color:${skillColors[i]};margin-bottom:1px">${SKILL_LABELS[i].slice(0,3)}</div>${skillBar(sk[k],skillColors[i])}</div>`).join('')}</div>`;
-    html+=`<div class="brain-card ${cur?'active-brain':''}" onclick="selectBrain('${e.id}')"><div class="bc-header"><span class="bc-name">${sanitize(e.name||e.id)} ${cur?'● ACTIF':''}</span><span class="bc-gen">Gen ${e.generation||'?'}</span>${delBtn}</div><div class="bc-stats"><span>${eloStr}</span><span>⚡${Math.round(e.fitness||0)}</span><span>🎯 ${e.wins||0}W/${e.played||0}P</span><span>🧠 ${e.params||'?'}p</span>${typeTag}${creatorTag}${e.imported?'<span>📥 importé</span>':''}</div>${skillsHtml}</div>`;
+    const pers = PERSONALITIES[e.personality];
+    const persTag = pers ? `<span style="color:${pers.color}">${pers.icon} ${pers.name}</span>` : '';
+    html+=`<div class="brain-card ${cur?'active-brain':''}" onclick="selectBrain('${e.id}')"><div class="bc-header"><span class="bc-name">${sanitize(e.name||e.id)} ${cur?'● ACTIF':''}</span><span class="bc-gen">Gen ${e.generation||'?'}</span>${delBtn}</div><div class="bc-stats"><span>${eloStr}</span><span>⚡${Math.round(e.fitness||0)}</span><span>🎯 ${e.wins||0}W/${e.played||0}P</span><span>🧠 ${e.params||'?'}p</span>${persTag}${typeTag}${creatorTag}${e.imported?'<span>📥 importé</span>':''}</div>${skillsHtml}</div>`;
   }
   html+=`<div class="lab-actions"><button class="btn small primary" onclick="openBrainModal()">+ Nouveau</button><button class="btn small" onclick="duplicateCurrent()">📋 Dupliquer</button><button class="btn small warn" onclick="resetCurrent()">🗑 Reset actif</button></div>`;
   document.getElementById('lab-content').innerHTML=html;
@@ -4516,6 +4580,109 @@ function trainerQuote(level, bank){
   return `[${t.name}] « ${arr[Math.floor(Math.random()*arr.length)]} »`;
 }
 
+// ── PERSONNALITÉS DES CERVEAUX ───────────────────────────────────
+const PERSONALITIES = {
+  ghost: {
+    name:'Fantôme', color:'#a0a0c0', icon:'👻',
+    rewardBias:{ arrowDodge:2.5, stationary:-3.0, aimPrec:0.5, wall:2.5 },
+    quotes:{
+      roundStart:['...','Tu ne me verras pas venir.','Je suis déjà là.'],
+      win:       ['(silence)','Insaisissable.','Tu n\'étais pas prêt.'],
+      lose:      ['Je reviendrai.','...','Hmph.'],
+      rage:      ['Tu as été chanceux.','Cette fois, tu ne m\'échapperas pas.','Je ne rate pas deux fois.'],
+      taunt:     ['Je n\'étais pas concentré.','Essaie encore.'],
+    }
+  },
+  berserk: {
+    name:'Berserker', color:'#ff4040', icon:'🔥',
+    rewardBias:{ aggro:2.5, arrowNear:2.0, survival:0.4, arrowDodge:0.5 },
+    quotes:{
+      roundStart:['VIENS !','Je vais tout casser.','MONTRE-MOI TOUT !'],
+      win:       ['ENCORE !','Trop facile. Prochain !','C\'est ça ta meilleure attaque ?!'],
+      lose:      ['JE VAIS TE DÉCHIRER !','RAGE !','Ça ne se passera pas comme ça !'],
+      rage:      ['BERSERK MODE ACTIVÉ !','PLUS RIEN NE M\'ARRÊTE !!!','JE SENS LA CHALEUR !!!'],
+      taunt:     ['C\'est tout ce que t\'as ?','ALLEZ, PLUS FORT !'],
+    }
+  },
+  sniper: {
+    name:'Tireur d\'Élite', color:'#60c8ff', icon:'🎯',
+    rewardBias:{ aimPrec:3.0, shootWell:2.5, arrowNear:-0.5, mobility:0.5 },
+    quotes:{
+      roundStart:['Cible acquise.','Un seul tir suffit.','Je t\'ai déjà dans le viseur.'],
+      win:       ['Prévisible.','Comme calculé.','Distance optimale maintenue.'],
+      lose:      ['Je t\'analyserai mieux.','Intéressant schéma.','J\'ajuste mes calculs.'],
+      rage:      ['Ne bouge plus.','J\'ai ta trajectoire.','Aucune esquive ne t\'aidera.'],
+      taunt:     ['Tu croyais m\'échapper ?','J\'attendais ça depuis le début.'],
+    }
+  },
+  taunter: {
+    name:'Provocateur', color:'#f0c040', icon:'😏',
+    rewardBias:{ aggro:1.5, mobility:1.5 },
+    quotes:{
+      roundStart:['Essaie de me toucher.','Amuse-moi.','J\'espère que tu es bon...'],
+      win:       ['T\'appelles ça jouer ?','Même pas fatiguant.','Trop facile 😏'],
+      lose:      ['Ok ok, je suis sérieux maintenant.','Bon, t\'as eu de la chance.','Tu viens de commettre une erreur.'],
+      rage:      ['Tu viens de commettre UNE ERREUR.','Je vais te montrer ce que je vaux vraiment.','Fini de jouer.'],
+      taunt:     ['Trop lent 😏','Raté encore ?','Tu veux des conseils ?'],
+    }
+  },
+  tactician: {
+    name:'Calculateur', color:'#40c080', icon:'🧮',
+    rewardBias:{ mobility:2.0, wall:2.0, aimPrec:1.5 },
+    platformBonus:true,
+    quotes:{
+      roundStart:['Variables analysées.','Position optimale calculée.','Phase d\'acquisition de données.'],
+      win:       ['Résultat conforme aux projections.','Efficacité : 94%.','Séquence exécutée.'],
+      lose:      ['Données insuffisantes. Recalcul.','Erreur de variable. Correction.','Hypothèse incorrecte.'],
+      rage:      ['Recalibrage d\'urgence.','Adaptation en cours.','Nouvelle variable détectée.'],
+      taunt:     ['Ça n\'aurait pas dû fonctionner.','Ta stratégie est transparente.'],
+    }
+  },
+  loner: {
+    name:'Loup Solitaire', color:'#c060ff', icon:'🐺',
+    rewardBias:{ aggro:1.5, survival:1.5, arrowDodge:1.5 },
+    quotes:{
+      roundStart:['Je n\'ai besoin de personne.','...','On verra bien.'],
+      win:       ['C\'est dans l\'ordre des choses.','Je m\'en doutais.','Seul comme toujours.'],
+      lose:      ['La prochaine fois.','Ce n\'est pas fini.','Je n\'oublie pas.'],
+      rage:      ['Tu m\'as forcé.','Je n\'oublie pas.','Un loup acculé est dangereux.'],
+      taunt:     ['Satisfait ?','Tu n\'as rien compris à mon style.'],
+    }
+  },
+};
+const PERSONALITY_KEYS = Object.keys(PERSONALITIES);
+
+function personalityToast(event){
+  const p = PERSONALITIES[trBrainPersonality];
+  if(!p) return;
+  const bank = p.quotes[event];
+  if(!bank || !bank.length) return;
+  const quote = bank[Math.floor(Math.random()*bank.length)];
+  const brainName = document.getElementById('tr-brain-name')?.textContent?.trim() || 'Cerveau';
+  toast(`${p.icon} ${brainName} : "${quote}"`);
+}
+
+function getActivePersonalityWeights(){
+  const key = trBrainPersonality || 'ghost';
+  const p = PERSONALITIES[key];
+  const base = { ...(OBJECTIVE_WEIGHTS[trConfig.objective] || OBJECTIVE_WEIGHTS.balanced) };
+  const bias = p?.rewardBias ?? {};
+  for(const k of Object.keys(bias)){
+    if(base[k] !== undefined) base[k] *= bias[k];
+    else base[k] = bias[k];
+  }
+  // Berserker en rage : bonus aggression, moins peur des murs
+  if(key === 'berserk' && trEmotional.rage > 60){
+    base.aggro  = (base.aggro  || 1) * 1.5;
+    base.wall   = (base.wall   || 1) * 0.5;
+  }
+  // Sniper en confiance : bonus précision
+  if(key === 'sniper' && trEmotional.confidence > 60){
+    base.aimPrec = (base.aimPrec || 1) * 1.3;
+  }
+  return base;
+}
+
 // ================================================================
 //  PIÈGES (TRAPS)
 class Trap {
@@ -4879,6 +5046,13 @@ let trCurriculumTotal = 0;   // rounds depuis dernier changement
 let trShapedReward = 0;      // récompense shaped accumulée dans le round
 let trHofRoundElo  = null;   // ELO du cerveau HoF adversaire ce round (null = agent scripté)
 let _trainerLevel  = 1;      // niveau de l'entraîneur actif (pour roleplay)
+// ── Personnalité + état émotionnel ──────────────────────────────
+let trBrainPersonality = 'ghost'; // clé personnalité du cerveau actif
+let trCurrentWeights   = {};      // poids de récompense actifs (objectif × biais personnalité)
+let trEmotional = { rage:0, confidence:0, frustration:0 };
+let trConsecLosses = 0;
+let trConsecWins   = 0;
+let trRageToastShown = false;
 
 // ── GÉNÉRATION PAR OBJECTIFS ─────────────────────────────────────
 const TR_GEN_WIN_SIZE = 20;  // fenêtre glissante pour le taux de victoire
@@ -4929,6 +5103,11 @@ async function trainingStart(){
   // Attacher le learner par gradient (persistance de l'état Adam)
   trBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
   if(entry.adamState) trBrain.pgLearner.loadAdam(entry.adamState);
+  // Charger personnalité + réinitialiser état émotionnel
+  trBrainPersonality = entry.personality || PERSONALITY_KEYS[Math.floor(Math.random()*PERSONALITY_KEYS.length)];
+  trEmotional = { rage:0, confidence:0, frustration:0 };
+  trConsecLosses=0; trConsecWins=0; trRageToastShown=false;
+  trCurrentWeights = {};
   trBestBrain=null; trHof=[]; trStag=0;
   trRoundsDone=0; trRunning=true;
   trEvoHistory=[]; trGenWinWindow=[]; trGenHistory=[];
@@ -4996,6 +5175,10 @@ function startTrainRound(){
 
   trRoundTimer=0; trRoundOver=false; trTrapProj=[]; trShapedReward=0;
   let trRoundOutcome = null; // 'win'|'lose'|'draw' — fixe le bug de re-scan des flèches
+  // Poids de récompense actifs = objectif × biais personnalité × état émotionnel
+  trCurrentWeights = getActivePersonalityWeights();
+  // Toast personnalité au tout premier round seulement
+  if(trRoundsDone === 0) setTimeout(()=>personalityToast('roundStart'), 1200);
   trTraps.forEach(t=>{
     if(t.type==='collapse'){t.triggered=false;t.fallTimer=0;t.fallen=false;t.y=t.origY;}
     if(t.type==='mine'){t.triggered=false;t.triggerTimer=0;t.active=true;}
@@ -5092,7 +5275,7 @@ function startTrainRound(){
     if(aimDiff>Math.PI) aimDiff=Math.PI*2-aimDiff;
 
     // 1. Viser précisément : récompense graduelle et forte
-    const _ow = OBJECTIVE_WEIGHTS[trConfig.objective] || OBJECTIVE_WEIGHTS.balanced;
+    const _ow = trCurrentWeights;
     const aimPrecision=Math.max(0,(0.4-aimDiff)/0.4); // 1=parfait, 0=>23°
     trShapedReward += aimPrecision*0.012*_ow.aimPrec;
     if(aimDiff<0.2) rs.framesAiming++;
@@ -5108,7 +5291,9 @@ function startTrainRound(){
         Math.max(0, aimDelta) * 0.05 * _ow.aimPrec   // récompense convergence (pas rotation)
         + (rs.aimHeld > 5 ? 0.006 * _ow.aimPrec : 0) // bonus maintien de la visée stable
         + (out[5]>0.5 && aimDiff<0.3 ? 0.05*_ow.shootWell : 0)  // tirer bien visé
-        + (out[5]>0.5 && aimDiff>0.8 ? -0.02 : 0)   // pénalité tir raté
+        + (out[5]>0.5 && aimDiff>0.8 ? -0.04 : 0)   // pénalité tir raté (renforcée)
+        + (out[2]>0.5 && !ce.gnd ? -0.018 : 0)       // saut en l'air inutile
+        + ((inp[20]<0.07&&out[0]>0.5)||(inp[21]<0.07&&out[1]>0.5) ? -0.025 : 0) // marcher dans le mur
         + 0.002 * _ow.survival;                       // survie (réduit pour éviter dominance)
       trBrain.pgLearner.step(out, pgReward, trBrain);
       // Online learning : mise à jour gradient toutes les 60 frames de simulation
@@ -5121,7 +5306,7 @@ function startTrainRound(){
     if(out[5]>0.5 && aimDiff<0.3 && ce.cd===0){
       trShapedReward += 0.08 * _ow.shootWell;
     } else if(out[5]>0.5 && aimDiff>0.8){
-      trShapedReward -= 0.02;
+      trShapedReward -= 0.04; // pénalité tir raté renforcée
     }
 
     // 3. Flèches proches de l'ennemi
@@ -5157,6 +5342,20 @@ function startTrainRound(){
 
     // 5. Pénalité mur
     if(ce.x<25||ce.x>WW-45) trShapedReward -= 0.008 * _ow.wall;
+
+    // 6. Anti-spam : pénalités comportements inutiles
+    if(out[2]>0.5 && !ce.gnd)                                            trShapedReward -= 0.018;
+    if((inp[20]<0.07&&out[0]>0.5)||(inp[21]<0.07&&out[1]>0.5))          trShapedReward -= 0.025;
+
+    // 7. Tracking changement de plateforme
+    if(ce.gnd){
+      const py = Math.round(ce.y/10)*10;
+      if(py !== rs.lastPlatY && rs.lastPlatY !== -1){
+        rs.platformChanges++;
+        if(PERSONALITIES[trBrainPersonality]?.platformBonus) trShapedReward += 0.04;
+      }
+      rs.lastPlatY = py;
+    }
 
     // Agents scriptés
     for(let i=0;i<trAgentObjs.length;i++){
@@ -5266,14 +5465,39 @@ function startTrainRound(){
     // ── Vérification palier de génération ────────────────────────
     if(!popMode) checkGenerationAdvancement(won, trBrain, trRoundsDone);
 
-    // ── Roleplay : quote de l'entraîneur ─────────────────────────
+    // ── Mise à jour état émotionnel ───────────────────────────────
+    if(won){
+      trConsecWins++; trConsecLosses=0;
+      trEmotional.confidence = Math.min(100, trEmotional.confidence + 15);
+      trEmotional.rage       = Math.max(0,   trEmotional.rage - 10);
+      trEmotional.frustration= Math.max(0,   trEmotional.frustration - 10);
+    } else {
+      trConsecLosses++; trConsecWins=0;
+      trEmotional.rage       = Math.min(100, trEmotional.rage + 12);
+      trEmotional.confidence = Math.max(0,   trEmotional.confidence - 8);
+      const missRate = rs.shotsFired > 0 ? 1-(rs.preciseShots/rs.shotsFired) : 0.5;
+      trEmotional.frustration= Math.min(100, trEmotional.frustration + missRate*18);
+    }
+
+    // ── Roleplay : quote personnalité + entraîneur ────────────────
     if(!popMode){
-      // Quote tous les 7 rounds (trainer réagit à son résultat)
+      // Toast personnalité du cerveau (victoire / défaite)
+      if(trRoundsDone % 5 === 0)
+        setTimeout(()=>personalityToast(won?'win':'lose'), 400);
+      // Rage (berserker, une fois par session)
+      if(trEmotional.rage > 70 && !trRageToastShown){
+        trRageToastShown = true;
+        setTimeout(()=>personalityToast('rage'), 1200);
+      }
+      // Provocation si confiance haute + 3+ victoires consécutives
+      if(won && trEmotional.confidence > 75 && trConsecWins >= 3 && trRoundsDone % 3 === 0)
+        setTimeout(()=>personalityToast('taunt'), 1800);
+      // Quote entraîneur tous les 7 rounds
       if(trRoundsDone % 7 === 0)
-        setTimeout(()=>toast(trainerQuote(_trainerLevel, won?'lose':'win')), 300);
-      // Série de 3 victoires consécutives → l'entraîneur est impressionné
+        setTimeout(()=>toast(trainerQuote(_trainerLevel, won?'lose':'win')), 800);
+      // Série de 3 victoires → entraîneur impressionné
       if(won && trCurriculumWins > 0 && trCurriculumWins % 3 === 0 && trCurriculumTotal <= trCurriculumWins + 4)
-        setTimeout(()=>toast(trainerQuote(_trainerLevel,'streak')), 1000);
+        setTimeout(()=>toast(trainerQuote(_trainerLevel,'streak')), 1400);
     }
 
     // ── DEEP LEARNING : gradient update avant mutation ────────────
@@ -5858,16 +6082,22 @@ async function glFinish(brain){
   const newGen     = srcEntry ? ((srcEntry.generation||1) + 1) : 1;
   const topology   = srcEntry ? (srcEntry.topology||'GRU×3') : `GRU(H=${H})×3+ARB(${arb})`;
 
+  const personalityKey = srcEntry?.personality
+    || PERSONALITY_KEYS[Math.floor(Math.random()*PERSONALITY_KEYS.length)];
+  const personalityInfo = PERSONALITIES[personalityKey];
+
   await store.put('brains',{id, name, creator:localCreator, brain:brain.serialize(),
     generation:newGen, fitness:0, elo:brain.elo, wins:0, played:0,
-    timestamp:Date.now(), game:'arena-archer', topology, params:brain.paramCount()});
+    timestamp:Date.now(), game:'arena-archer', topology, params:brain.paramCount(),
+    personality:personalityKey});
   currentBrainId=id; store.setConfig('currentBrainId',id); activeBrain=brain;
   activeBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
   generation=newGen; bestBrain=null; totalWins=0; totalPlayed=0;
   closeBrainModal();
+  const persIcon = personalityInfo ? `${personalityInfo.icon} ${personalityInfo.name}` : '';
   const msg = srcEntry
-    ? `✓ ${name} — Gén. ${newGen}, depuis ${srcEntry.name} (candidat #${glTested})`
-    : `✓ Cerveau sélectionné : ${name} (candidat #${glTested})`;
+    ? `✓ ${name} — Gén. ${newGen}, depuis ${srcEntry.name} · ${persIcon}`
+    : `✓ ${name} · ${persIcon} (candidat #${glTested})`;
   toast(msg);
   updateLabUI();
 }
