@@ -4785,6 +4785,7 @@ let trCurriculumLevel = 1;   // niveau courant
 let trCurriculumWins = 0;    // victoires depuis dernier changement
 let trCurriculumTotal = 0;   // rounds depuis dernier changement
 let trShapedReward = 0;      // récompense shaped accumulée dans le round
+let trHofRoundElo  = null;   // ELO du cerveau HoF adversaire ce round (null = agent scripté)
 
 // ── GÉNÉRATION PAR OBJECTIFS ─────────────────────────────────────
 const TR_GEN_WIN_SIZE = 20;  // fenêtre glissante pour le taux de victoire
@@ -4939,10 +4940,12 @@ function startTrainRound(){
   });
 
   // Self-play : 25 % des rounds affrontent un cerveau HoF passé (ELO > 1350)
+  trHofRoundElo = null;
   if(!popMode && trHof.length > 0 && (trBrain.elo||ELO_BASE) > 1350 && Math.random() < 0.25){
     const hofBrain = trHof[Math.floor(Math.random()*trHof.length)];
     hofBrain.resetMemory();
-    trAgentObjs[0] = { level:99, mem:{},
+    trHofRoundElo = hofBrain.elo || ELO_BASE; // ELO réel de l'adversaire HoF pour onRoundEnd
+    trAgentObjs[0] = { level:1, mem:{},
       act(ent, ce, arrows){ aiProcessFor(hofBrain.forward(aiInputsFor(ent,ce,arrows,trRoundTimer)), ent, ce); }
     };
   }
@@ -5120,7 +5123,7 @@ function startTrainRound(){
     const aimBonus   = Math.min(rs.framesAiming / (60*35) * 15, 15); // max 15 : viser
     const shotBonus  = Math.min(rs.shotsNearMiss * 0.5, 10);          // max 10 : précision
     const dodgeBonus = Math.min(rs.arrowsDodged  * 0.4, 5);           // max 5  : esquive
-    const shaped     = Math.max(-5, Math.min(trShapedReward * 80, 12)); // shaped clamped
+    const shaped     = Math.max(-5, Math.min(trShapedReward * 60, 16)); // shaped clamped (cap élargi pour hit reward)
     const totalGain  = aimBonus + shotBonus + dodgeBonus + shaped + (won ? evoParams.winBonus : 0);
 
     const prevFit=trBrain.fitness||0;
@@ -5153,7 +5156,7 @@ function startTrainRound(){
 
     // ELO
     const agentLvl = trConfig.curriculum ? trCurriculumLevel : (trAgentObjs[0]?.level||1);
-    const agentElo = AGENT_ELO[agentLvl-1] || AGENT_ELO[0];
+    const agentElo = trHofRoundElo ?? (AGENT_ELO[agentLvl-1] || AGENT_ELO[0]);
     const prevElo=trBrain.elo||ELO_BASE;
     trBrain.elo=Math.max(400,eloUpdate(prevElo,eloExpected(prevElo,agentElo),won?1:0,trRoundsDone));
 
