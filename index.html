@@ -238,7 +238,22 @@ body:not(.observe-mode) #cam-hint{display:none}
 .stats-bar-label{font-size:5px;color:#6040a0;margin-bottom:2px}
 .stats-bar-bg{background:#1a0e2e;border:1px solid var(--border);height:8px;position:relative}
 .stats-bar-fill{height:100%;background:var(--gold);transition:width 0.3s}
-#stats-history-canvas{width:100%;height:140px;background:var(--card);border:2px solid var(--border);display:block;margin-top:8px;image-rendering:pixelated}
+#stats-history-canvas{width:100%;height:130px;background:var(--card);border:2px solid var(--border);display:block;margin-top:6px;image-rendering:pixelated}
+/* STATS REFONTE */
+.ss-section{background:var(--card);border:2px solid var(--border);padding:8px 10px;margin-bottom:7px}
+.ss-header{font-family:'Press Start 2P',monospace;font-size:7px;color:var(--gold);margin-bottom:6px;text-shadow:1px 1px 0 #7a4400}
+.ss-row{display:flex;justify-content:space-between;align-items:center;padding:2px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:6px}
+.ss-row:last-child{border-bottom:none}
+.ss-key{color:#6040a0}.ss-val{color:var(--bright);font-weight:bold}
+.ss-bar-wrap{margin:3px 0}
+.ss-bar-lbl{font-size:5px;color:#6040a0;display:flex;justify-content:space-between;margin-bottom:1px}
+.ss-bar-bg{background:#1a0e2e;border:1px solid var(--border);height:6px;position:relative;overflow:hidden}
+.ss-bar-fill{height:100%;background:var(--gold);transition:width 0.4s}
+.ss-skill-row{display:flex;align-items:center;gap:5px;padding:2px 0;font-size:6px;color:#8060c0}
+.ss-skill-bar{flex:1;height:5px;background:#1a0e2e;border:1px solid var(--border);overflow:hidden}
+.ss-skill-fill{height:100%;transition:width 0.4s}
+.ss-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:7px}
+.ss-gen-badge{display:inline-block;background:#1a0e2e;border:2px solid var(--gold);color:var(--gold);font-family:'Press Start 2P',monospace;font-size:6px;padding:3px 6px;margin-bottom:6px}
 /* TRAINING CONFIG */
 .param-section-title{font-size:6px;color:var(--gold);letter-spacing:1px;margin-bottom:6px;display:block}
 .pvp-section{width:100%;max-width:380px;padding:0 16px;margin-top:10px}
@@ -3994,12 +4009,11 @@ function drawEvoGraph(){
 let statsSelectedId = null;
 
 async function renderStats(){
-  const all = await store.getAll('brains');
+  const all  = await store.getAll('brains');
   const sel  = document.getElementById('stats-sel');
   const cont = document.getElementById('stats-content');
   if(!sel||!cont) return;
 
-  // Sélecteur
   sel.innerHTML = all.map(e=>{
     const active = e.id===statsSelectedId;
     return `<button class="btn small ${active?'primary':''}" onclick="selectStats('${e.id}')">${sanitize((e.name||e.id).substring(0,12))}</button>`;
@@ -4009,47 +4023,103 @@ async function renderStats(){
   const e = all.find(b=>b.id===statsSelectedId);
   if(!e){ cont.innerHTML='<div class="empty-state">Aucun cerveau sélectionné</div>'; return; }
 
-  const wr = e.played>0 ? Math.round(e.wins/e.played*100) : 0;
+  // ── Données de base ──────────────────────────────────────────
+  const elo  = e.elo || ELO_BASE;
+  const gen  = e.generation || 1;
+  const fit  = Math.round(e.fitness||0);
+  const wr   = e.played>0 ? Math.round(e.wins/e.played*100) : 0;
   const hist = evoHistory[e.id] || [];
-  const eloTrend = hist.length>=2
-    ? (hist[hist.length-1].elo - hist[0].elo)
-    : 0;
-  const fitTrend = hist.length>=2
-    ? (hist[hist.length-1].fitness - hist[0].fitness)
-    : 0;
+  const eloTrend = hist.length>=2 ? hist[hist.length-1].elo - hist[hist.length-2].elo : 0;
 
-  cont.innerHTML=`
-  <div class="stats-card">
-    <div class="stats-row"><span class="stats-key">Nom</span><span class="stats-val">${sanitize(e.name||e.id)}</span></div>
-    <div class="stats-row"><span class="stats-key">Créateur</span><span class="stats-val">${sanitize(e.creator||'?')}</span></div>
-    <div class="stats-row"><span class="stats-key">Génération</span><span class="stats-val">${e.generation||0}</span></div>
-    <div class="stats-row"><span class="stats-key">ELO</span><span class="stats-val">${e.elo||ELO_BASE} ${eloTrend>=0?'▲':'▼'}${Math.abs(eloTrend)}</span></div>
-    <div class="stats-row"><span class="stats-key">Fitness</span><span class="stats-val">${Math.round(e.fitness||0)} ${fitTrend>=0?'▲':'▼'}${Math.abs(fitTrend)}</span></div>
-    <div class="stats-row"><span class="stats-key">Victoires / Parties</span><span class="stats-val">${e.wins||0} / ${e.played||0}</span></div>
-    <div class="stats-row"><span class="stats-key">Taux de victoire</span><span class="stats-val">${wr}%</span></div>
-    <div class="stats-row"><span class="stats-key">Topologie</span><span class="stats-val">${e.topology||'?'}</span></div>
-    <div class="stats-row"><span class="stats-key">Paramètres</span><span class="stats-val">${e.params||'?'}</span></div>
-    <div class="stats-row"><span class="stats-key">Dernière activité</span><span class="stats-val">${e.timestamp?new Date(e.timestamp).toLocaleDateString('fr-FR'):'-'}</span></div>
+  // ── Données live (si c'est le cerveau en cours d'entraînement) ─
+  const isLive = trRunning && trBrain && e.id===currentBrainId;
+  const liveSkills  = isLive ? (trBrain.skills || {}) : null;
+  const liveWin     = isLive ? trGenWinWindow : [];
+  const liveGenHist = isLive ? trGenHistory   : [];
+  const skills = liveSkills || (e.brain ? (deserializeBrain(e.brain)?.skills || {}) : {});
+
+  // ── Objectif prochaine génération ────────────────────────────
+  const target  = computeGenTarget(gen);
+  const winNow  = liveWin.length >= 5
+    ? Math.round(liveWin.reduce((a,b)=>a+b,0)/liveWin.length*100) : wr;
+  const wrPct   = Math.min(Math.round(winNow / (target.winRate*100) * 100), 100);
+  const eloPct  = Math.min(Math.round(elo / target.elo * 100), 100);
+  const wrDone  = winNow >= Math.round(target.winRate*100);
+  const eloDone = elo >= target.elo;
+  const palierOk = wrDone || eloDone;
+
+  // ── Compétences ───────────────────────────────────────────────
+  function skillBar(val, col){
+    const pct = Math.round(val||0);
+    return `<div class="ss-skill-bar"><div class="ss-skill-fill" style="width:${pct}%;background:${col}"></div></div><span style="color:${col};font-size:6px;min-width:26px;text-align:right">${pct}%</span>`;
+  }
+
+  // ── Historique de génération ──────────────────────────────────
+  const genHistHtml = liveGenHist.length>0
+    ? liveGenHist.slice(-6).map(g=>
+        `<div style="font-size:5px;color:#6040a0;padding:1px 0">GÉN.${g.gen} · rd${g.round} · ELO ${g.elo} — ${sanitize(g.reason)}</div>`
+      ).join('')
+    : `<div style="font-size:5px;color:#3a2a50">Aucun palier atteint cette session</div>`;
+
+  cont.innerHTML = `
+  <!-- Identité -->
+  <div class="ss-section">
+    <div class="ss-gen-badge">GÉN. ${gen}</div>
+    <div class="ss-row"><span class="ss-key">Cerveau</span><span class="ss-val">${sanitize(e.name||e.id)}</span></div>
+    <div class="ss-row"><span class="ss-key">ELO</span><span class="ss-val">${elo} <span style="color:${eloTrend>=0?'#40ff80':'#ff4444'}">${eloTrend>=0?'▲':'▼'}${Math.abs(eloTrend)}</span></span></div>
+    <div class="ss-row"><span class="ss-key">Fitness</span><span class="ss-val">${fit} / 100</span></div>
+    <div class="ss-row"><span class="ss-key">Victoires</span><span class="ss-val">${e.wins||0} / ${e.played||0} <span style="color:#8060c0">(${wr}%)</span></span></div>
+    <div class="ss-row"><span class="ss-key">Topologie</span><span class="ss-val" style="font-size:5px">${e.topology||'?'}</span></div>
   </div>
 
-  <div class="stats-bar-wrap">
-    <div class="stats-bar-label">Taux de victoire (${wr}%)</div>
-    <div class="stats-bar-bg"><div class="stats-bar-fill" style="width:${wr}%"></div></div>
-  </div>
-  <div class="stats-bar-wrap">
-    <div class="stats-bar-label">ELO relatif (${e.elo||ELO_BASE} / 2000)</div>
-    <div class="stats-bar-bg"><div class="stats-bar-fill" style="width:${Math.min(((e.elo||ELO_BASE)/2000)*100,100)}%;background:var(--accent2)"></div></div>
-  </div>
-  <div class="stats-bar-wrap">
-    <div class="stats-bar-label">Fitness (${Math.round(e.fitness||0)} / 200)</div>
-    <div class="stats-bar-bg"><div class="stats-bar-fill" style="width:${Math.min(((e.fitness||0)/200)*100,100)}%;background:#60ff80"></div></div>
+  <!-- Prochain palier -->
+  <div class="ss-section">
+    <div class="ss-header">→ GÉN. ${gen+1} ${palierOk?'<span style="color:#40ff80">✓ ATTEINT</span>':''}</div>
+    <div class="ss-bar-wrap">
+      <div class="ss-bar-lbl"><span>Win Rate ${winNow}%</span><span style="color:${wrDone?'#40ff80':'#6040a0'}">objectif ${Math.round(target.winRate*100)}% ${wrDone?'✓':''}</span></div>
+      <div class="ss-bar-bg"><div class="ss-bar-fill" style="width:${wrPct}%;background:${wrDone?'#40ff80':'var(--gold)'}"></div></div>
+    </div>
+    <div class="ss-bar-wrap" style="margin-top:4px">
+      <div class="ss-bar-lbl"><span>ELO ${elo}</span><span style="color:${eloDone?'#40ff80':'#6040a0'}">objectif ${target.elo} ${eloDone?'✓':''}</span></div>
+      <div class="ss-bar-bg"><div class="ss-bar-fill" style="width:${eloPct}%;background:${eloDone?'#40ff80':'var(--accent2)'}"></div></div>
+    </div>
+    <div style="font-size:5px;color:#3a2a50;margin-top:4px">L'un ou l'autre suffit · Fenêtre : ${liveWin.length}/${TR_GEN_WIN_SIZE} rondes</div>
   </div>
 
-  <div style="font-size:5px;color:#6040a0;margin:8px 0 4px">Historique ELO (tournois)</div>
-  <canvas id="stats-history-canvas" width="400" height="140"></canvas>
+  <!-- Compétences + Combat -->
+  <div class="ss-grid">
+    <div class="ss-section">
+      <div class="ss-header">COMPÉTENCES</div>
+      <div class="ss-skill-row">Visée     ${skillBar(skills.aim,      '#60c8ff')}</div>
+      <div class="ss-skill-row">Esquive   ${skillBar(skills.dodge,    '#ff4444')}</div>
+      <div class="ss-skill-row">Précision ${skillBar(skills.precision,'#f0c040')}</div>
+      <div class="ss-skill-row">Mobilité  ${skillBar(skills.mobility, '#60ff80')}</div>
+      <div class="ss-skill-row">Survie    ${skillBar(skills.survival, '#8060c0')}</div>
+      <div class="ss-skill-row">Agress.   ${skillBar(skills.aggro,    '#ff8040')}</div>
+    </div>
+    <div class="ss-section">
+      <div class="ss-header">SESSION</div>
+      <div class="ss-row"><span class="ss-key">Rondes</span><span class="ss-val">${isLive?trRoundsDone:'—'}</span></div>
+      <div class="ss-row"><span class="ss-key">V / D</span><span class="ss-val">${e.wins||0} / ${Math.max(0,(e.played||0)-(e.wins||0))}</span></div>
+      <div class="ss-row"><span class="ss-key">Win rate</span><span class="ss-val">${wr}%</span></div>
+      <div class="ss-row"><span class="ss-key">Paliers</span><span class="ss-val">${liveGenHist.length}</span></div>
+      <div class="ss-row"><span class="ss-key">Stagnation</span><span class="ss-val">${isLive?trStag:'—'}</span></div>
+    </div>
+  </div>
+
+  <!-- Historique paliers -->
+  <div class="ss-section">
+    <div class="ss-header">PALIERS ATTEINTS</div>
+    ${genHistHtml}
+  </div>
+
+  <!-- Graphique ELO -->
+  <div class="ss-section">
+    <div class="ss-header">ÉVOLUTION ELO</div>
+    <canvas id="stats-history-canvas" width="400" height="130"></canvas>
+  </div>
   `;
 
-  // Mini graphique historique
   drawStatsHistory(e.id);
 }
 
@@ -4063,22 +4133,25 @@ function drawStatsHistory(id){
   if(!cv2) return;
   const ctx=cv2.getContext('2d');
   const W=cv2.width, H=cv2.height;
-  const pts = evoHistory[id] || [];
+
+  // Combiner evoHistory (tournois) + trEvoHistory (entraînement live)
+  const stored = evoHistory[id] || [];
+  const live   = (trRunning && id===currentBrainId) ? trEvoHistory : [];
+  const pts    = [...stored, ...live].slice(-60);
 
   ctx.fillStyle='#10081e'; ctx.fillRect(0,0,W,H);
 
   if(pts.length<2){
     ctx.fillStyle='#6040a0'; ctx.font='8px monospace'; ctx.textAlign='center';
-    ctx.fillText('Pas encore de données de tournoi',W/2,H/2);
+    ctx.fillText('Pas encore de données',W/2,H/2);
     return;
   }
 
   const elos=pts.map(p=>p.elo);
-  const minE=Math.min(...elos)-20, maxE=Math.max(...elos)+20;
-  const pad={l:36,r:6,t:8,b:16};
+  const minE=Math.min(...elos)-30, maxE=Math.max(...elos)+30;
+  const pad={l:32,r:6,t:8,b:16};
   const gW=W-pad.l-pad.r, gH=H-pad.t-pad.b;
 
-  // Grille
   ctx.strokeStyle='#2a1a3a'; ctx.lineWidth=1;
   for(let i=0;i<=3;i++){
     const y=pad.t+gH*(1-i/3);
@@ -4088,7 +4161,7 @@ function drawStatsHistory(id){
   }
 
   // Courbe ELO
-  ctx.strokeStyle=GRAPH_COLORS[0]; ctx.lineWidth=2; ctx.beginPath();
+  ctx.strokeStyle='#60c8ff'; ctx.lineWidth=2; ctx.beginPath();
   pts.forEach((pt,i)=>{
     const x=pad.l+gW*(i/(pts.length-1));
     const y=pad.t+gH*(1-(pt.elo-minE)/(maxE-minE));
@@ -4096,18 +4169,24 @@ function drawStatsHistory(id){
   });
   ctx.stroke();
 
-  // Points clés
-  pts.forEach((pt,i)=>{
-    const x=pad.l+gW*(i/(pts.length-1));
-    const y=pad.t+gH*(1-(pt.elo-minE)/(maxE-minE));
-    ctx.fillStyle=GRAPH_COLORS[0];
-    ctx.fillRect(x-2,y-2,4,4);
+  // Marqueurs de palier de génération
+  const genHist = trRunning && id===currentBrainId ? trGenHistory : [];
+  genHist.forEach(g=>{
+    const idx = pts.findIndex(p=>p.round>=g.round);
+    if(idx<0) return;
+    const x=pad.l+gW*(idx/(pts.length-1));
+    ctx.strokeStyle='#40ff80'; ctx.lineWidth=1;
+    ctx.setLineDash([2,2]);
+    ctx.beginPath(); ctx.moveTo(x,pad.t); ctx.lineTo(x,pad.t+gH); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='#40ff80'; ctx.font='6px monospace'; ctx.textAlign='left';
+    ctx.fillText(`G${g.gen}`,x+2,pad.t+8);
   });
 
-  // Label final
+  // Dernier point
   const last=pts[pts.length-1];
-  ctx.fillStyle='#fff'; ctx.font='7px monospace'; ctx.textAlign='left';
-  ctx.fillText(`ELO ${last.elo}`,pad.l+gW+2,pad.t+8);
+  ctx.fillStyle='#60c8ff'; ctx.font='7px monospace'; ctx.textAlign='left';
+  ctx.fillText(`${last.elo}`,pad.l+gW-28,pad.t+10);
 }
 // ================================================================
 //  SCRIPTED AGENT — IA codée à la main (4 niveaux)
@@ -4706,6 +4785,44 @@ let trCurriculumWins = 0;    // victoires depuis dernier changement
 let trCurriculumTotal = 0;   // rounds depuis dernier changement
 let trShapedReward = 0;      // récompense shaped accumulée dans le round
 
+// ── GÉNÉRATION PAR OBJECTIFS ─────────────────────────────────────
+const TR_GEN_WIN_SIZE = 20;  // fenêtre glissante pour le taux de victoire
+let trGenWinWindow = [];     // 1=win, 0=loss sur les TR_GEN_WIN_SIZE derniers rounds
+let trGenHistory   = [];     // [{gen, elo, fitness, round, reason}]
+
+function computeGenTarget(currentGen){
+  const tier = currentGen<=5 ? 0 : currentGen<=15 ? 1 : currentGen<=30 ? 2 : 3;
+  return {
+    winRate : [0.30, 0.40, 0.50, 0.60][tier],
+    elo     : [1300, 1450, 1600, 1800][tier],
+  };
+}
+
+function checkGenerationAdvancement(won, brain, round){
+  trGenWinWindow.push(won ? 1 : 0);
+  if(trGenWinWindow.length > TR_GEN_WIN_SIZE) trGenWinWindow.shift();
+  if(trGenWinWindow.length < TR_GEN_WIN_SIZE) return;
+
+  const currentGen = brain.generation || 1;
+  const target     = computeGenTarget(currentGen);
+  const winRate    = trGenWinWindow.reduce((a,b)=>a+b,0) / TR_GEN_WIN_SIZE;
+  const eloOK      = (brain.elo||ELO_BASE) >= target.elo;
+  const wrOK       = winRate >= target.winRate;
+  if(!eloOK && !wrOK) return;
+
+  const reason = eloOK
+    ? `ELO ${brain.elo}`
+    : `${Math.round(winRate*100)}% vict. / ${TR_GEN_WIN_SIZE}`;
+  brain.generation = currentGen + 1;
+  trGenWinWindow   = [];
+  trGenHistory.push({ gen:brain.generation, elo:brain.elo,
+    fitness:Math.round(brain.fitness||0), round, reason });
+
+  brain.mutate(0.06, 0.12); // légère mutation "nouveau souffle"
+  toast(`🧬 GÉN. ${brain.generation} — ${reason}`);
+  if(document.getElementById('panel-stats')?.style.display !== 'none') renderStats();
+}
+
 async function trainingStart(){
   if(!trConfig.brainId){toast('Choisis un cerveau');return;}
   const entry=await store.get('brains',trConfig.brainId);
@@ -4719,7 +4836,7 @@ async function trainingStart(){
   if(entry.adamState) trBrain.pgLearner.loadAdam(entry.adamState);
   trBestBrain=null; trHof=[]; trStag=0;
   trRoundsDone=0; trRunning=true;
-  trEvoHistory=[];
+  trEvoHistory=[]; trGenWinWindow=[]; trGenHistory=[];
   trConfig.rounds=parseInt(document.getElementById('tr-rounds').value)||100;
   trConfig.curriculum=document.getElementById('tr-curriculum').checked;
   trConfig.objective=document.getElementById('tr-objective').value;
@@ -5018,6 +5135,9 @@ function startTrainRound(){
     const agentElo = AGENT_ELO[agentLvl-1] || AGENT_ELO[0];
     const prevElo=trBrain.elo||ELO_BASE;
     trBrain.elo=Math.max(400,eloUpdate(prevElo,eloExpected(prevElo,agentElo),won?1:0,trRoundsDone));
+
+    // ── Vérification palier de génération ────────────────────────
+    if(!popMode) checkGenerationAdvancement(won, trBrain, trRoundsDone);
 
     // ── DEEP LEARNING : gradient update avant mutation ────────────
     // Le policy gradient affine les couches d'arbitrage par gradient réel.
