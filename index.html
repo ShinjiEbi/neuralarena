@@ -76,6 +76,9 @@ canvas#game{display:block;width:100%;height:100%;position:absolute;top:0;left:0;
 /* CTRL HINT (desktop) */
 #ctrl-hint-game{position:absolute;bottom:8px;right:10px;font-size:6px;color:rgba(255,255,255,0.13);pointer-events:none;z-index:15;letter-spacing:1px;line-height:1.8;text-align:right}
 body.is-touch #ctrl-hint-game{display:none}
+#analyze-hud{position:absolute;top:42px;left:50%;transform:translateX(-50%);font-family:'Press Start 2P',monospace;font-size:6px;letter-spacing:1px;z-index:16;pointer-events:none;text-align:center;padding:5px 10px;border-radius:3px;background:rgba(13,8,24,0.7);border:1px solid rgba(255,80,80,0.25);color:#ff8080;opacity:0;transition:opacity 0.4s;white-space:nowrap}
+#analyze-hud.show{opacity:1}
+#analyze-hud.adapted{border-color:rgba(255,80,80,0.6);color:#ff5050;box-shadow:0 0 12px rgba(255,80,80,0.3)}
 canvas#game.crosshair{cursor:crosshair}
 
 /* RESPONSIVE */
@@ -364,6 +367,7 @@ body:not(.observe-mode) #cam-hint{display:none}
     </div>
     <div id="cam-hint">ZQSD · DRAG · SCROLL = zoom · ESPACE = reset</div>
     <div id="ctrl-hint-game">WASD · sauter↑ · espace=tir<br>🖱 viser · clic=tir</div>
+    <div id="analyze-hud"></div>
     <div id="game-overlay" class="hidden">
       <h2 id="ov-title"></h2>
       <div class="ov-sub" id="ov-sub"></div>
@@ -651,6 +655,7 @@ body:not(.observe-mode) #cam-hint{display:none}
   <div class="tab-bar">
     <button class="tab-btn active" onclick="switchTab('leaderboard')">🏆 Classement</button>
     <button class="tab-btn" onclick="switchTab('upload')">📤 Partager</button>
+    <button class="tab-btn" onclick="switchTab('cloud')">☁ Cloud</button>
     <button class="tab-btn" onclick="switchTab('config')">⚙ Config</button>
   </div>
 
@@ -727,6 +732,37 @@ body:not(.observe-mode) #cam-hint{display:none}
     <button class="btn primary" style="width:100%;margin-bottom:10px" onclick="saveConfig()">💾 Sauvegarder la config</button>
     <button class="btn small" style="width:100%" onclick="testConnection()">🔌 Tester la connexion</button>
     <div id="config-status" style="margin-top:10px;font-size:9px"></div>
+  </div>
+
+  <!-- Cloud (Supabase) -->
+  <div class="tab-page" id="tab-cloud">
+    <div class="setup-card">
+      <h3>☁ Cerveaux dans le cloud</h3>
+      <p>Stocke et partage tes cerveaux entraînés via Supabase. Ton identité anonyme locale est conservée sur cet appareil.</p>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <button class="btn small" style="flex:1" onclick="cloudPushActive()">⬆ Pousser actif</button>
+        <button class="btn small" style="flex:1" onclick="cloudRefresh(true)">👤 Mes cerveaux</button>
+        <button class="btn small" style="flex:1" onclick="cloudRefresh(false)">🌍 Galerie</button>
+      </div>
+      <div id="cloud-status" style="font-size:9px;color:#444;margin-bottom:8px"></div>
+      <div id="cloud-list"></div>
+    </div>
+
+    <div class="setup-card">
+      <h3>⚙ Configuration Supabase</h3>
+      <p>Crée un projet sur <a href="https://supabase.com" target="_blank">supabase.com</a> puis exécute le schéma SQL fourni (voir commentaire dans le code). Renseigne l'URL du projet et la clé <strong style="color:var(--bright)">anon public</strong>.</p>
+      <div class="input-row">
+        <label>Project URL</label>
+        <input class="input-field" id="cfg-sb-url" placeholder="https://xxxx.supabase.co" spellcheck="false" autocomplete="off">
+      </div>
+      <div class="input-row">
+        <label>Clé anon (public)</label>
+        <input class="input-field" id="cfg-sb-key" type="password" placeholder="eyJhbGciOi..." spellcheck="false" autocomplete="off">
+      </div>
+      <button class="btn primary" style="width:100%;margin-bottom:8px" onclick="cloudSaveConfig()">💾 Sauvegarder</button>
+      <button class="btn small" style="width:100%" onclick="cloudTest()">🔌 Tester la connexion</button>
+      <div id="cloud-config-status" style="margin-top:8px;font-size:9px"></div>
+    </div>
   </div>
 </div>
 
@@ -1340,6 +1376,117 @@ class GitHubSync {
 
 const githubSync=new GitHubSync();
 
+// ════════════════════════════════════════════════════════════════
+//  SUPABASE CLOUD SYNC  (V2 — stockage des cerveaux par joueur)
+//  Utilise l'API REST PostgREST de Supabase (aucun SDK requis).
+//
+//  SCHÉMA SQL à exécuter dans Supabase (SQL Editor) :
+//  ----------------------------------------------------------------
+//  create table if not exists brains (
+//    id          text primary key,
+//    user_id     text not null,
+//    name        text,
+//    creator     text,
+//    elo         real default 1200,
+//    fitness     real default 0,
+//    generation  int  default 1,
+//    params      int  default 0,
+//    personality text,
+//    topology    text,
+//    data        jsonb not null,         -- brain.serialize()
+//    updated_at  timestamptz default now()
+//  );
+//  alter table brains enable row level security;
+//  -- Lecture publique (galerie communautaire) :
+//  create policy "public read"  on brains for select using (true);
+//  -- Écriture/maj/suppression réservées au propriétaire (user_id) :
+//  create policy "owner insert" on brains for insert with check (true);
+//  create policy "owner update" on brains for update using (true);
+//  create policy "owner delete" on brains for delete using (true);
+//  ----------------------------------------------------------------
+//  (Pour un vrai cloisonnement, brancher Supabase Auth et remplacer
+//   user_id par auth.uid() dans les policies.)
+// ════════════════════════════════════════════════════════════════
+class SupabaseSync {
+  constructor(){
+    this.url=''; this.key=''; this.userId=''; this.pseudo='Anonyme';
+    this.connected=false; this.brains=[]; this.lastSync=null;
+  }
+  async loadConfig(){
+    this.url    = (await store.getConfig('supabase_url',''))||'';
+    this.key    = (await store.getConfig('supabase_key',''))||'';
+    this.pseudo = (await store.getConfig('pseudo','Anonyme'))||'Anonyme';
+    // Identité anonyme locale stable
+    this.userId = (await store.getConfig('cloud_user_id',''))||'';
+    if(!this.userId){
+      this.userId = 'u_'+(crypto?.randomUUID ? crypto.randomUUID() : Date.now()+'_'+Math.random().toString(36).slice(2));
+      await store.setConfig('cloud_user_id', this.userId);
+    }
+  }
+  async saveConfig(url,key,pseudo){
+    this.url=(url||'').replace(/\/+$/,''); this.key=key||''; this.pseudo=pseudo||'Anonyme';
+    await store.setConfig('supabase_url', this.url);
+    await store.setConfig('supabase_key', this.key);
+    await store.setConfig('pseudo', this.pseudo);
+  }
+  configured(){ return !!(this.url && this.key); }
+  _headers(extra={}){
+    return { 'apikey':this.key, 'Authorization':'Bearer '+this.key,
+      'Content-Type':'application/json', ...extra };
+  }
+  async test(){
+    if(!this.configured()) return {ok:false,msg:'URL et clé anon requises'};
+    try{
+      const r=await fetch(`${this.url}/rest/v1/brains?select=id&limit=1`,{headers:this._headers()});
+      if(r.ok){ this.connected=true; return {ok:true,msg:'✓ Connecté à Supabase'}; }
+      const t=await r.text();
+      return {ok:false,msg:`✗ HTTP ${r.status}\n${t.slice(0,140)}`};
+    }catch(e){ return {ok:false,msg:'✗ '+(e.message||e)}; }
+  }
+  // Pousse un cerveau (entrée IndexedDB) vers le cloud (upsert)
+  async push(entry){
+    if(!this.configured()) return {ok:false,msg:'Cloud non configuré'};
+    const row={
+      id:entry.id, user_id:this.userId, name:entry.name||entry.id,
+      creator:this.pseudo||entry.creator||'?',
+      elo:Math.round(entry.elo||1200), fitness:entry.fitness||0,
+      generation:entry.generation||1, params:entry.params||0,
+      personality:entry.personality||null, topology:entry.topology||null,
+      data:entry.brain, updated_at:new Date().toISOString()
+    };
+    try{
+      const r=await fetch(`${this.url}/rest/v1/brains`,{
+        method:'POST',
+        headers:this._headers({'Prefer':'resolution=merge-duplicates,return=minimal'}),
+        body:JSON.stringify([row])
+      });
+      if(r.ok) return {ok:true};
+      return {ok:false,msg:`HTTP ${r.status}: ${(await r.text()).slice(0,140)}`};
+    }catch(e){ return {ok:false,msg:e.message||String(e)}; }
+  }
+  // Récupère la galerie (top ELO) — défaut : tous ; mine=true → seulement les miens
+  async list({mine=false,limit=50}={}){
+    if(!this.configured()) return [];
+    let q=`${this.url}/rest/v1/brains?select=*&order=elo.desc&limit=${limit}`;
+    if(mine) q+=`&user_id=eq.${encodeURIComponent(this.userId)}`;
+    try{
+      const r=await fetch(q,{headers:this._headers()});
+      if(!r.ok) return [];
+      this.brains=await r.json(); this.lastSync=Date.now();
+      return this.brains;
+    }catch(e){ return []; }
+  }
+  async remove(id){
+    if(!this.configured()) return false;
+    try{
+      const r=await fetch(`${this.url}/rest/v1/brains?id=eq.${encodeURIComponent(id)}&user_id=eq.${encodeURIComponent(this.userId)}`,
+        {method:'DELETE',headers:this._headers({'Prefer':'return=minimal'})});
+      return r.ok;
+    }catch(e){ return false; }
+  }
+}
+const cloudSync=new SupabaseSync();
+
 // === Community UI functions ===
 function switchTab(name){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.textContent.toLowerCase().includes(name.slice(0,4))));
@@ -1418,6 +1565,84 @@ async function uploadBrain(){
   document.getElementById('upload-status').innerHTML=ok
     ?'<span style="color:var(--accent)">✓ Cerveau envoyé !</span>'
     :'<span style="color:var(--warn)">✗ Échec</span>';
+}
+
+// ════════════════════════════════════════════════════════════════
+//  V2 — UI Cloud (Supabase)
+// ════════════════════════════════════════════════════════════════
+async function cloudSaveConfig(){
+  const url=document.getElementById('cfg-sb-url').value.trim();
+  const key=document.getElementById('cfg-sb-key').value.trim();
+  const pseudo=(document.getElementById('cfg-pseudo')?.value.trim())||cloudSync.pseudo||'Anonyme';
+  await cloudSync.saveConfig(url,key,pseudo);
+  toast('Config cloud sauvegardée');
+}
+async function cloudTest(){
+  const el=document.getElementById('cloud-config-status');
+  el.innerHTML='<span style="color:var(--gold)">Test…</span>';
+  await cloudSaveConfig();
+  const r=await cloudSync.test();
+  el.innerHTML=`<span style="color:${r.ok?'var(--accent)':'var(--warn)'};white-space:pre-line">${r.msg}</span>`;
+}
+async function cloudPushActive(){
+  const el=document.getElementById('cloud-status');
+  if(!cloudSync.configured()){ el.textContent='Configure Supabase ci-dessous d\'abord.'; return; }
+  const entry=await store.get('brains',currentBrainId);
+  if(!entry){ el.textContent='Aucun cerveau actif à pousser.'; return; }
+  el.innerHTML='<span style="color:var(--gold)">Envoi…</span>';
+  const r=await cloudSync.push(entry);
+  el.innerHTML=r.ok
+    ? `<span style="color:var(--accent)">✓ "${sanitize(entry.name||entry.id)}" envoyé au cloud</span>`
+    : `<span style="color:var(--warn)">✗ ${sanitize(r.msg||'échec')}</span>`;
+  if(r.ok) cloudRefresh(true);
+}
+async function cloudRefresh(mine){
+  const el=document.getElementById('cloud-status');
+  const list=document.getElementById('cloud-list');
+  if(!cloudSync.configured()){ if(el) el.textContent='Configure Supabase ci-dessous d\'abord.'; return; }
+  if(el) el.innerHTML='<span style="color:var(--gold)">Chargement…</span>';
+  const rows=await cloudSync.list({mine});
+  if(el) el.textContent=`${rows.length} cerveau(x) — ${mine?'les miens':'galerie globale'}`;
+  if(!list) return;
+  if(rows.length===0){ list.innerHTML='<div class="empty-state">Aucun cerveau pour l\'instant.</div>'; return; }
+  list.innerHTML=rows.map(b=>`
+    <div class="comm-card">
+      <div class="cc-row">
+        <span class="cc-name">${sanitize(b.name||b.id)}</span>
+        <span class="cc-badge top">ELO ${Math.round(b.elo||1200)}</span>
+      </div>
+      <div class="cc-stats">
+        <span>👤 ${sanitize(b.creator||'?')}</span>
+        <span>Gén ${b.generation||1}</span>
+        <span>🧠 ${b.params||'?'}p</span>
+        ${b.personality?`<span>${sanitize(b.personality)}</span>`:''}
+      </div>
+      <div class="cc-actions">
+        <button class="btn small" onclick='cloudImport(${JSON.stringify(b.id)})'>📥 Importer</button>
+        ${b.user_id===cloudSync.userId?`<button class="btn small warn" onclick='cloudDelete(${JSON.stringify(b.id)})'>🗑</button>`:''}
+      </div>
+    </div>`).join('');
+}
+async function cloudImport(id){
+  const row=(cloudSync.brains||[]).find(b=>b.id===id);
+  if(!row||!row.data){ toast('Cerveau cloud invalide'); return; }
+  const brain=deserializeBrain(row.data);
+  if(!brain){ toast('Format incompatible'); return; }
+  const newId='cloud_'+Date.now();
+  const entry={ id:newId, name:row.name||'Cloud', creator:row.creator||'?',
+    brain:brain.serialize(), generation:row.generation||1,
+    fitness:row.fitness||0, elo:row.elo||ELO_BASE, wins:0, played:0,
+    timestamp:Date.now(), game:'arena-archer',
+    topology:row.topology||'GRU×4', params:row.params||brain.paramCount(),
+    personality:row.personality||null, imported:true, source:'supabase' };
+  await store.put('brains',entry);
+  toast(`"${entry.name}" importé du cloud`);
+  updateLabUI();
+}
+async function cloudDelete(id){
+  const ok=await cloudSync.remove(id);
+  toast(ok?'Supprimé du cloud':'Échec suppression');
+  if(ok) cloudRefresh(true);
 }
 
 // ================================================================
@@ -1657,6 +1882,7 @@ async function startPVP(){
   if(activeSlots.length<2){toast('Il faut au moins 2 joueurs');return;}
 
   freeCam=false; camZoom=1.0;
+  _analyzeWasReady=false; // V2 : réinitialise l'indicateur d'analyse
 
   // Compter tous les participants (joueurs + entraîneurs)
   const trainerCount=pvpConfig.agents.length;
@@ -2261,6 +2487,225 @@ function aiProcessFor(out, ent, target=null){
     const dy=(target.y+target.h/2)-(ent.y+ent.h/2);
     ent.aim = Math.atan2(dy, dx);
   }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  V2 — MÉMOIRE DES JOUEURS  (effet Arc Raiders)
+//  Le cerveau observe le style du joueur humain et s'y adapte.
+// ════════════════════════════════════════════════════════════════
+class PlayerProfile {
+  constructor(){
+    this.samples = 0;        // frames observées (cumulé toutes parties)
+    this.battles = 0;        // nb de parties affrontées
+    this.avgX = 0.5;         // position X favorite (0..1)
+    this.avgY = 0.5;         // position Y favorite (0..1)
+    this.jumpRate = 0;       // propension à sauter
+    this.shootRate = 0;      // propension à tirer (triggery)
+    this.aimBiasX = 0;       // vise plutôt à gauche(-1) / droite(+1)
+    this.dodgeDir = 0;       // esquive gauche(-1) / droite(+1) sous pression
+    this.avgDist = 0.5;      // distance qu'il garde (0=collé, 1=loin)
+    this.airborne = 0;       // temps passé en l'air
+    this.aggression = 0.5;   // avance(+) ou recule(-) face à l'ennemi
+    // état transitoire (non sérialisé pertinent)
+    this._lastVy = 0; this._lastShotCd = 0; this._lastVxSign = 0;
+  }
+  observe(p, target, threat){
+    const a = 0.015;                 // lissage EMA
+    this.samples++;
+    this.avgX = this.avgX*(1-a) + (p.x/WW)*a;
+    this.avgY = this.avgY*(1-a) + (p.y/WH)*a;
+    // saut détecté (vy passe négatif)
+    if(p.vy < -2 && this._lastVy >= -2) this.jumpRate = this.jumpRate*(1-a) + a*3;
+    else this.jumpRate *= (1-a*0.4);
+    this._lastVy = p.vy;
+    // tir détecté (cooldown vient d'être (re)chargé)
+    if((p.cd||0) > this._lastShotCd + 5){
+      this.shootRate = this.shootRate*(1-a) + a*3;
+      this.aimBiasX = this.aimBiasX*(1-a) + Math.sign(Math.cos(p.aim))*a*3;
+    } else { this.shootRate *= (1-a*0.4); }
+    this._lastShotCd = p.cd||0;
+    // distance gardée + agression (avance vers la cible ?)
+    if(target){
+      const dx = (target.x - p.x);
+      const d  = Math.hypot(dx, target.y - p.y)/WW;
+      this.avgDist = this.avgDist*(1-a) + Math.min(d,1)*a;
+      const towards = Math.sign(dx) === Math.sign(p.vx) && Math.abs(p.vx) > 0.5 ? 1 : -1;
+      this.aggression = Math.max(0, Math.min(1, this.aggression*(1-a) + (towards>0?1:0)*a));
+    }
+    // hauteur
+    if(!p.gnd) this.airborne = this.airborne*(1-a) + a; else this.airborne *= (1-a*0.6);
+    // sens d'esquive sous menace : changement de direction X quand flèche arrive
+    if(threat > 0.35){
+      const s = Math.sign(p.vx);
+      if(s !== 0 && s !== this._lastVxSign) this.dodgeDir = this.dodgeDir*(1-a*4) + s*a*4;
+      this._lastVxSign = s || this._lastVxSign;
+    }
+  }
+  // L'IA a-t-elle assez observé pour s'adapter ?
+  ready(){ return this.samples > 60*10; }     // ~10s cumulées
+  confidence(){ return Math.min(this.samples/(60*30), 1); } // 0..1 sur ~30s
+  serialize(){
+    return { samples:this.samples, battles:this.battles, avgX:this.avgX, avgY:this.avgY,
+      jumpRate:this.jumpRate, shootRate:this.shootRate, aimBiasX:this.aimBiasX,
+      dodgeDir:this.dodgeDir, avgDist:this.avgDist, airborne:this.airborne, aggression:this.aggression };
+  }
+  static deserialize(d){ const p=new PlayerProfile(); if(d) Object.assign(p,d); return p; }
+}
+
+// Profil du joueur local — persisté dans IndexedDB (config 'playerProfile')
+let playerProfile = new PlayerProfile();
+let _profileDirty = false;
+
+async function loadPlayerProfile(){
+  try{ const d = await store.getConfig('playerProfile', null); playerProfile = PlayerProfile.deserialize(d); }
+  catch(e){ playerProfile = new PlayerProfile(); }
+}
+async function savePlayerProfile(){
+  if(!_profileDirty) return;
+  _profileDirty = false;
+  try{ await store.setConfig('playerProfile', playerProfile.serialize()); }catch(e){}
+}
+
+// Indicateur "L'IA vous analyse / s'est adaptée"
+let _analyzeWasReady = false;
+function updateAnalyzeIndicator(){
+  const el = document.getElementById('analyze-hud');
+  if(!el) return;
+  // Affiché seulement si au moins un cerveau IA affronte le joueur
+  const aiVsHuman = playerBrains.some(b=>b && !(b instanceof ScriptedAgent)) && playerBrains.some(b=>b===null);
+  if(!aiVsHuman){ el.classList.remove('show'); return; }
+  const conf = playerProfile.confidence();
+  if(playerProfile.ready()){
+    if(!_analyzeWasReady){
+      _analyzeWasReady = true;
+      el.classList.add('adapted');
+      el.textContent = '⚠ L\'IA S\'EST ADAPTÉE À VOTRE STYLE';
+      el.classList.add('show');
+      setTimeout(()=>{ if(el) el.classList.remove('show'); }, 4000);
+    }
+  } else {
+    el.classList.remove('adapted');
+    const pct = Math.round(conf*100);
+    el.textContent = `🧠 L'IA vous analyse… ${pct}%`;
+    el.classList.add('show');
+  }
+}
+
+// ── Machine à états comportementale ──────────────────────────────
+// Donne une IA lisible et redoutable qui exploite le profil joueur.
+const AI_STATE_LABELS = { hunt:'CHASSE', snipe:'SNIPE', dodge:'ESQUIVE', juke:'FEINTE', punish:'PIÈGE' };
+
+function aiThreat(me, arrows){
+  let best=0, arrow=null;
+  const cx=me.x+me.w/2, cy=me.y+me.h/2;
+  for(const a of arrows){
+    if(a.st) continue;
+    const dx=a.x-cx, dy=a.y-cy;
+    const d=Math.hypot(dx,dy);
+    const approaching = -(dx*a.vx+dy*a.vy)/Math.max(d,1);
+    const danger = Math.max(0, Math.min(1, approaching/5 * (1 - d/420)));
+    if(danger>best){ best=danger; arrow=a; }
+  }
+  return { threat:best, arrow };
+}
+
+// Comportement enrichi : neural + FSM + mémoire joueur.
+// Surcharge l'aim/tir/déplacement pour un combat fun et intelligent.
+function aiBehaveVsPlayer(out, me, target, arrows, profile, frame){
+  const cx=me.x+me.w/2, cy=me.y+me.h/2;
+  const tx=target.x+target.w/2, ty=target.y+target.h/2;
+  const dx=tx-cx, dy=ty-cy;
+  const dist=Math.hypot(dx,dy);
+  const distN=Math.min(dist/WW,1);
+  const { threat, arrow }=aiThreat(me, arrows);
+  const adapt = profile.ready() ? profile.confidence() : 0;
+
+  // ── Choix d'état (priorités) ──────────────────────────────────
+  let state;
+  if(threat>0.4)                          state='dodge';
+  else if(distN>0.42)                     state='snipe';
+  else if(adapt>0.4 && (me._punishCd||0)<=0) state='punish';
+  else if(frame % 150 < 35 && me.gnd)     state='juke';
+  else                                    state='hunt';
+  me._aiState = state;
+  if(me._punishCd>0) me._punishCd--;
+
+  // ── Visée prédictive (lead) avec mémoire joueur ───────────────
+  // Temps de vol estimé de la flèche
+  const tof = Math.min(dist / ASPD, 26);
+  let leadX = tx + target.vx*tof;
+  let leadY = ty + target.vy*tof + 0.5*AGRAV*tof*tof; // compense gravité flèche
+  // Adaptation : si le joueur saute souvent, anticipe une montée
+  if(adapt>0 && profile.jumpRate>0.3 && target.gnd){
+    leadY -= profile.jumpRate * 60 * adapt;
+  }
+  // Adaptation : mène le tir vers le sens d'esquive habituel du joueur
+  if(adapt>0 && Math.abs(profile.dodgeDir)>0.2){
+    leadX += profile.dodgeDir * 40 * adapt;
+  }
+  const leadAim = Math.atan2(leadY-cy, leadX-cx);
+
+  // ── Application par état ───────────────────────────────────────
+  let moveX = 0, wantJump = false, wantShoot = false, aimTarget = leadAim;
+
+  if(state==='dodge'){
+    // Se décaler perpendiculairement à la flèche entrante
+    if(arrow){
+      const perp = Math.sign(-arrow.vy) || 1;       // si flèche descend → bouger ; sinon
+      moveX = Math.sign(arrow.vx) !== 0 ? -Math.sign(arrow.vx) : (Math.random()<0.5?-1:1);
+      if(arrow.y > cy-10 && me.gnd) wantJump = true; // sauter par-dessus une flèche basse
+    } else { moveX = (frame%20<10)?1:-1; }
+    aimTarget = leadAim; // garde la visée
+    wantShoot = me.cd===0 && Math.random()<0.3;
+  }
+  else if(state==='snipe'){
+    // Garder ses distances, viser précis, tirer quand aligné
+    moveX = dist < WW*0.30 ? -Math.sign(dx) : (Math.abs(dx)>WW*0.5 ? Math.sign(dx)*0.5 : 0);
+    // chercher la hauteur si possible
+    if(me.gnd && profile.airborne<0.3 && Math.random()<0.02) wantJump=true;
+    const aimErr=Math.abs(((me.aim-leadAim+Math.PI*3)%(Math.PI*2))-Math.PI);
+    wantShoot = me.cd===0 && aimErr<0.18;
+  }
+  else if(state==='hunt'){
+    // Foncer pour réduire la distance, tirer en mouvement
+    moveX = Math.sign(dx);
+    if(target.y < cy-40 && me.gnd && Math.random()<0.05) wantJump=true;
+    const aimErr=Math.abs(((me.aim-leadAim+Math.PI*3)%(Math.PI*2))-Math.PI);
+    wantShoot = me.cd===0 && aimErr<0.3;
+  }
+  else if(state==='juke'){
+    // Mouvement imprévisible pour casser le rythme d'un joueur triggery
+    moveX = (Math.sin(frame*0.3)>0?1:-1) * (profile.shootRate>0.4?1:0.6);
+    if(me.gnd && Math.random()<0.06) wantJump=true;
+    aimTarget = leadAim;
+    wantShoot = me.cd===0 && Math.random()<0.15;
+  }
+  else if(state==='punish'){
+    // Exploite le profil : flanque côté opposé à sa visée, tir piège
+    const flank = -Math.sign(profile.aimBiasX) || 1;
+    moveX = flank * (distN>0.25?1:0.4);
+    if(target.gnd && profile.jumpRate>0.4 && Math.random()<0.04) wantJump=true;
+    const aimErr=Math.abs(((me.aim-leadAim+Math.PI*3)%(Math.PI*2))-Math.PI);
+    wantShoot = me.cd===0 && aimErr<0.22;
+    if(wantShoot) me._punishCd = 90; // cooldown du piège
+  }
+
+  // Mélange : la sortie neuronale module légèrement le déplacement scripté
+  const neuralMoveBias = (out[1]-out[0]); // -1..1
+  moveX = Math.max(-1, Math.min(1, moveX + neuralMoveBias*0.25));
+
+  // ── Exécution ─────────────────────────────────────────────────
+  if(moveX < -0.15){ me.vx -= MSPD*0.4*Math.abs(moveX); me.face=-1; }
+  if(moveX >  0.15){ me.vx += MSPD*0.4*Math.abs(moveX); me.face=1; }
+  if((wantJump || out[2]>0.7) && me.gnd) me.vy=JUMP;
+  // Visée : convergence rapide vers l'aim cible (lissée pour rester lisible)
+  let diff = aimTarget - me.aim;
+  while(diff>Math.PI) diff-=Math.PI*2;
+  while(diff<-Math.PI) diff+=Math.PI*2;
+  const aimSpeed = 0.30 + 0.25*adapt;   // plus l'IA connaît le joueur, plus elle vise vite
+  me.aim += diff * Math.min(1, aimSpeed);
+  if(wantShoot) me.shoot();
+  me.face = dx<0?-1:1;
 }
 
 function boom(x,y,col){
@@ -2904,6 +3349,11 @@ function drawGameMulti(){
     const sy=(pl.y-camY-vH/2)*camZoom+vH/2-8;
     c.fillStyle=col;
     c.fillText(sanitize(pl._label), Math.round(sx), Math.round(sy));
+    // V2 : état tactique de l'IA (lisibilité du comportement)
+    if(pl._aiState && AI_STATE_LABELS[pl._aiState]){
+      c.fillStyle='rgba(255,120,120,0.75)';
+      c.fillText(AI_STATE_LABELS[pl._aiState], Math.round(sx), Math.round(sy-9));
+    }
   }
   c.globalAlpha=1;
 
@@ -2978,6 +3428,13 @@ function endRoundMulti(){
   btns.innerHTML=`<button class="btn small" onclick="quitGame()">✕ Quitter</button>
     <button class="btn small primary" onclick="nextRoundMulti()">▶ Suite</button>`;
   document.getElementById('game-overlay').classList.remove('hidden');
+
+  // V2 : mémoire des joueurs — incrémente le compteur de combats + persiste
+  if(playerBrains.some(b=>b===null) && playerBrains.some(b=>b && !(b instanceof ScriptedAgent))){
+    playerProfile.battles++;
+    _profileDirty=true;
+    savePlayerProfile();
+  }
 
   // Évolution cerveaux en arrière-plan
   evolveAllMulti(winnerIdx).then(()=>updateMultiHUD()).catch(()=>{});
@@ -3089,6 +3546,19 @@ function gameLoop(){
               if(mag>0.4) me.shoot();
             }
           }
+
+          // ── V2 : le cerveau observe le style du joueur ────────
+          let nearestFoe=null, foeD=Infinity;
+          for(let j=0;j<players.length;j++){
+            if(j===i||!playerAlive[j]) continue;
+            const d=(players[j].x-me.x)**2+(players[j].y-me.y)**2;
+            if(d<foeD){foeD=d;nearestFoe=players[j];}
+          }
+          const foeArrows=players.filter((_,j)=>j!==i&&playerAlive[j]).flatMap(p=>p.arr);
+          const { threat:hThreat }=aiThreat(me, foeArrows);
+          playerProfile.observe(me, nearestFoe, hThreat);
+          _profileDirty=true;
+          if(roundTimer % 30 === 0) updateAnalyzeIndicator();
         }
       } else if(brain instanceof ScriptedAgent){
         // Entraîneur scriptés : cibler le joueur vivant le plus proche (tous types)
@@ -3104,19 +3574,25 @@ function gameLoop(){
         }
       } else {
         // Cerveau IA : trouver la meilleure cible parmi les joueurs vivants
-        let target=null,bestDist=Infinity;
+        let target=null,bestDist=Infinity,targetIdx=-1;
         for(let j=0;j<players.length;j++){
           if(j===i||!playerAlive[j]) continue;
           const dx=players[j].x-me.x,dy=players[j].y-me.y;
           const d=dx*dx+dy*dy;
-          if(d<bestDist){bestDist=d;target=players[j];}
+          if(d<bestDist){bestDist=d;target=players[j];targetIdx=j;}
         }
         if(target){
           const enemyArrows=players.filter((_,j)=>j!==i&&playerAlive[j]).flatMap(p=>p.arr);
           const inp=aiInputsFor(me,target,enemyArrows,roundTimer);
           const out=brain.forward(inp);
-          aiProcessFor(out,me);
-          me.face=target.x<me.x?-1:1;
+          // V2 : si la cible est un joueur humain, comportement enrichi + mémoire
+          const targetIsHuman = targetIdx>=0 && playerBrains[targetIdx]===null;
+          if(targetIsHuman){
+            aiBehaveVsPlayer(out, me, target, enemyArrows, playerProfile, roundTimer);
+          } else {
+            aiProcessFor(out,me);
+            me.face=target.x<me.x?-1:1;
+          }
           // Deep Learning : collecte d'expérience (mode multi)
           if(brain.pgLearner){
             const aimTarget=Math.atan2(target.y-me.y,target.x-me.x);
@@ -3288,6 +3764,9 @@ function showScreen(name){
     document.getElementById('cfg-repo').value=githubSync.repo;
     document.getElementById('cfg-token').value=githubSync.token;
     document.getElementById('cfg-pseudo').value=githubSync.pseudo;
+    const sbu=document.getElementById('cfg-sb-url'), sbk=document.getElementById('cfg-sb-key');
+    if(sbu) sbu.value=cloudSync.url;
+    if(sbk) sbk.value=cloudSync.key;
   }
 }
 
@@ -4991,7 +5470,7 @@ async function renderTrBrainSel(){
       onclick="trSetBrain('${e.id}')">${sanitize((e.name||e.id).substring(0,12))}${e.id===currentBrainId?' ●':''}</button>`).join('');
 }
 
-function trSetBrain(id){ trConfig.brainId=id; renderTrBrainSel(); }
+async function trSetBrain(id){ trConfig.brainId=id; await selectBrain(id); }
 
 function renderTrAgents(){
   const el=document.getElementById('tr-agents');
@@ -6509,7 +6988,9 @@ function _drawMenuBg(){
 async function init(){
   await loadCreator();
   await loadBrains();
+  await loadPlayerProfile();
   await githubSync.loadConfig();
+  await cloudSync.loadConfig();
   updateMenuUI();
 
   if(githubSync.repo){ githubSync.sync(); }
