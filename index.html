@@ -738,7 +738,13 @@ body:not(.observe-mode) #cam-hint{display:none}
   <div class="tab-page" id="tab-cloud">
     <div class="setup-card">
       <h3>☁ Cerveaux dans le cloud</h3>
-      <p>Stocke et partage tes cerveaux entraînés via Supabase. Ton identité anonyme locale est conservée sur cet appareil.</p>
+      <p>Stocke et partage tes cerveaux entraînés via Supabase. Ton identité est conservée sur cet appareil.</p>
+      <div id="cloud-auth-state" style="font-size:9px;color:#8060c0;margin-bottom:8px"></div>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <button class="btn small" style="flex:1" onclick="cloudSignIn()">🔐 Compte anonyme</button>
+        <button class="btn small" style="flex:1" onclick="cloudSignOut()">🔓 Déconnexion</button>
+      </div>
+      <label class="trap-toggle" style="margin-bottom:10px"><input type="checkbox" id="cloud-autosync" onchange="cloudToggleAutoSync(this)"> ⟳ Auto-sync (pousser après chaque entraînement)</label>
       <div style="display:flex;gap:6px;margin-bottom:8px">
         <button class="btn small" style="flex:1" onclick="cloudPushActive()">⬆ Pousser actif</button>
         <button class="btn small" style="flex:1" onclick="cloudRefresh(true)">👤 Mes cerveaux</button>
@@ -1411,17 +1417,25 @@ class SupabaseSync {
   constructor(){
     this.url=''; this.key=''; this.userId=''; this.pseudo='Anonyme';
     this.connected=false; this.brains=[]; this.lastSync=null;
+    this.autoSync=false;
+    // Auth (anonyme) — optionnel, dégrade gracieusement vers userId local
+    this.accessToken=''; this.refreshToken=''; this.authUid='';
   }
   async loadConfig(){
     this.url    = (await store.getConfig('supabase_url',''))||'';
     this.key    = (await store.getConfig('supabase_key',''))||'';
     this.pseudo = (await store.getConfig('pseudo','Anonyme'))||'Anonyme';
-    // Identité anonyme locale stable
+    this.autoSync = !!(await store.getConfig('cloud_autosync', false));
+    // Identité anonyme locale stable (fallback si l'auth n'est pas activée)
     this.userId = (await store.getConfig('cloud_user_id',''))||'';
     if(!this.userId){
       this.userId = 'u_'+(crypto?.randomUUID ? crypto.randomUUID() : Date.now()+'_'+Math.random().toString(36).slice(2));
       await store.setConfig('cloud_user_id', this.userId);
     }
+    // Session auth persistée
+    this.accessToken  = (await store.getConfig('cloud_access_token',''))||'';
+    this.refreshToken = (await store.getConfig('cloud_refresh_token',''))||'';
+    this.authUid      = (await store.getConfig('cloud_auth_uid',''))||'';
   }
   async saveConfig(url,key,pseudo){
     this.url=(url||'').replace(/\/+$/,''); this.key=key||''; this.pseudo=pseudo||'Anonyme';
@@ -1429,16 +1443,76 @@ class SupabaseSync {
     await store.setConfig('supabase_key', this.key);
     await store.setConfig('pseudo', this.pseudo);
   }
+  async setAutoSync(v){ this.autoSync=!!v; await store.setConfig('cloud_autosync', this.autoSync); }
   configured(){ return !!(this.url && this.key); }
+  // Identité effective : auth.uid() si connecté, sinon id local
+  uid(){ return this.authUid || this.userId; }
+  authed(){ return !!this.accessToken; }
+
+  // ── Auth anonyme (GoTrue) ──────────────────────────────────────
+  async signInAnonymous(){
+    if(!this.configured()) return {ok:false,msg:'Cloud non configuré'};
+    try{
+      const r=await fetch(`${this.url}/auth/v1/signup`,{
+        method:'POST',
+        headers:{'apikey':this.key,'Content-Type':'application/json'},
+        body:JSON.stringify({})  // sign-in anonyme (à activer dans Supabase Auth)
+      });
+      const d=await r.json().catch(()=>({}));
+      if(r.ok && d.access_token){
+        await this._storeSession(d);
+        return {ok:true,msg:'✓ Session anonyme créée'};
+      }
+      return {ok:false,msg:`Auth indisponible (HTTP ${r.status}). Active "Anonymous sign-ins" dans Supabase, ou reste en mode local.`};
+    }catch(e){ return {ok:false,msg:'✗ '+(e.message||e)}; }
+  }
+  async _storeSession(d){
+    this.accessToken=d.access_token||''; this.refreshToken=d.refresh_token||'';
+    this.authUid=d.user?.id||'';
+    await store.setConfig('cloud_access_token', this.accessToken);
+    await store.setConfig('cloud_refresh_token', this.refreshToken);
+    await store.setConfig('cloud_auth_uid', this.authUid);
+  }
+  async _refresh(){
+    if(!this.refreshToken) return false;
+    try{
+      const r=await fetch(`${this.url}/auth/v1/token?grant_type=refresh_token`,{
+        method:'POST',
+        headers:{'apikey':this.key,'Content-Type':'application/json'},
+        body:JSON.stringify({refresh_token:this.refreshToken})
+      });
+      const d=await r.json().catch(()=>({}));
+      if(r.ok && d.access_token){ await this._storeSession(d); return true; }
+    }catch(e){}
+    // Session expirée → purge
+    this.accessToken=''; this.refreshToken=''; this.authUid='';
+    return false;
+  }
+  async signOut(){
+    this.accessToken=''; this.refreshToken=''; this.authUid='';
+    await store.setConfig('cloud_access_token','');
+    await store.setConfig('cloud_refresh_token','');
+    await store.setConfig('cloud_auth_uid','');
+  }
+
   _headers(extra={}){
-    return { 'apikey':this.key, 'Authorization':'Bearer '+this.key,
+    const bearer = this.accessToken || this.key;
+    return { 'apikey':this.key, 'Authorization':'Bearer '+bearer,
       'Content-Type':'application/json', ...extra };
+  }
+  // Effectue une requête REST en réessayant une fois après refresh si 401
+  async _rest(path, opts={}){
+    let r=await fetch(`${this.url}/rest/v1/${path}`,{...opts,headers:this._headers(opts.headers||{})});
+    if(r.status===401 && this.refreshToken && await this._refresh()){
+      r=await fetch(`${this.url}/rest/v1/${path}`,{...opts,headers:this._headers(opts.headers||{})});
+    }
+    return r;
   }
   async test(){
     if(!this.configured()) return {ok:false,msg:'URL et clé anon requises'};
     try{
-      const r=await fetch(`${this.url}/rest/v1/brains?select=id&limit=1`,{headers:this._headers()});
-      if(r.ok){ this.connected=true; return {ok:true,msg:'✓ Connecté à Supabase'}; }
+      const r=await this._rest('brains?select=id&limit=1');
+      if(r.ok){ this.connected=true; return {ok:true,msg:'✓ Connecté à Supabase'+(this.authed()?' (auth)':' (mode local)')}; }
       const t=await r.text();
       return {ok:false,msg:`✗ HTTP ${r.status}\n${t.slice(0,140)}`};
     }catch(e){ return {ok:false,msg:'✗ '+(e.message||e)}; }
@@ -1447,7 +1521,7 @@ class SupabaseSync {
   async push(entry){
     if(!this.configured()) return {ok:false,msg:'Cloud non configuré'};
     const row={
-      id:entry.id, user_id:this.userId, name:entry.name||entry.id,
+      id:entry.id, user_id:this.uid(), name:entry.name||entry.id,
       creator:this.pseudo||entry.creator||'?',
       elo:Math.round(entry.elo||1200), fitness:entry.fitness||0,
       generation:entry.generation||1, params:entry.params||0,
@@ -1455,9 +1529,9 @@ class SupabaseSync {
       data:entry.brain, updated_at:new Date().toISOString()
     };
     try{
-      const r=await fetch(`${this.url}/rest/v1/brains`,{
+      const r=await this._rest('brains',{
         method:'POST',
-        headers:this._headers({'Prefer':'resolution=merge-duplicates,return=minimal'}),
+        headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
         body:JSON.stringify([row])
       });
       if(r.ok) return {ok:true};
@@ -1467,10 +1541,10 @@ class SupabaseSync {
   // Récupère la galerie (top ELO) — défaut : tous ; mine=true → seulement les miens
   async list({mine=false,limit=50}={}){
     if(!this.configured()) return [];
-    let q=`${this.url}/rest/v1/brains?select=*&order=elo.desc&limit=${limit}`;
-    if(mine) q+=`&user_id=eq.${encodeURIComponent(this.userId)}`;
+    let q=`brains?select=*&order=elo.desc&limit=${limit}`;
+    if(mine) q+=`&user_id=eq.${encodeURIComponent(this.uid())}`;
     try{
-      const r=await fetch(q,{headers:this._headers()});
+      const r=await this._rest(q);
       if(!r.ok) return [];
       this.brains=await r.json(); this.lastSync=Date.now();
       return this.brains;
@@ -1479,8 +1553,8 @@ class SupabaseSync {
   async remove(id){
     if(!this.configured()) return false;
     try{
-      const r=await fetch(`${this.url}/rest/v1/brains?id=eq.${encodeURIComponent(id)}&user_id=eq.${encodeURIComponent(this.userId)}`,
-        {method:'DELETE',headers:this._headers({'Prefer':'return=minimal'})});
+      const r=await this._rest(`brains?id=eq.${encodeURIComponent(id)}&user_id=eq.${encodeURIComponent(this.uid())}`,
+        {method:'DELETE',headers:{'Prefer':'return=minimal'}});
       return r.ok;
     }catch(e){ return false; }
   }
@@ -1619,10 +1693,24 @@ async function cloudRefresh(mine){
       </div>
       <div class="cc-actions">
         <button class="btn small" onclick='cloudImport(${JSON.stringify(b.id)})'>📥 Importer</button>
-        ${b.user_id===cloudSync.userId?`<button class="btn small warn" onclick='cloudDelete(${JSON.stringify(b.id)})'>🗑</button>`:''}
+        <button class="btn small primary" onclick='cloudChallenge(${JSON.stringify(b.id)})'>⚔ Défier</button>
+        ${b.user_id===cloudSync.uid()?`<button class="btn small warn" onclick='cloudDelete(${JSON.stringify(b.id)})'>🗑</button>`:''}
       </div>
     </div>`).join('');
 }
+async function cloudChallenge(id){
+  await cloudImport(id);
+  // Le dernier cerveau importé est currentBrainId via cloudImport ? non — il ne l'active pas.
+  // On récupère l'id importé pour lancer le défi.
+  if(!_lastCloudImportId){ toast('Import échoué'); return; }
+  lobbySlots[0]={type:'human', brainId:'default'};
+  lobbySlots[1]={type:'ai',    brainId:_lastCloudImportId};
+  lobbySlots[2]={type:'off',   brainId:'default'};
+  lobbySlots[3]={type:'off',   brainId:'default'};
+  showScreen('pvp');
+  toast('Défi prêt — lance la partie !');
+}
+let _lastCloudImportId=null;
 async function cloudImport(id){
   const row=(cloudSync.brains||[]).find(b=>b.id===id);
   if(!row||!row.data){ toast('Cerveau cloud invalide'); return; }
@@ -1636,6 +1724,7 @@ async function cloudImport(id){
     topology:row.topology||'GRU×4', params:row.params||brain.paramCount(),
     personality:row.personality||null, imported:true, source:'supabase' };
   await store.put('brains',entry);
+  _lastCloudImportId=newId;
   toast(`"${entry.name}" importé du cloud`);
   updateLabUI();
 }
@@ -1643,6 +1732,37 @@ async function cloudDelete(id){
   const ok=await cloudSync.remove(id);
   toast(ok?'Supprimé du cloud':'Échec suppression');
   if(ok) cloudRefresh(true);
+}
+// Connexion / déconnexion anonyme
+async function cloudSignIn(){
+  const el=document.getElementById('cloud-config-status');
+  el.innerHTML='<span style="color:var(--gold)">Connexion…</span>';
+  await cloudSaveConfig();
+  const r=await cloudSync.signInAnonymous();
+  el.innerHTML=`<span style="color:${r.ok?'var(--accent)':'var(--warn)'};white-space:pre-line">${sanitize(r.msg)}</span>`;
+  cloudUpdateAuthUI();
+}
+async function cloudSignOut(){
+  await cloudSync.signOut();
+  toast('Déconnecté du cloud');
+  cloudUpdateAuthUI();
+}
+function cloudUpdateAuthUI(){
+  const el=document.getElementById('cloud-auth-state');
+  if(!el) return;
+  el.textContent = cloudSync.authed()
+    ? `🔐 Connecté (uid ${cloudSync.uid().slice(0,8)}…)`
+    : `🔓 Mode local (id ${cloudSync.uid().slice(0,8)}…)`;
+}
+async function cloudToggleAutoSync(cb){
+  await cloudSync.setAutoSync(cb.checked);
+  toast(cb.checked?'Auto-sync activé':'Auto-sync désactivé');
+}
+// Auto-push d'une entrée si auto-sync activé + configuré (silencieux)
+async function cloudAutoPush(entry){
+  if(!entry || !cloudSync.autoSync || !cloudSync.configured()) return;
+  const r=await cloudSync.push(entry);
+  if(r.ok){ const el=document.getElementById('cloud-status'); if(el) el.textContent='☁ Auto-sync OK : '+(entry.name||entry.id); }
 }
 
 // ================================================================
@@ -3767,6 +3887,8 @@ function showScreen(name){
     const sbu=document.getElementById('cfg-sb-url'), sbk=document.getElementById('cfg-sb-key');
     if(sbu) sbu.value=cloudSync.url;
     if(sbk) sbk.value=cloudSync.key;
+    const acb=document.getElementById('cloud-autosync'); if(acb) acb.checked=cloudSync.autoSync;
+    cloudUpdateAuthUI();
   }
 }
 
@@ -6205,6 +6327,7 @@ async function saveTrainResults(){
   }
 
   if(trRoundsDone>0) toast(`${trRoundsDone} rounds · ELO ${brainToSave.elo}`);
+  cloudAutoPush(entry); // V2 : auto-sync cloud après entraînement
 }
 
 // Sync légère après chaque round (sans écrire dans IndexedDB)
@@ -6579,6 +6702,7 @@ async function glFinish(brain){
     : `✓ ${name} · ${persIcon} (candidat #${glTested})`;
   toast(msg);
   updateLabUI();
+  cloudAutoPush(await store.get('brains', id)); // V2 : auto-sync cloud
 }
 
 function glSkip(){
