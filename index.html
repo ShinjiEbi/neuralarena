@@ -7,6 +7,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#060810">
 <link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <title>Neural Arena</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=JetBrains+Mono:wght@400;600&display=swap');
@@ -226,19 +228,9 @@ body:not(.observe-mode) #cam-hint{display:none}
 #brain-create-modal.open{display:flex!important}
 .btn:disabled{opacity:0.3;pointer-events:none}
 
-/* Tournoi */
-.tourney-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
-.tourney-speed{display:flex;align-items:center;gap:6px;font-size:6px;color:#8060c0}
+/* Vitesse d'entraînement */
 .speed-btn{font-family:'Press Start 2P',monospace;font-size:6px;padding:5px 8px;border:2px solid var(--border);background:var(--card);color:#8060c0;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .speed-btn.active{border-color:var(--gold);color:var(--gold)}
-.bracket{display:flex;flex-direction:column;gap:6px}
-.match-row{display:flex;align-items:center;gap:8px;background:var(--card);border:2px solid var(--border);padding:8px 10px;font-size:6px}
-.match-row.running{border-color:var(--gold);animation:pulse 1s infinite alternate}
-.match-row.done{border-color:rgba(96,200,255,0.3)}
-.match-a{color:var(--gold);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.match-b{color:#8060c0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}
-.match-score{color:var(--bright);width:40px;text-align:center;flex-shrink:0}
-.match-winner{color:var(--accent2);font-size:5px}
 @keyframes pulse{from{box-shadow:0 0 0 0 rgba(240,160,48,0.4)}to{box-shadow:0 0 0 4px rgba(240,160,48,0)}}
 
 /* Graphique */
@@ -533,28 +525,13 @@ body:not(.observe-mode) #cam-hint{display:none}
           <input type="range" class="param-slider" id="p-hofsize" min="2" max="20" step="1" oninput="updateParam('hofSize',this)">
           <span class="param-val" id="v-hofsize">8</span>
         </div>
-        <div class="param-row">
-          <span class="param-name">Seuil stagnation</span>
-          <input type="range" class="param-slider" id="p-stagthresh" min="2" max="20" step="1" oninput="updateParam('stagThresh',this)">
-          <span class="param-val" id="v-stagthresh">5</span>
-        </div>
       </div>
       <div class="param-group">
         <span class="param-label">SCORING</span>
         <div class="param-row">
-          <span class="param-name">ELO K-factor (départ)</span>
-          <input type="range" class="param-slider" id="p-kstart" min="8" max="64" step="4" oninput="updateParam('kStart',this)">
-          <span class="param-val" id="v-kstart">40</span>
-        </div>
-        <div class="param-row">
           <span class="param-name">Bonus victoire fitness</span>
           <input type="range" class="param-slider" id="p-winbonus" min="0" max="20" step="1" oninput="updateParam('winBonus',this)">
           <span class="param-val" id="v-winbonus">8</span>
-        </div>
-        <div class="param-row">
-          <span class="param-name">Pénalité défaite</span>
-          <input type="range" class="param-slider" id="p-losspen" min="0" max="10" step="0.5" oninput="updateParam('lossPen',this)">
-          <span class="param-val" id="v-losspen">3</span>
         </div>
       </div>
       <button class="btn small warn param-reset" onclick="resetParams()">↺ Réinitialiser</button>
@@ -715,8 +692,8 @@ body:not(.observe-mode) #cam-hint{display:none}
       <h3>3. Token GitHub <span style="font-size:8px;color:#444">(optionnel pour lecture)</span></h3>
       <p>Nécessaire uniquement pour <strong style="color:var(--bright)">envoyer</strong> des cerveaux. Sans token, tu peux quand même télécharger les cerveaux de la communauté.
       <br><br>
-      <a href="https://github.com/settings/tokens/new?scopes=repo&description=NeuralArena" target="_blank" style="color:var(--accent2)">→ Créer un token sur GitHub</a>
-      <br><span style="font-size:9px;color:#333">Scope requis : <code style="background:rgba(255,255,255,0.05);padding:1px 5px;border-radius:3px;font-size:9px;color:var(--accent)">repo</code> ou <code style="background:rgba(255,255,255,0.05);padding:1px 5px;border-radius:3px;font-size:9px;color:var(--accent)">public_repo</code></span>
+      <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener" style="color:var(--accent2)">→ Créer un token sur GitHub</a>
+      <br><span style="font-size:9px;color:#333">Choisis un token <em>fine-grained</em> limité au seul repo des cerveaux, permission <code style="background:rgba(255,255,255,0.05);padding:1px 5px;border-radius:3px;font-size:9px;color:var(--accent)">Contents : Read and write</code>. Évite les tokens classiques avec le scope <code style="background:rgba(255,255,255,0.05);padding:1px 5px;border-radius:3px;font-size:9px;color:var(--accent)">repo</code> : ils donnent accès à tous tes dépôts.</span>
       </p>
       <div class="input-row">
         <label>Personal Access Token</label>
@@ -736,60 +713,86 @@ body:not(.observe-mode) #cam-hint{display:none}
 <script>
 // ── Gestionnaire d'erreurs global ─────────────────────────────────
 window.onerror = (msg, src, line, col, err) => {
-  const t = document.getElementById('toast');
-  if(t){ t.textContent = `JS ERR ligne ${line}: ${msg}`; t.style.opacity='1'; setTimeout(()=>t.style.opacity='0', 6000); }
+  toast(`JS ERR ligne ${line}: ${msg}`, 6000);
   console.error('[NeuralArena ERR]', msg, 'ligne', line, err);
   return false;
 };
 window.addEventListener('unhandledrejection', e => {
-  const msg = e.reason?.message || String(e.reason);
-  const t = document.getElementById('toast');
-  if(t){ t.textContent = `ERR async: ${msg}`; t.style.opacity='1'; setTimeout(()=>t.style.opacity='0', 6000); }
-  console.error('[NeuralArena ASYNC ERR]', e.reason);
+  const r = e.reason;
+  const msg = r?.message || r?.target?.error?.message || String(r);
+  toast(`ERR async: ${msg}`, 6000);
+  console.error('[NeuralArena ASYNC ERR]', r);
 });
-// ================================================================
-//  NEURAL NETWORK
-// ================================================================
-// ================================================================
-//  UTILS
-function sanitize(str){
-  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
 
 // ================================================================
-//  LEGACY BRAIN — conservé pour désérialisation d'anciens cerveaux
-class Brain {
-  constructor(topo=[16,20,14,6]){
-    this.topo=topo;this.w=[];this.b=[];this.acts=[];this.fitness=0;this.elo=ELO_BASE||1200;
-    for(let i=0;i<topo.length-1;i++){
-      const R=topo[i+1],C=topo[i],s=Math.sqrt(2/(C+R));
-      const wl=[],bl=[];
-      for(let r=0;r<R;r++){const row=[];for(let c=0;c<C;c++)row.push((Math.random()*2-1)*s);wl.push(row);bl.push((Math.random()*2-1)*0.05)}
-      this.w.push(wl);this.b.push(bl);
-    }
+//  UTILS
+// Échappe du texte pour l'insérer dans du HTML (contenu ou attribut entre guillemets).
+// Ne protège PAS une chaîne JS dans un onclick="..." : y passer uniquement des ids générés localement.
+function sanitize(str){
+  return String(str??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+// Nombre fini borné, sinon valeur par défaut (données importées / communauté)
+function safeNum(v, def=0, min=-Infinity, max=Infinity){
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : def;
+}
+function safeStr(v, max=40){ return typeof v==='string' ? v.slice(0, max) : ''; }
+
+// ── Validation des cerveaux venus de l'extérieur (fichier importé, repo communautaire)
+// Refuse ce qui gèlerait l'app (tailles énormes), produirait des NaN ou casserait forward().
+const _finiteVec = (v,n) => Array.isArray(v) && v.length===n && v.every(Number.isFinite);
+const _finiteMat = (m,r,c) => Array.isArray(m) && m.length===r && m.every(row=>_finiteVec(row,c));
+function _validGRU(e, inSize, H, out){
+  const p = e?.p;
+  return !!p && e.inSize===inSize && e.H===H && e.outSize===out
+    && _finiteMat(p.Wz,H,H+inSize) && _finiteMat(p.Wr,H,H+inSize) && _finiteMat(p.Wc,H,H+inSize)
+    && _finiteVec(p.bz,H) && _finiteVec(p.br,H) && _finiteVec(p.bc,H)
+    && _finiteMat(p.Wo,out,H) && _finiteVec(p.bo,out);
+}
+function _validDense(l, inSize, outSize){
+  return !!l && ['relu','sigmoid'].includes(l.act ?? 'sigmoid')
+    && _finiteMat(l.W,outSize,inSize) && _finiteVec(l.b,outSize);
+}
+// Lance une Error lisible si la structure est invalide.
+function validateBrainStructure(d){
+  if(!d || typeof d!=='object') throw new Error('cerveau manquant');
+  if(d.type==='multi-expert-v1') return; // obsolète : sera recréé à neuf
+  if(!['multi-expert-v2','multi-expert-v3','multi-expert-v4'].includes(d.type))
+    throw new Error('type de cerveau non supporté');
+  const H=d._H??12, out=d._out??4, arb=d._arb??16;
+  if(![H,out,arb].every(Number.isInteger) || H<1||H>64 || out<1||out>16 || arb<1||arb>128)
+    throw new Error('topologie hors limites');
+  if(!Array.isArray(d.experts) || d.experts.length!==4) throw new Error('experts invalides');
+  const v4 = d.type==='multi-expert-v4';
+  for(let i=0;i<4;i++){
+    if(!v4 && i===2) continue; // expert terrain réinitialisé par la migration v2/v3
+    if(!_validGRU(d.experts[i], MultiExpertBrain.EXPERT_INPUTS[i].length, H, out))
+      throw new Error(`expert ${i} invalide`);
   }
-  forward(inp){
-    let cur=inp;this.acts=[cur.slice()];
-    for(let l=0;l<this.w.length;l++){
-      const nx=[],wl=this.w[l],bl=this.b[l],isOut=l===this.w.length-1;
-      for(let j=0;j<wl.length;j++){let s=bl[j];for(let i=0;i<cur.length;i++)s+=wl[j][i]*cur[i];nx.push(isOut?1/(1+Math.exp(-Math.max(-10,Math.min(10,s)))):(s>0?s:s*0.01))}
-      cur=nx;this.acts.push(cur.slice());
-    }
-    return cur;
-  }
-  clone(){const b=new Brain(this.topo);for(let l=0;l<this.w.length;l++){for(let r=0;r<this.w[l].length;r++){for(let c=0;c<this.w[l][r].length;c++)b.w[l][r][c]=this.w[l][r][c];b.b[l][r]=this.b[l][r]}}b.fitness=this.fitness;b.elo=this.elo||1200;return b}
-  mutate(rate=0.15,power=0.35){for(let l=0;l<this.w.length;l++)for(let r=0;r<this.w[l].length;r++){for(let c=0;c<this.w[l][r].length;c++)if(Math.random()<rate){const u1=Math.random(),u2=Math.random();this.w[l][r][c]+=Math.sqrt(-2*Math.log(u1||1e-4))*Math.cos(2*Math.PI*u2)*power}if(Math.random()<rate)this.b[l][r]+=(Math.random()*2-1)*power*0.5}}
-  static crossover(a,b){const ch=a.clone();for(let l=0;l<ch.w.length;l++){const cut=Math.floor(Math.random()*ch.w[l].length);for(let r=cut;r<ch.w[l].length;r++){for(let c=0;c<ch.w[l][r].length;c++)ch.w[l][r][c]=b.w[l][r][c];ch.b[l][r]=b.b[l][r]}}return ch}
-  serialize(){return{type:'legacy',topo:this.topo,w:this.w,b:this.b}}
-  static deserialize(d){const b=new Brain(d.topo);b.w=d.w;b.b=d.b;return b}
-  paramCount(){let n=0;for(let l=0;l<this.w.length;l++)n+=this.w[l].length*this.w[l][0].length+this.b[l].length;return n}
-  resetMemory(){}  // no-op pour compat
+  if(!_validDense(d.arb1,4*out,arb) || !_validDense(d.arb2,arb,arb)
+     || !_validDense(d.arb3,arb,MultiExpertBrain.N_OUTPUTS))
+    throw new Error('arbitre invalide');
+}
+// Métadonnées nettoyées (types + bornes) d'un export de cerveau
+function cleanBrainMeta(data, fallbackName='Inconnu'){
+  return {
+    name:       safeStr(data.name) || safeStr(data.pseudo) || safeStr(fallbackName) || 'Inconnu',
+    creator:    safeStr(data.creator) || safeStr(data.pseudo) || '?',
+    pseudo:     safeStr(data.pseudo),
+    generation: Math.round(safeNum(data.generation, 1, 1, 1e6)),
+    elo:        Math.round(safeNum(data.elo, ELO_BASE, 400, 4000)),
+    fitness:    safeNum(data.fitness, 0, 0, 100),
+    wins:       Math.round(safeNum(data.wins, 0, 0, 1e9)),
+    played:     Math.round(safeNum(data.played, 0, 0, 1e9)),
+    params:     Math.round(safeNum(data.params, 0, 0, 1e9)),
+    exported:   typeof data.exported==='string' && !isNaN(Date.parse(data.exported)) ? data.exported : null,
+  };
 }
 
 // ================================================================
 //  GRU EXPERT — réseau récurrent léger avec mémoire interne
 // ================================================================
-// inputs : sous-ensemble des 16 inputs globaux (indices configurables)
+// inputs : sous-ensemble des 26 inputs globaux (indices configurables)
 // H      : taille de la mémoire (hidden state), défaut 8
 // outSize: taille de la sortie projetée après le GRU
 //
@@ -900,13 +903,15 @@ class DenseLayer {
     this.b=Array.from({length:outSize},()=>(Math.random()*2-1)*0.05);
     this.act=activation;
   }
+  // Garde l'entrée et la pré-activation du dernier passage (_lastX/_lastZ) :
+  // le PolicyGradientLearner en a besoin pour la rétropropagation.
   forward(x){
-    return this.W.map((row,i)=>{
-      const v=this.b[i]+row.reduce((s,w,j)=>s+w*x[j],0);
-      if(this.act==='sigmoid') return 1/(1+Math.exp(-Math.max(-10,Math.min(10,v))));
-      if(this.act==='relu')    return v>0?v:v*0.01; // leaky relu
-      return v;
-    });
+    const z = this.W.map((row,i) => this.b[i] + row.reduce((s,w,j)=>s+w*x[j],0));
+    this._lastX = x;
+    this._lastZ = z;
+    if(this.act==='sigmoid') return z.map(v=>1/(1+Math.exp(-Math.max(-10,Math.min(10,v)))));
+    if(this.act==='relu')    return z.map(v=>v>0?v:v*0.01); // leaky relu
+    return z;
   }
   mutate(rate,power){
     const gauss=()=>{const u1=Math.random(),u2=Math.random();return Math.sqrt(-2*Math.log(u1||1e-4))*Math.cos(2*Math.PI*u2)};
@@ -921,19 +926,19 @@ class DenseLayer {
 }
 
 // ================================================================
-//  MULTI-EXPERT BRAIN  — v2
+//  MULTI-EXPERT BRAIN  — format sérialisé 'multi-expert-v4'
 //
-//  20 inputs → 4 experts GRU spécialisés → arbitre 3 couches → 7 outputs
+//  26 inputs → 4 experts GRU spécialisés → arbitre 3 couches → 7 outputs
 //
 //  EXPERT 0 — DANGER   : esquive flèches        [12,13,14,15,16,3,4]
 //  EXPERT 1 — VISÉE    : viser et tirer          [0,1,2,7,8,9,11,5,6]
-//  EXPERT 2 — TERRAIN  : positionnement          [10,17,18,19,3,4]
+//  EXPERT 2 — TERRAIN  : positionnement          [10,17,18,19,3,4,20..25]
 //  EXPERT 3 — TACTIQUE : lecture globale         [0,1,2,5,6,7,8,16,19]
 //
 //  ARBITRE : concat(4 experts) → dense(relu) → dense(relu) → dense(sigmoid,7)
 //
 class MultiExpertBrain {
-  // Nouveaux sous-ensembles d'inputs pour 20 inputs
+  // Indices des inputs lus par chaque expert
   static EXPERT_INPUTS=[
     [12,13,14,15,16,3,4],               // DANGER   : flèche proche + mes vélocités (7)
     [0,1,2,7,8,9,11,5,6],               // VISÉE    : position ennemi + erreur visée + cooldown + vélo ennemi (9)
@@ -960,7 +965,6 @@ class MultiExpertBrain {
     this.arb2=new DenseLayer(arb,   arb,    'relu',    xavierScale);
     this.arb3=new DenseLayer(arb,   MultiExpertBrain.N_OUTPUTS, 'sigmoid', xavierScale);
     this.fitness=0; this.elo=1200;
-    this.acts=[];
     this.topo=[MultiExpertBrain.N_INPUTS,h,h,h,h,arbIn,arb,arb,MultiExpertBrain.N_OUTPUTS];
   }
 
@@ -972,9 +976,7 @@ class MultiExpertBrain {
     const arbIn=expertOuts.flat();
     const h1=this.arb1.forward(arbIn);
     const h2=this.arb2.forward(h1);
-    const out=this.arb3.forward(h2);
-    this.acts=[inp.slice(), expertOuts[0], expertOuts[1], expertOuts[2], expertOuts[3], arbIn, h1, h2, out];
-    return out;
+    return this.arb3.forward(h2);
   }
 
   resetMemory(){
@@ -1021,6 +1023,8 @@ class MultiExpertBrain {
     return ch;
   }
 
+  topologyLabel(){ return `GRU(H=${this._H})×${this.experts.length}+ARB(${this._arb})`; }
+
   paramCount(){
     return this.experts.reduce((s,e)=>s+e.paramCount(),0)
           +(this.arb1?.paramCount()||0)+(this.arb2?.paramCount()||0)+(this.arb3?.paramCount()||0);
@@ -1061,46 +1065,50 @@ class MultiExpertBrain {
       b.arb3=DenseLayer.deserialize(d.arb3);
       return b;
     }
-    // v1 legacy → recréer fresh (incompatible topologie)
-    if(d.type==='multi-expert-v1'){
-      const b=new MultiExpertBrain();
-      b._legacy=true;
-      return b;
-    }
+    // v1 et très anciens formats denses : topologie incompatible
     return null;
-  }
-
-  static fromLegacy(legacyBrain){
-    const b=new MultiExpertBrain();
-    b.fitness=legacyBrain.fitness||0;
-    b.elo=legacyBrain.elo||1200;
-    return b;
   }
 }
 
-// Helper universel de désérialisation
+// Désérialisation universelle : un format inconnu ou obsolète donne un cerveau neuf
 function deserializeBrain(data){
-  if(!data) return new MultiExpertBrain();
-  if(data.type==='multi-expert-v4') return MultiExpertBrain.deserialize(data);
-  if(data.type==='multi-expert-v3') return MultiExpertBrain.deserialize(data); // migre auto v3→v4
-  if(data.type==='multi-expert-v2') return MultiExpertBrain.deserialize(data); // migre auto v2→v4
-  // v1 legacy → nouveau cerveau fresh (topologie incompatible)
-  if(data.type==='multi-expert-v1'){
-    const b=new MultiExpertBrain();
-    b._legacy=true;
-    return b;
-  }
-  // Très ancien format dense
-  const legacy=Brain.deserialize?.(data);
-  return MultiExpertBrain.fromLegacy(legacy||{fitness:0,elo:ELO_BASE});
+  return MultiExpertBrain.deserialize(data) || new MultiExpertBrain();
 }
 
 // ================================================================
 //  INDEXEDDB STORE
 class Store {
   constructor(){this.db=null;this.ready=this._init()}
-  _init(){return new Promise((res,rej)=>{const r=indexedDB.open('NeuralArena',3);r.onupgradeneeded=e=>{const db=e.target.result;if(!db.objectStoreNames.contains('brains'))db.createObjectStore('brains',{keyPath:'id'});if(!db.objectStoreNames.contains('config'))db.createObjectStore('config',{keyPath:'key'})};r.onsuccess=e=>{this.db=e.target.result;res()};r.onerror=e=>rej(e)})}
-  async _tx(store,mode,fn){await this.ready;return new Promise((res,rej)=>{const tx=this.db.transaction(store,mode);const s=tx.objectStore(store);const r=fn(s);tx.oncomplete=()=>res(r.result!==undefined?r.result:null);tx.onerror=e=>rej(e);r.onsuccess=()=>res(r.result)})}
+  _init(){
+    return new Promise((res,rej)=>{
+      if(!window.indexedDB) return rej(new Error('IndexedDB indisponible (navigation privée ?)'));
+      const r=indexedDB.open('NeuralArena',3);
+      r.onupgradeneeded=e=>{
+        const db=e.target.result;
+        if(!db.objectStoreNames.contains('brains'))db.createObjectStore('brains',{keyPath:'id'});
+        if(!db.objectStoreNames.contains('config'))db.createObjectStore('config',{keyPath:'key'});
+      };
+      r.onsuccess=e=>{
+        this.db=e.target.result;
+        // Une autre version de l'app (autre onglet) veut mettre à jour la base
+        this.db.onversionchange=()=>{ this.db.close(); toast('Mise à jour : recharge la page'); };
+        res();
+      };
+      r.onblocked=()=>toast('Ferme les autres onglets Neural Arena pour continuer');
+      r.onerror=()=>rej(r.error||new Error('Ouverture IndexedDB impossible'));
+    });
+  }
+  // Résout au commit de la transaction (pas avant) : une écriture annulée est signalée.
+  async _tx(store,mode,fn){
+    await this.ready;
+    return new Promise((res,rej)=>{
+      const tx=this.db.transaction(store,mode);
+      const r=fn(tx.objectStore(store));
+      tx.oncomplete=()=>res(r.result!==undefined?r.result:null);
+      tx.onerror=()=>rej(tx.error||r.error||new Error('Erreur IndexedDB'));
+      tx.onabort=()=>rej(tx.error||new Error('Transaction IndexedDB annulée'));
+    });
+  }
   async put(store,data){return this._tx(store,'readwrite',s=>s.put(data))}
   async get(store,key){return this._tx(store,'readonly',s=>s.get(key))}
   async getAll(store){return this._tx(store,'readonly',s=>s.getAll())}
@@ -1141,27 +1149,29 @@ class GitHubSync {
 
     if(!this.repo){
       dot.className='sync-dot off';
-      txt.innerHTML='Non configuré';
+      txt.textContent='Non configuré';
       upBtn.disabled=true;
     } else if(this.connected){
       dot.className='sync-dot ok';
-      txt.innerHTML=`<strong>${this.repo}</strong> · ${this.brains.length} cerveaux`;
+      txt.innerHTML=`<strong>${sanitize(this.repo)}</strong> · ${this.brains.length} cerveaux`;
       upBtn.disabled=!this.token;
     } else {
       dot.className='sync-dot off';
-      txt.innerHTML=`${this.repo} · pas encore synchronisé`;
+      txt.textContent=`${this.repo} · pas encore synchronisé`;
       upBtn.disabled=true;
     }
   }
 
   setLoading(msg){
     document.getElementById('sync-dot').className='sync-dot loading';
-    document.getElementById('sync-text').innerHTML=msg;
+    document.getElementById('sync-text').textContent=msg;
   }
 
   // === FETCH COMMUNITY BRAINS (no auth needed for public repo) ===
   async sync(){
     if(!this.repo){toast('Configure le repo dans ⚙ Config');return}
+    if(this._syncing) return; // init / test / post-upload peuvent se chevaucher
+    this._syncing=true;
     this.setLoading('Synchronisation...');
 
     try {
@@ -1185,25 +1195,26 @@ class GitHubSync {
       }
 
       const files=await res.json();
-      const jsonFiles=files.filter(f=>f.name.endsWith('.json'));
+      if(!Array.isArray(files)) throw new Error('/brains n\'est pas un dossier');
+      // Bornes : un repo rempli de gros fichiers ne doit pas geler l'app au démarrage
+      const MAX_FILES=100, MAX_BYTES=1_000_000;
+      const jsonFiles=files
+        .filter(f=>typeof f?.name==='string'&&f.name.endsWith('.json')&&f.size<=MAX_BYTES&&typeof f.download_url==='string')
+        .slice(0,MAX_FILES);
 
-      // Fetch each brain file
-      this.brains=[];
-      const fetches=jsonFiles.map(async f=>{
+      // Chaque fichier est validé ; les fichiers invalides sont ignorés
+      const brains=[];
+      await Promise.all(jsonFiles.map(async f=>{
         try {
           const r=await fetch(f.download_url);
           const data=await r.json();
-          data._filename=f.name;
-          data._sha=f.sha;
-          data._size=f.size;
-          this.brains.push(data);
-        }catch(e){console.warn('Skip',f.name,e)}
-      });
+          validateBrainStructure(data?.brain);
+          brains.push({...cleanBrainMeta(data, f.name), brain:data.brain, _filename:f.name, _sha:f.sha});
+        }catch(e){console.warn('Skip',f.name,e.message)}
+      }));
 
-      await Promise.all(fetches);
-
-      // Sort by fitness
-      this.brains.sort((a,b)=>(b.fitness||0)-(a.fitness||0));
+      brains.sort((a,b)=>b.fitness-a.fitness);
+      this.brains=brains;
       this.connected=true;
       this.lastSync=new Date();
       this.updateUI();
@@ -1213,8 +1224,10 @@ class GitHubSync {
     }catch(e){
       console.error('Sync error:',e);
       document.getElementById('sync-dot').className='sync-dot off';
-      document.getElementById('sync-text').innerHTML=`Erreur: ${e.message}`;
+      document.getElementById('sync-text').textContent=`Erreur: ${e.message}`;
       toast('Erreur de sync: '+e.message);
+    }finally{
+      this._syncing=false;
     }
   }
 
@@ -1225,7 +1238,10 @@ class GitHubSync {
     this.setLoading('Upload en cours...');
 
     try {
-      const filename=`${this.pseudo}_gen${brainData.generation}_f${Math.round(brainData.fitness)}_${Date.now().toString(36)}.json`;
+      // Pseudo réduit à [a-z0-9_-] : un # ? / ou .. casserait ou détournerait le chemin
+      const slug=(this.pseudo||'anonyme').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+        .replace(/[^a-zA-Z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,32)||'anonyme';
+      const filename=`${slug}_gen${Math.round(brainData.generation)||1}_f${Math.round(brainData.fitness)||0}_${Date.now().toString(36)}.json`;
       const content=JSON.stringify(brainData,null,2);
       const base64=btoa(unescape(encodeURIComponent(content)));
 
@@ -1239,8 +1255,7 @@ class GitHubSync {
         },
         body:JSON.stringify({
           message:`🧠 ${this.pseudo} — Gen ${brainData.generation}, Fitness ${Math.round(brainData.fitness)}`,
-          content:base64,
-          branch:'main'
+          content:base64  // pas de branche imposée : GitHub prend la branche par défaut
         })
       });
 
@@ -1276,15 +1291,10 @@ class GitHubSync {
       const data=await res.json();
 
       const canWrite=!!this.token;
-      let writeOk=false;
+      // Avec un token valide, GitHub renvoie les permissions sur CE repo
+      const writeOk=canWrite&&!!data.permissions?.push;
 
-      if(canWrite){
-        // Test write permission by checking user
-        const userRes=await fetch('https://api.github.com/user',{headers:{'Authorization':`Bearer ${this.token}`,'Accept':'application/vnd.github.v3+json'}});
-        writeOk=userRes.ok;
-      }
-
-      return{ok:true,msg:`✓ ${data.full_name} — ${data.private?'Privé':'Public'}\n${canWrite?(writeOk?'✓ Écriture OK':'✗ Token invalide'):'⚠ Lecture seule (pas de token)'}`,canRead:true,canWrite:writeOk};
+      return{ok:true,msg:`✓ ${data.full_name} — ${data.private?'Privé':'Public'}\n${canWrite?(writeOk?'✓ Écriture OK':'✗ Ce token ne peut pas écrire dans ce repo'):'⚠ Lecture seule (pas de token)'}`,canRead:true,canWrite:writeOk};
     }catch(e){
       return{ok:false,msg:'✗ '+e.message};
     }
@@ -1306,11 +1316,11 @@ class GitHubSync {
     this.brains.forEach((b,i)=>{
       const rank=i+1;
       const badge=rank<=3?'<span class="cc-badge top">TOP '+rank+'</span>':(b.exported&&Date.now()-(new Date(b.exported).getTime())<86400000?'<span class="cc-badge new">NEW</span>':'');
-      const name=b.name||b.pseudo||b._filename||'Inconnu';
-      const gen=b.generation||'?';
-      const fit=Math.round(b.fitness||0);
-      const wins=b.wins||0;
-      const played=b.played||0;
+      const name=sanitize(b.name);
+      const gen=b.generation;
+      const fit=Math.round(b.fitness);
+      const wins=b.wins;
+      const played=b.played;
       const wr=played>0?Math.round(wins/played*100):0;
       const params=b.params||'?';
       const date=b.exported?new Date(b.exported).toLocaleDateString('fr-FR'):'';
@@ -1342,50 +1352,50 @@ const githubSync=new GitHubSync();
 
 // === Community UI functions ===
 function switchTab(name){
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.textContent.toLowerCase().includes(name.slice(0,4))));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.getAttribute('onclick')===`switchTab('${name}')`));
   document.querySelectorAll('.tab-page').forEach(p=>p.classList.toggle('active',p.id==='tab-'+name));
 }
 
 async function saveConfig(){
   const repo=document.getElementById('cfg-repo').value.trim();
+  if(repo && !/^[\w.-]+\/[\w.-]+$/.test(repo)){ toast('Repo attendu au format pseudo/nom-du-repo'); return false; }
   const token=document.getElementById('cfg-token').value.trim();
   const pseudo=document.getElementById('cfg-pseudo').value.trim()||'Anonyme';
   await githubSync.saveConfig(repo,token,pseudo);
   toast('Configuration sauvegardée');
+  return true;
 }
 
 async function testConnection(){
   const status=document.getElementById('config-status');
   status.innerHTML='<span style="color:var(--gold)">Test en cours...</span>';
-  // Save first
-  await saveConfig();
+  if(!await saveConfig()){ status.textContent=''; return; }
   const result=await githubSync.test();
-  status.innerHTML=`<span style="color:${result.ok?'var(--accent)':'var(--warn)'};white-space:pre-line">${result.msg}</span>`;
+  const span=document.createElement('span');
+  span.style.cssText=`color:${result.ok?'var(--accent)':'var(--warn)'};white-space:pre-line`;
+  span.textContent=result.msg;
+  status.replaceChildren(span);
   if(result.ok)githubSync.sync();
 }
 
 async function downloadCommunityBrain(index){
   const data=githubSync.brains[index];
-  if(!data||!data.brain)return toast('Cerveau invalide');
+  try { validateBrainStructure(data?.brain); }
+  catch(e){ return toast('Cerveau invalide : '+e.message); }
 
   const id='community_'+Date.now();
   const brain=deserializeBrain(data.brain);
-  brain.fitness=data.fitness||0; brain.elo=data.elo||ELO_BASE;
+  brain.fitness=data.fitness; brain.elo=data.elo;
   const entry={
-    id, name:data.name||data.pseudo||data._filename||'Community',
-    creator:data.pseudo||data.name||'?',
-    brain:brain.serialize(), generation:data.generation||1,
+    id, name:data.name, creator:data.pseudo||data.creator,
+    brain:brain.serialize(), generation:data.generation,
     fitness:brain.fitness, elo:brain.elo, wins:0, played:0,
     timestamp:Date.now(), game:'arena-archer',
-    topology:'GRU×3', params:brain.paramCount(),
+    topology:brain.topologyLabel(), params:brain.paramCount(),
     imported:true, source:'github:'+githubSync.repo
   };
   await store.put('brains',entry);
-  currentBrainId=id;
-  activeBrain=brain; activeBrain.fitness=entry.fitness; activeBrain.elo=entry.elo;
-  activeBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
-  generation=entry.generation;
-  bestBrain=brain.clone();
+  await activateEntry(entry);
   toast(`"${entry.name}" téléchargé et activé !`);
 }
 
@@ -1400,7 +1410,7 @@ async function challengeCommunityBrain(index){
 }
 
 async function uploadBrain(){
-  const brain=bestBrain||activeBrain;
+  const brain=activeBrain;
   const data={
     format:'neuralarena-brain-v2',
     game:'arena-archer',
@@ -1424,8 +1434,6 @@ async function uploadBrain(){
 //  GAME STATE
 let currentBrainId='default';
 let activeBrain=new MultiExpertBrain();
-let bestBrain=null;
-let hallOfFame=[];
 let generation=1;
 
 // Stats cumulées du cerveau IA actif — persistées dans le store
@@ -1456,15 +1464,12 @@ let humanDeadShown=false;
 
 // Free camera state
 let freeCam=false;
-let freeCamVx=0,freeCamVy=0;
 let camZoom=1;
 let dragCam={active:false,startX:0,startY:0,startCamX:0,startCamY:0};
 // ── Mouse aiming (desktop) ────────────────────────────────────────
 const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 let mousePos={x:0,y:0}; // CSS pixels relative to canvas
 let mouseShoot=false;    // Left button held
-// ── Stagnation detection ──────────────────────────────────────────
-let stagnationCounter=0;
 
 const WW=1400,WH=700;
 const GRAV=0.38,FRIC=0.82,JUMP=-10,MSPD=3.5;
@@ -1551,8 +1556,6 @@ function renderPvpAgents(){
 // Variables runtime pour pièges/agents en mode multi
 let multiTraps = [];
 let multiTrapProj = [];
-let multiAgents = [];  // ScriptedAgent[]
-let multiAgentEnts = []; // Ent[] correspondants
 
 async function renderPVP(){
   const container=document.getElementById('pvp-slots');
@@ -1576,7 +1579,7 @@ async function renderPVP(){
     let brainSel='';
     if(s.type==='ai'){
       const opts=all.map(b=>{
-        const id=b.id.replace(/'/g,"\\'");
+        const id=sanitize(b.id);
         const sel=b.id===s.brainId?'selected':'';
         const name=sanitize(b.name||b.id).substring(0,20);
         return `<option value="${id}" ${sel}>${name}</option>`;
@@ -1652,7 +1655,14 @@ async function quickPlay(){
   }
 }
 
+let pvpStarting=false;
 async function startPVP(){
+  if(pvpStarting) return; // double clic sur JOUER/LANCER
+  pvpStarting=true;
+  try { await _startPVP(); } finally { pvpStarting=false; }
+}
+
+async function _startPVP(){
   const activeSlots=lobbySlots.map((s,i)=>({...s,index:i})).filter(s=>s.type!=='off');
   if(activeSlots.length<2){toast('Il faut au moins 2 joueurs');return;}
 
@@ -1668,8 +1678,6 @@ async function startPVP(){
   // Init joueurs (humains + cerveaux)
   players=[]; playerBrains=[]; playerAlive=[]; playerWins=[];
   // On ajoute aussi les entraîneurs dans players[] directement
-  multiAgents=[]; // ScriptedAgent[] pour les entraîneurs
-  multiAgentEnts=[]; // plus utilisé — les entraîneurs sont dans players[]
 
   for(let si=0;si<activeSlots.length;si++){
     const s=activeSlots[si];
@@ -1717,7 +1725,6 @@ async function startPVP(){
     // ScriptedAgent stocké en parallèle, indexé comme players[activeSlots.length+ti]
     const ag=new ScriptedAgent(a.level);
     playerBrains.push(ag); // on stocke l'agent scripted à la place du brain
-    multiAgents.push(ag);
   }
 
   // Init pièges
@@ -1741,7 +1748,7 @@ async function startPVP(){
   if(hi>=0){ camX=players[hi].x-vW/2; camY=players[hi].y-vH/2; }
   else { camX=WW/2-vW/2; camY=WH/2-vH/2; }
   gameActive=true;
-  requestAnimationFrame(gameLoop);
+  startGameLoop();
 }
 
 function updateMultiHUD(){
@@ -1761,6 +1768,9 @@ function updateMultiHUD(){
 // ================================================================
 //  FREE CAMERA
 function setupFreeCam(){
+  // Les écouteurs sont posés une seule fois (sinon ils s'empilent à chaque partie)
+  if(setupFreeCam._done) return;
+  setupFreeCam._done=true;
   const canvas=document.getElementById('game');
 
   // Mouse drag (free cam) + aim tracking (play mode)
@@ -1821,14 +1831,15 @@ function freeCamKeyboard(){
 // ================================================================
 //  ENTITIES
 class Ent {
-  constructor(x,y,col,isAI){this.x=x;this.y=y;this.vx=0;this.vy=0;this.w=20;this.h=32;this.col=col;this.ai=isAI;this.gnd=false;this.aim=0;this.face=isAI?-1:1;this.arr=[];this.cd=0;this.ht=0;this.hp=3;this.hitFlash=0;}
+  // plats : décor de collision de l'entité (l'arène par défaut, une carte dédiée pour le gauntlet)
+  constructor(x,y,col,isAI,plats=platforms){this.x=x;this.y=y;this.vx=0;this.vy=0;this.w=20;this.h=32;this.col=col;this.ai=isAI;this.gnd=false;this.aim=0;this.face=isAI?-1:1;this.arr=[];this.cd=0;this.ht=0;this.hp=3;this.hitFlash=0;this.plats=plats;}
   update(){
     this.vy+=GRAV;this.vx*=this.gnd?FRIC:0.96;
     this.vx=Math.max(-8,Math.min(8,this.vx));this.vy=Math.max(-15,Math.min(15,this.vy));
     this.x+=this.vx;this.y+=this.vy;this.gnd=false;
-    for(const p of platforms){if(this.x+this.w>p.x&&this.x<p.x+p.w&&this.y+this.h>p.y&&this.y<p.y+p.h){const oL=(this.x+this.w)-p.x,oR=(p.x+p.w)-this.x,oT=(this.y+this.h)-p.y,oB=(p.y+p.h)-this.y,m=Math.min(oL,oR,oT,oB);if(m===oT&&this.vy>=0){this.y=p.y-this.h;this.vy=0;this.gnd=true}else if(m===oB&&this.vy<0){this.y=p.y+p.h;this.vy=0}else if(m===oL){this.x=p.x-this.w;this.vx=0}else{this.x=p.x+p.w;this.vx=0}}}
+    for(const p of this.plats){if(this.x+this.w>p.x&&this.x<p.x+p.w&&this.y+this.h>p.y&&this.y<p.y+p.h){const oL=(this.x+this.w)-p.x,oR=(p.x+p.w)-this.x,oT=(this.y+this.h)-p.y,oB=(p.y+p.h)-this.y,m=Math.min(oL,oR,oT,oB);if(m===oT&&this.vy>=0){this.y=p.y-this.h;this.vy=0;this.gnd=true}else if(m===oB&&this.vy<0){this.y=p.y+p.h;this.vy=0}else if(m===oL){this.x=p.x-this.w;this.vx=0}else{this.x=p.x+p.w;this.vx=0}}}
     if(this.cd>0)this.cd--;if(this.ht>0)this.ht--;if(this.hitFlash>0)this.hitFlash--;
-    for(let i=this.arr.length-1;i>=0;i--){const a=this.arr[i];if(a.st){a.life--;if(a.life<=0)this.arr.splice(i,1);continue}a.vy+=AGRAV;a.vx*=ADRAG;a.vy*=ADRAG;a.x+=a.vx;a.y+=a.vy;a.life--;a.tr.push({x:a.x,y:a.y});if(a.tr.length>8)a.tr.shift();if(a.x<-30||a.x>WW+30||a.y<-60||a.y>WH+30||a.life<=0){this.arr.splice(i,1);continue}for(const p of platforms)if(a.x>p.x&&a.x<p.x+p.w&&a.y>p.y&&a.y<p.y+p.h){a.st=true;a.vx=0;a.vy=0;a.life=Math.min(a.life,50);break}}
+    for(let i=this.arr.length-1;i>=0;i--){const a=this.arr[i];if(a.st){a.life--;if(a.life<=0)this.arr.splice(i,1);continue}a.vy+=AGRAV;a.vx*=ADRAG;a.vy*=ADRAG;a.x+=a.vx;a.y+=a.vy;a.life--;a.tr.push({x:a.x,y:a.y});if(a.tr.length>8)a.tr.shift();if(a.x<-30||a.x>WW+30||a.y<-60||a.y>WH+30||a.life<=0){this.arr.splice(i,1);continue}for(const p of this.plats)if(a.x>p.x&&a.x<p.x+p.w&&a.y>p.y&&a.y<p.y+p.h){a.st=true;a.vx=0;a.vy=0;a.life=Math.min(a.life,50);break}}
   }
   shoot(){
     if(this.cd>0||this.arr.length>=MAXA)return;
@@ -2010,9 +2021,6 @@ class Ent {
 }
 
 // ================================================================
-//  DRAWING
-
-// ================================================================
 //  INPUT — Dual Joystick + Keyboard
 const keys={};
 
@@ -2024,8 +2032,22 @@ const joyState = {
 };
 
 // Keyboard
-window.addEventListener('keydown',e=>{keys[e.code]=true;if(['Space','ArrowUp','ArrowDown','KeyW'].includes(e.code))e.preventDefault()});
+window.addEventListener('keydown',e=>{
+  // Ne pas capturer la frappe dans les champs (token, pseudo, repo, select…)
+  const t=e.target;
+  if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT'||t.isContentEditable)) return;
+  keys[e.code]=true;
+  if(gameActive&&['Space','ArrowUp','ArrowDown','KeyW'].includes(e.code)) e.preventDefault();
+});
 window.addEventListener('keyup',e=>{keys[e.code]=false});
+// Alt-tab / écran verrouillé : relâcher toutes les commandes pour éviter les touches bloquées
+function releaseAllInputs(){
+  for(const k in keys) keys[k]=false;
+  mouseShoot=false; dragCam.active=false;
+  joyState.left.active=false; joyState.right.active=false; joyState.jump=false;
+}
+window.addEventListener('blur',releaseAllInputs);
+document.addEventListener('visibilitychange',()=>{ if(document.hidden) releaseAllInputs(); });
 
 // === Joystick touch handling ===
 function setupJoystick(zoneId, knobId, stateKey) {
@@ -2118,12 +2140,9 @@ setupJumpButton();
 const DEADZONE = 0.18;
 
 // ================================================================
-//  AI — generalized for N players
-// ================================================================
-// ================================================================
-//  INPUTS / OUTPUTS IA  — v3 (20 inputs, 7 outputs)
+//  INPUTS / OUTPUTS IA  — 26 inputs, 7 outputs (MultiExpertBrain v4)
 //
-//  INPUTS (20) :
+//  INPUTS (26) :
 //   0  rX          : position relative ennemi X (normalisée)
 //   1  rY          : position relative ennemi Y
 //   2  dist        : distance normalisée (0=près, 1=loin)
@@ -2144,6 +2163,12 @@ const DEADZONE = 0.18;
 //  17  posX        : position X cerveau normalisée
 //  18  posY        : position Y cerveau normalisée
 //  19  t           : progression du round
+//  20  sL          : distance mur gauche   (raycast, 1 = rien)
+//  21  sR          : distance mur droit
+//  22  sU          : distance plafond
+//  23  sD          : distance sol
+//  24  sDL         : plateforme en bas à gauche
+//  25  sDR         : plateforme en bas à droite
 //
 //  OUTPUTS (7) :
 //   0  moveLeft    : aller à gauche
@@ -2157,12 +2182,12 @@ const DEADZONE = 0.18;
 
 // Lance un rayon depuis (ox,oy) dans la direction (dx,dy) sur maxDist pixels.
 // Retourne la distance normalisée [0,1] jusqu'au premier platform touché, ou 1.0.
-function raycast(ox, oy, dx, dy, maxDist){
+function raycast(ox, oy, dx, dy, maxDist, plats=platforms){
   const len = Math.sqrt(dx*dx + dy*dy);
   const ndx = dx/len, ndy = dy/len;
   for(let d = 4; d <= maxDist; d += 4){
     const px = ox + ndx*d, py = oy + ndy*d;
-    for(const p of platforms)
+    for(const p of plats)
       if(px >= p.x && px < p.x+p.w && py >= p.y && py < p.y+p.h)
         return d / maxDist;
   }
@@ -2223,12 +2248,13 @@ function aiInputsFor(me, target, allArrows, timer){
   const t=Math.min((timer||0)/(60*35),1);
 
   // Capteurs spatiaux directionnels (indices 20–25)
-  const sL  = raycast(cx, cy, -1,  0,  200);   // 20: distance mur gauche
-  const sR  = raycast(cx, cy,  1,  0,  200);   // 21: distance mur droit
-  const sU  = raycast(cx, cy,  0, -1,  300);   // 22: distance plafond
-  const sD  = raycast(cx, cy,  0,  1,  400);   // 23: distance sol
-  const sDL = raycast(cx, cy, -1,  1,  300);   // 24: plateforme bas-gauche
-  const sDR = raycast(cx, cy,  1,  1,  300);   // 25: plateforme bas-droit
+  const pl  = me.plats || platforms;
+  const sL  = raycast(cx, cy, -1,  0,  200, pl);   // 20: distance mur gauche
+  const sR  = raycast(cx, cy,  1,  0,  200, pl);   // 21: distance mur droit
+  const sU  = raycast(cx, cy,  0, -1,  300, pl);   // 22: distance plafond
+  const sD  = raycast(cx, cy,  0,  1,  400, pl);   // 23: distance sol
+  const sDL = raycast(cx, cy, -1,  1,  300, pl);   // 24: plateforme bas-gauche
+  const sDR = raycast(cx, cy,  1,  1,  300, pl);   // 25: plateforme bas-droit
 
   return[
     rX, rY, dist,          // 0,1,2
@@ -2255,6 +2281,9 @@ function aiProcessFor(out, ent, target=null){
   if(out[2]>0.5 && ent.gnd) ent.vy=JUMP;
   const aimSpeed = 0.18;
   ent.aim += (out[4]-out[3]) * aimSpeed;
+  // Garder l'angle dans [-π, π] : sinon l'entrée aim/π sature le réseau et les
+  // calculs d'écart de visée (récompenses) partent en valeurs absurdes.
+  ent.aim = Math.atan2(Math.sin(ent.aim), Math.cos(ent.aim));
   if(out[5]>0.5) ent.shoot();
   if(out[6]>0.5 && target){
     const dx=(target.x+target.w/2)-(ent.x+ent.w/2);
@@ -2264,6 +2293,8 @@ function aiProcessFor(out, ent, target=null){
 }
 
 function boom(x,y,col){
+  // L'entraînement en arrière-plan appelle boom() sans boucle de rendu pour vider les particules
+  if(particles.length>400) particles.splice(0, particles.length-380);
   for(let i=0;i<20;i++){
     const a=Math.random()*Math.PI*2, s=1+Math.random()*5;
     particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:25+Math.random()*20,col,sz:2+Math.random()*2});
@@ -2466,33 +2497,40 @@ function selectMutationStrategy(brain, stag, won, hof, best){
 // Gère proprement le cas où le même brainId joue plusieurs fois :
 // les deltas ELO et fitness sont moyennés avant application.
 async function evolveAllMulti(winnerIdx){
-  const N = players.length;
+  // Photo de la partie : si le joueur quitte/relance pendant les await,
+  // on ne touche pas aux cerveaux de la nouvelle partie.
+  const brainsSnap = playerBrains;
   const totalRounds = roundTimer; // durée du round
 
-  // 1. Calculer les résultats bruts par slot
+  // 1. Résultats bruts par slot (humains exclus ; entraîneurs gardés comme adversaires)
   const results = players.map((pl, i) => {
-    if(playerBrains[i] === null) return null; // humain
+    const b = brainsSnap[i];
+    if(b === null) return null; // humain
     const won = (i === winnerIdx);
+    if(b instanceof ScriptedAgent){
+      return { i, won, trainer:true, elo: AGENT_ELO[b.level-1] || AGENT_ELO[0] };
+    }
     const survived = playerAlive[i] ? totalRounds : totalRounds * 0.5;
-    const stats = {
-      arrowsDodged:  0,
-      shotsNearMiss: 0,
-      preciseShots:  0,
-      framesAiming:  0,
-      platformChanges: 0,
-    };
-    const fitnessGain = computeFitnessGain(stats, won, survived);
-    return { i, won, fitnessGain, brainId: pl._brainId };
+    const fitnessGain = computeFitnessGain({}, won, survived);
+    return { i, won, trainer:false, fitnessGain, brainId: pl._brainId };
   }).filter(Boolean);
+  const brainResults = results.filter(r => !r.trainer && r.brainId);
 
   // 2. Grouper par brainId (même cerveau joué plusieurs fois)
   const groups = {};
-  for(const r of results){
+  for(const r of brainResults){
     if(!groups[r.brainId]) groups[r.brainId] = [];
     groups[r.brainId].push(r);
   }
 
-  // 3. Pour chaque groupe de copies du même cerveau
+  // 3. ELO d'avant le round pour tous les participants (indépendant de l'ordre)
+  const preElo = {};
+  for(const id of Object.keys(groups)){
+    const e = await store.get('brains', id);
+    preElo[id] = e?.elo || ELO_BASE;
+  }
+  const eloOf = r => r.trainer ? r.elo : (preElo[r.brainId] ?? ELO_BASE);
+
   for(const [brainId, copies] of Object.entries(groups)){
     const entry = await store.get('brains', brainId);
     if(!entry) continue;
@@ -2503,51 +2541,43 @@ async function evolveAllMulti(winnerIdx){
 
     const played  = (entry.played || 0) + copies.length;
     const wins    = copies.filter(c => c.won).length;
-    // Score normalisé : proportion de victoires dans ce groupe
     const score   = wins / copies.length;
-    // Fitness gain : moyenne de toutes les copies
     const avgFitnessGain = copies.reduce((s,c) => s + c.fitnessGain, 0) / copies.length;
     const won = score >= 0.5;
 
-    // ELO : on joue contre tous les adversaires non-copies
-    const opponents = results.filter(r => r.brainId !== brainId);
-    let eloNew = brain.elo;
+    // ELO par paires : 1 contre chaque adversaire si on gagne, 0 s'il gagne, 0.5 sinon.
+    // Les deltas sont moyennés pour qu'un round à 4 ne compte pas triple.
+    const myElo = preElo[brainId];
+    const opponents = results.filter(r => r.trainer || r.brainId !== brainId);
+    let eloNew;
     if(opponents.length > 0){
+      let delta = 0;
       for(const opp of opponents){
-        const oppEntry = await store.get('brains', opp.brainId) || {elo: ELO_BASE};
-        const oppElo   = oppEntry.elo || ELO_BASE;
-        const exp      = eloExpected(eloNew, oppElo);
-        eloNew = Math.max(400, eloUpdate(eloNew, exp, score, played));
+        const s = won ? 1 : (opp.won ? 0 : 0.5);
+        delta += eloUpdate(myElo, eloExpected(myElo, eloOf(opp)), s, played) - myElo;
       }
+      eloNew = myElo + delta / opponents.length;
     } else {
-      // Seul cerveau (ou clones) : ELO contre base
-      const exp = eloExpected(eloNew, ELO_BASE);
-      eloNew = Math.max(400, eloUpdate(eloNew, exp, score, played));
+      // Seul cerveau (ou clones) face à des humains : ELO contre base
+      eloNew = eloUpdate(myElo, eloExpected(myElo, ELO_BASE), score, played);
     }
-    brain.elo = eloNew;
+    brain.elo = Math.max(400, eloNew);
 
-    // Fitness bornée
     brain.fitness = updateFitness(brain.fitness, avgFitnessGain, won);
 
     // ── DEEP LEARNING : gradient update (mode multi) ──────────────
-    // Utilise le cerveau en mémoire (qui a accumulé les expériences)
-    const inMemBrain = playerBrains[copies[0]?.i];
+    const inMemBrain = brainsSnap[copies[0].i];
     if(inMemBrain?.pgLearner){
-      // Appliquer le gradient sur les poids du cerveau en mémoire
-      const pgResult = inMemBrain.pgLearner.learn(inMemBrain, won ? 3.0 : -3.0);
-      if(pgResult){
-        // Copier les poids mis à jour (arb1/arb2/arb3) dans brain (qui sera muté puis sauvegardé)
-        brain.arb1 = inMemBrain.arb1.clone();
-        brain.arb2 = inMemBrain.arb2.clone();
-        brain.arb3 = inMemBrain.arb3.clone();
-        entry.adamState = inMemBrain.pgLearner.serializeAdam();
-      }
+      inMemBrain.pgLearner.learn(inMemBrain, won ? 3.0 : -3.0);
+      // Toujours reprendre l'arbitre en mémoire : il contient aussi l'apprentissage en ligne du round
+      brain.arb1 = inMemBrain.arb1.clone();
+      brain.arb2 = inMemBrain.arb2.clone();
+      brain.arb3 = inMemBrain.arb3.clone();
+      entry.adamState = inMemBrain.pgLearner.serializeAdam();
     }
 
-    // Mutation (utilise le 1er slot comme référence)
     selectMutationStrategy(brain, 0, won, [], null);
 
-    // Sauvegarde
     entry.brain      = brain.serialize();
     entry.fitness    = brain.fitness;
     entry.elo        = brain.elo;
@@ -2557,10 +2587,23 @@ async function evolveAllMulti(winnerIdx){
     entry.timestamp  = Date.now();
     await store.put('brains', entry);
 
-    // Mettre à jour les instances en mémoire
+    // Les cerveaux qui jouent le round suivant = ceux qui viennent d'être sauvegardés
     for(const c of copies){
-      playerBrains[c.i].fitness = brain.fitness;
-      playerBrains[c.i].elo     = brain.elo;
+      const b = brainsSnap[c.i];
+      copyBrainInto(b, brain);
+      b.resetMemory();
+      b.fitness = brain.fitness;
+      b.elo     = brain.elo;
+    }
+
+    // Garder le cerveau actif (menu, upload) cohérent avec la base
+    if(brainId === currentBrainId){
+      copyBrainInto(activeBrain, brain);
+      activeBrain.fitness = brain.fitness;
+      activeBrain.elo     = brain.elo;
+      generation  = entry.generation;
+      totalWins   = entry.wins;
+      totalPlayed = entry.played;
     }
   }
 }
@@ -2831,8 +2874,6 @@ function drawDungeonBG(ctx, camX, camY){
 }
 
 // ================================================================
-// ================================================================
-// ================================================================
 //  DRAWING MULTI
 // ── Multi-player draw ─────────────────────────────────────────────
 function drawGameMulti(){
@@ -2929,29 +2970,15 @@ function drawGameMulti(){
   }
 }
 
-function checkHitsMulti(){
-  const alive=players.filter((_,i)=>playerAlive[i]);
-  for(let attI=0;attI<players.length;attI++){
-    if(!playerAlive[attI])continue;
-    const att=players[attI];
-    for(let arI=att.arr.length-1;arI>=0;arI--){
-      const ar=att.arr[arI];if(ar.st)continue;
-      for(let defI=0;defI<players.length;defI++){
-        if(defI===attI||!playerAlive[defI])continue;
-        const def=players[defI];
-        if(ar.x>def.x&&ar.x<def.x+def.w&&ar.y>def.y&&ar.y<def.y+def.h){
-          boom(ar.x,ar.y,def.col);
-          att.arr.splice(arI,1);
-          playerAlive[defI]=false;
-          return defI; // index of eliminated player
-        }
-      }
-    }
-  }
-  return -1;
+// Le joueur éliminé passe le round : aucun vainqueur connu, donc aucune
+// évolution ni pénalité appliquée aux cerveaux.
+function skipRoundMulti(){
+  if(multiRoundOver) return;
+  playerBrains.forEach(b=>{ if(b?.pgLearner) b.pgLearner.buffer=[]; });
+  endRoundMulti(true);
 }
 
-function endRoundMulti(){
+function endRoundMulti(skipped=false){
   if(multiRoundOver)return;
   multiRoundOver=true;
   humanDeadShown=true;
@@ -2966,21 +2993,27 @@ function endRoundMulti(){
   const sub=document.getElementById('ov-sub');
   const btns=document.getElementById('ov-btns');
   title.className='';
-  if(winnerIdx>=0){
+  if(skipped){
+    title.textContent='ROUND PASSÉ';
+    title.style.color='var(--gold)';
+  } else if(winnerIdx>=0){
     const w=players[winnerIdx];
-    title.textContent=`${sanitize(w._label)} GAGNE !`;
-    title.style.color=SLOT_COLORS[w._slotIndex];
+    title.textContent=`${w._label} GAGNE !`;
+    title.style.color=w._isTrainer?(w._col||'#c060ff'):SLOT_COLORS[w._slotIndex];
   } else {
     title.textContent='TEMPS ÉCOULÉ';
     title.style.color='var(--gold)';
   }
-  sub.textContent=`Round ${multiRound}  ·  `+players.map((p,i)=>`${sanitize(p._label).split(' ')[0]} ${playerWins[i]}W`).join('  ');
+  sub.textContent=`Round ${multiRound}  ·  `+players.map((p,i)=>`${p._label.split(' ')[0]} ${playerWins[i]}W`).join('  ');
   btns.innerHTML=`<button class="btn small" onclick="quitGame()">✕ Quitter</button>
     <button class="btn small primary" onclick="nextRoundMulti()">▶ Suite</button>`;
   document.getElementById('game-overlay').classList.remove('hidden');
 
   // Évolution cerveaux en arrière-plan
-  evolveAllMulti(winnerIdx).then(()=>updateMultiHUD()).catch(()=>{});
+  if(!skipped){
+    evolveAllMulti(winnerIdx).then(()=>updateMultiHUD())
+      .catch(e=>{ console.error('[evolveAllMulti]', e); toast('Sauvegarde du round échouée'); });
+  }
 }
 
 function showHumanDeadOverlay(){
@@ -2992,7 +3025,7 @@ function showHumanDeadOverlay(){
   document.getElementById('ov-btns').innerHTML=`
     <button class="btn small" onclick="quitGame()">✕ Quitter</button>
     <button class="btn small" onclick="document.getElementById('game-overlay').classList.add('hidden')">👁 Observer</button>
-    <button class="btn small primary" onclick="endRoundMulti()">⏭ Suivant</button>`;
+    <button class="btn small primary" onclick="skipRoundMulti()">⏭ Suivant</button>`;
   document.getElementById('game-overlay').classList.remove('hidden');
 }
 
@@ -3022,7 +3055,7 @@ function nextRoundMulti(){
     playerAlive[i]=true;
     const b=playerBrains[i];
     if(b instanceof ScriptedAgent){
-      b.mem={lastEnemyX:0,lastEnemyY:0,jumpCooldown:0,retreatDir:0,retreatTimer:0,patternBuf:[],lastShot:0};
+      b.reset();
     } else if(b&&b.resetMemory){
       b.resetMemory();
     }
@@ -3037,13 +3070,36 @@ function nextRoundMulti(){
   }
   updateMultiHUD();
   document.getElementById('game-overlay').classList.add('hidden');
+  // Le bouton « Suite » garde le focus : Espace (tir) le recliquerait
+  document.activeElement?.blur?.();
   document.getElementById('mh-round').textContent=`Round ${multiRound}`;
 }
 
-function gameLoop(){
-  if(!gameActive)return;
-  requestAnimationFrame(gameLoop);
+// Boucle à pas fixe : la simulation tourne à 60 pas/s quelle que soit la
+// fréquence de l'écran (60/120/144 Hz). Une seule boucle active à la fois.
+const GAME_STEP_MS = 1000/60;
+let gameLoopId = 0, gameLastT = 0, gameAcc = 0;
 
+function startGameLoop(){
+  if(gameLoopId) cancelAnimationFrame(gameLoopId);
+  gameLastT = 0; gameAcc = 0;
+  gameLoopId = requestAnimationFrame(gameLoop);
+}
+
+function gameLoop(t){
+  if(!gameActive){ gameLoopId = 0; return; }
+  gameLoopId = requestAnimationFrame(gameLoop);
+  if(!gameLastT) gameLastT = t;
+  gameAcc += Math.min(t - gameLastT, 250);
+  gameLastT = t;
+  // Tolérance de 10 % pour absorber le jitter de rAF sur un écran 60 Hz
+  let steps = 0;
+  while(gameAcc >= GAME_STEP_MS*0.9 && steps < 5){ stepGame(); gameAcc -= GAME_STEP_MS; steps++; }
+  if(steps === 5) gameAcc = 0;
+  drawGameMulti();
+}
+
+function stepGame(){
   if(!multiRoundOver){
     // ── 1. INPUT JOUEURS ────────────────────────────────────────
     for(let i=0;i<players.length;i++){
@@ -3115,7 +3171,7 @@ function gameLoop(){
           const enemyArrows=players.filter((_,j)=>j!==i&&playerAlive[j]).flatMap(p=>p.arr);
           const inp=aiInputsFor(me,target,enemyArrows,roundTimer);
           const out=brain.forward(inp);
-          aiProcessFor(out,me);
+          aiProcessFor(out,me,target);
           me.face=target.x<me.x?-1:1;
           // Deep Learning : collecte d'expérience (mode multi)
           if(brain.pgLearner){
@@ -3134,8 +3190,6 @@ function gameLoop(){
       }
       me.update();
     }
-
-    // Agents entraîneurs séparés (multiAgentEnts) — plus utilisés, vide maintenant
 
     // ── 2. PIÈGES ────────────────────────────────────────────────
     const allLiving=players.filter((_,i)=>playerAlive[i]);
@@ -3201,7 +3255,7 @@ function gameLoop(){
     if(roundTimer>60*40) endRoundMulti();
 
     // Timer HUD
-    const rem=Math.max(0,60*40-roundTimer);
+    const rem=Math.ceil(Math.max(0,60*40-roundTimer)/60); // secondes restantes
     const remM=Math.floor(rem/60),remS=rem%60;
     const tEl=document.getElementById('mh-timer');
     if(tEl){
@@ -3232,7 +3286,6 @@ function gameLoop(){
   }
 
   updateParticles();
-  drawGameMulti();
 }
 
 // ================================================================
@@ -3306,12 +3359,10 @@ async function saveCurrent(){
   // Nom : conserve l'existant, génère séquentiellement si premier save
   const name = existing?.name || await nextBrainName();
   const creator = existing?.creator || localCreator;
-  const topoStr = activeBrain.topo ? activeBrain.topo.join('-') : 'GRU×3+ARB';
   const entry = {id:currentBrainId, name, creator, brain:activeBrain.serialize(),
     generation, fitness:activeBrain.fitness||0, elo:activeBrain.elo||ELO_BASE,
     wins:totalWins, played:totalPlayed, timestamp:Date.now(),
-    game:'arena-archer', topology:topoStr, params:activeBrain.paramCount()};
-  if(bestBrain){entry.bestBrain=bestBrain.serialize();entry.bestFitness=bestBrain.fitness||0;entry.bestElo=bestBrain.elo||ELO_BASE}
+    game:'arena-archer', topology:activeBrain.topologyLabel(), params:activeBrain.paramCount()};
   if(activeBrain?.pgLearner) entry.adamState = activeBrain.pgLearner.serializeAdam();
   await store.put('brains', entry);
 }
@@ -3325,7 +3376,7 @@ async function loadBrains(){
     const b = new MultiExpertBrain();
     const entry = {id, name, creator: localCreator, brain: b.serialize(),
       generation:1, fitness:0, elo: ELO_BASE, wins:0, played:0,
-      timestamp: Date.now(), game:'arena-archer', topology:'GRU×4+ATT', params: b.paramCount()};
+      timestamp: Date.now(), game:'arena-archer', topology:b.topologyLabel(), params: b.paramCount()};
     await store.put('brains', entry);
     currentBrainId = id;
     activeBrain = b;
@@ -3353,11 +3404,6 @@ async function loadBrains(){
     // Attacher le pgLearner pour le deep learning en mode solo
     activeBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
     if(entry.adamState) activeBrain.pgLearner.loadAdam(entry.adamState);
-    if(entry.bestBrain){
-      bestBrain = deserializeBrain(entry.bestBrain);
-      bestBrain.fitness = entry.bestFitness||0;
-      bestBrain.elo     = entry.bestElo||ELO_BASE;
-    }
   }
 
   const cfgWins=await store.getConfig('totalWins',null);
@@ -3397,17 +3443,19 @@ async function updateLabUI(){
   let html=`<div style="margin-bottom:12px;font-size:10px;color:#444;display:flex;justify-content:space-between;align-items:center"><span>${all.length} cerveau(x)</span><span style="color:var(--accent);font-size:9px;letter-spacing:1px">👤 ${sanitize(localCreator)}</span></div>`;
   for(const e of all.sort((a,b)=>(b.elo||ELO_BASE)-(a.elo||ELO_BASE))){
     const cur=e.id===currentBrainId;
-    const eloStr=e.elo?`🏆${e.elo}${e.peakElo&&e.peakElo>e.elo?` ▲${e.peakElo}`:''}` :'🏆?';
-    const typeTag=e.brain&&e.brain.type==='multi-expert-v1'?'<span style="color:var(--accent)">GRU×3</span>':'<span style="color:#444">legacy</span>';
+    // Champs numériques forcés en nombres : une entrée importée ne doit pas pouvoir injecter du HTML
+    const elo=Math.round(safeNum(e.elo,0)), peak=Math.round(safeNum(e.peakElo,0));
+    const eloStr=elo?`🏆${elo}${peak>elo?` ▲${peak}`:''}` :'🏆?';
+    const typeTag=e.brain?.type==='multi-expert-v4'?'<span style="color:var(--accent)">GRU×4</span>':'<span style="color:#444">ancien format</span>';
     const creatorTag=e.creator&&e.creator!==localCreator?`<span style="color:#3a5a6a">📡 ${sanitize(e.creator)}</span>`:'';
     const delBtn=cur?'':`<button class="btn small warn" style="font-size:5px;padding:3px 7px;margin-left:auto;flex-shrink:0" onclick="event.stopPropagation();deleteBrain('${e.id}')">🗑</button>`;
-    const skillBar=(v,col)=>`<div style="flex:1;height:3px;border-radius:2px;background:#2a1a3a"><div style="width:${Math.round(v||0)}%;height:100%;background:${col};border-radius:2px"></div></div>`;
+    const skillBar=(v,col)=>`<div style="flex:1;height:3px;border-radius:2px;background:#2a1a3a"><div style="width:${Math.round(safeNum(v,0,0,100))}%;height:100%;background:${col};border-radius:2px"></div></div>`;
     const sk=e.skills||{};
     const skillColors=['#ff6060','#f0c040','#60ff80','#60c8ff','#ff80ff','#ffaa40'];
     const skillsHtml=`<div style="display:flex;gap:3px;margin-top:4px;align-items:center">${SKILL_KEYS.map((k,i)=>`<div style="flex:1;text-align:center"><div style="font-size:4px;color:${skillColors[i]};margin-bottom:1px">${SKILL_LABELS[i].slice(0,3)}</div>${skillBar(sk[k],skillColors[i])}</div>`).join('')}</div>`;
     const pers = PERSONALITIES[e.personality];
     const persTag = pers ? `<span style="color:${pers.color}">${pers.icon} ${pers.name}</span>` : '';
-    html+=`<div class="brain-card ${cur?'active-brain':''}" onclick="selectBrain('${e.id}')"><div class="bc-header"><span class="bc-name">${sanitize(e.name||e.id)} ${cur?'● ACTIF':''}</span><span class="bc-gen">Gen ${e.generation||'?'}</span>${delBtn}</div><div class="bc-stats"><span>${eloStr}</span><span>⚡${Math.round(e.fitness||0)}</span><span>🎯 ${e.wins||0}W/${e.played||0}P</span><span>🧠 ${e.params||'?'}p</span>${persTag}${typeTag}${creatorTag}${e.imported?'<span>📥 importé</span>':''}</div>${skillsHtml}</div>`;
+    html+=`<div class="brain-card ${cur?'active-brain':''}" onclick="selectBrain('${e.id}')"><div class="bc-header"><span class="bc-name">${sanitize(e.name||e.id)} ${cur?'● ACTIF':''}</span><span class="bc-gen">Gen ${Math.round(safeNum(e.generation,1))}</span>${delBtn}</div><div class="bc-stats"><span>${eloStr}</span><span>⚡${Math.round(safeNum(e.fitness,0))}</span><span>🎯 ${Math.round(safeNum(e.wins,0))}W/${Math.round(safeNum(e.played,0))}P</span><span>🧠 ${Math.round(safeNum(e.params,0))||'?'}p</span>${persTag}${typeTag}${creatorTag}${e.imported?'<span>📥 importé</span>':''}</div>${skillsHtml}</div>`;
   }
   html+=`<div class="lab-actions"><button class="btn small primary" onclick="openBrainModal()">+ Nouveau</button><button class="btn small" onclick="duplicateCurrent()">📋 Dupliquer</button><button class="btn small warn" onclick="resetCurrent()">🗑 Reset actif</button></div>`;
   document.getElementById('lab-content').innerHTML=html;
@@ -3423,11 +3471,10 @@ async function deleteBrain(id){
   updateLabUI();
 }
 
-async function selectBrain(id){
-  const e=await store.get('brains',id);
-  if(!e)return;
-  currentBrainId=id;
-  await store.setConfig('currentBrainId', id);
+// Rend un cerveau stocké actif : état global + id mémorisé pour le prochain lancement
+async function activateEntry(e){
+  currentBrainId=e.id;
+  await store.setConfig('currentBrainId', e.id);
   activeBrain=deserializeBrain(e.brain);
   activeBrain.fitness=e.fitness||0;
   activeBrain.elo=e.elo||ELO_BASE;
@@ -3436,26 +3483,15 @@ async function selectBrain(id){
   generation=e.generation||1;
   totalWins=e.wins||0;
   totalPlayed=e.played||0;
-  hallOfFame=[];
-  stagnationCounter=0;
-  if(e.bestBrain){bestBrain=deserializeBrain(e.bestBrain);bestBrain.fitness=e.bestFitness||0;bestBrain.elo=e.bestElo||ELO_BASE;}
-  else bestBrain=null;
-  toast(`"${e.name||id}" activé`);
   updateMenuUI();
-  updateLabUI();
 }
 
-async function newBrain(){
-  const id   = 'brain_' + Date.now();
-  const name = await nextBrainName();
-  const b    = new MultiExpertBrain();
-  await store.put('brains', {id, name, creator:localCreator, brain:b.serialize(),
-    generation:1, fitness:0, elo:ELO_BASE, wins:0, played:0,
-    timestamp:Date.now(), game:'arena-archer', topology:'GRU×3', params:b.paramCount()});
-  currentBrainId=id; store.setConfig("currentBrainId",id); activeBrain=b; generation=1; bestBrain=null;
-  activeBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
-  totalWins=0; totalPlayed=0;
-  toast(`Nouveau : ${name}`); updateLabUI();
+async function selectBrain(id){
+  const e=await store.get('brains',id);
+  if(!e)return;
+  await activateEntry(e);
+  toast(`"${e.name||id}" activé`);
+  updateLabUI();
 }
 
 async function duplicateCurrent(){
@@ -3466,24 +3502,33 @@ async function duplicateCurrent(){
   const e = {id, name, creator:localCreator, brain:activeBrain.serialize(),
     generation, fitness:activeBrain.fitness||0, elo:activeBrain.elo||ELO_BASE,
     wins:0, played:0, timestamp:Date.now(), game:'arena-archer',
-    topology:'GRU×3', params:activeBrain.paramCount()};
-  if(bestBrain) e.bestBrain=bestBrain.serialize();
+    topology:activeBrain.topologyLabel(), params:activeBrain.paramCount()};
   await store.put('brains', e);
   toast(`Clone : ${name}`); updateLabUI();
 }
 
 async function resetCurrent(){
+  if(!confirm('Réinitialiser le cerveau actif ?\nSes poids, son ELO et ses stats seront perdus.')) return;
   activeBrain=new MultiExpertBrain();
   activeBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
-  generation=1; bestBrain=null; hallOfFame=[];
+  generation=1;
   totalWins=0; totalPlayed=0;
   await saveCurrent(); toast('Reset'); updateLabUI();
 }
 
 // ================================================================
 //  FILE IMPORT/EXPORT
+function downloadJSON(obj, filename){
+  const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=filename;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 10000); // Safari/iOS : pas de revoke immédiat
+}
+
 async function exportBestBrain(){
-  const brain = bestBrain || activeBrain;
+  const brain = activeBrain;
   const src   = await store.get('brains', currentBrainId);
   const brainName = src?.name || localCreator;
   const data = {format:'neuralarena-brain-v2', game:'arena-archer',
@@ -3493,40 +3538,75 @@ async function exportBestBrain(){
     wins:totalWins, played:totalPlayed, params:brain.paramCount(),
     brain:brain.serialize(), exported:new Date().toISOString()};
   const safe = brainName.replace(/[^a-zA-Z0-9#~]/g,'_');
-  const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `${safe}_elo${brain.elo||ELO_BASE}.json`;
-  a.click(); URL.revokeObjectURL(a.href); toast('Exporté !');
+  downloadJSON(data, `${safe}_elo${brain.elo||ELO_BASE}.json`);
+  toast('Exporté !');
 }
 
 async function importBrainFile(event){
-  const file=event.target.files[0]; if(!file) return;
+  const input=event.target;
+  const file=input.files[0]; if(!file) return;
   try{
+    if(file.size>20_000_000) throw new Error('fichier trop gros');
     const data=JSON.parse(await file.text());
-    if(!data.brain) return toast('Format invalide');
-    const id      = 'imported_' + Date.now();
-    const brain   = deserializeBrain(data.brain);
-    brain.fitness = data.fitness||0;
-    brain.elo     = data.elo||ELO_BASE;
-    // Conserve le nom original + numéro local pour éviter les doublons
-    const baseName = data.name || data.creator || file.name.replace('.json','');
-    const localNum = await nextBrainName(); // incrémente le compteur
-    const name     = `${baseName}>${localNum.split('#')[1]||'?'}`;
-    await store.put('brains',{id, name, creator:data.creator||data.pseudo||'?',
-      brain:brain.serialize(), generation:data.generation||1,
-      fitness:brain.fitness, elo:brain.elo, wins:0, played:0,
-      timestamp:Date.now(), game:'arena-archer', topology:'GRU×3',
-      params:brain.paramCount(), imported:true});
-    currentBrainId=id; activeBrain=brain;
-    activeBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
-    generation=data.generation||1; bestBrain=brain.clone();
-    toast(`Importé : ${name}`); updateLabUI();
+    if(data?.format==='neuralarena-backup-v1' && Array.isArray(data.brains)){
+      await restoreBackup(data.brains);
+    } else {
+      await importOneBrain(data, file.name.replace(/\.json$/i,''));
+    }
   }catch(e){ toast('Erreur import: '+e.message); }
-  event.target.value='';
+  finally{ input.value=''; } // permet de réimporter le même fichier
 }
 
-async function exportAllBrains(){const all=await store.getAll('brains');const blob=new Blob([JSON.stringify({format:'neuralarena-backup-v1',exported:new Date().toISOString(),brains:all})],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`neuralarena_backup_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);toast(`${all.length} cerveaux exportés`)}
+async function importOneBrain(data, fallbackName){
+  validateBrainStructure(data?.brain);
+  const meta    = cleanBrainMeta(data, fallbackName);
+  const id      = 'imported_' + Date.now();
+  const brain   = deserializeBrain(data.brain);
+  brain.fitness = meta.fitness;
+  brain.elo     = meta.elo;
+  // Conserve le nom original + numéro local pour éviter les doublons
+  const localNum = await nextBrainName(); // incrémente le compteur
+  const name     = `${meta.name}>${localNum.split('#')[1]||'?'}`;
+  const entry = {id, name, creator:meta.creator,
+    brain:brain.serialize(), generation:meta.generation,
+    fitness:brain.fitness, elo:brain.elo, wins:0, played:0,
+    timestamp:Date.now(), game:'arena-archer',
+    topology:brain.topologyLabel(), params:brain.paramCount(), imported:true};
+  await store.put('brains', entry);
+  await activateEntry(entry);
+  toast(`Importé : ${name}`); updateLabUI();
+}
+
+// Restaure un fichier « Backup tout » : ajoute les cerveaux valides, sans écraser l'existant
+async function restoreBackup(list){
+  let ok=0, skipped=0;
+  for(const e of list){
+    try{
+      validateBrainStructure(e?.brain);
+      if(typeof e.id!=='string' || !/^[\w-]{1,64}$/.test(e.id)) throw new Error('id invalide');
+      if(await store.get('brains', e.id)){ skipped++; continue; }
+      const meta=cleanBrainMeta(e, e.id);
+      // Liste blanche de champs : un backup peut venir d'ailleurs
+      const skills={};
+      for(const k of SKILL_KEYS) skills[k]=safeNum(e.skills?.[k],0,0,100);
+      await store.put('brains', {
+        ...meta, id:e.id, brain:e.brain, skills,
+        personality: Object.hasOwn(PERSONALITIES, e.personality) ? e.personality : undefined,
+        timestamp: Date.now(), game:'arena-archer', restored:true,
+      });
+      ok++;
+    }catch(err){ skipped++; }
+  }
+  toast(`Backup : ${ok} cerveau(x) restauré(s), ${skipped} ignoré(s)`);
+  updateLabUI();
+}
+
+async function exportAllBrains(){
+  const all=await store.getAll('brains');
+  downloadJSON({format:'neuralarena-backup-v1',exported:new Date().toISOString(),brains:all},
+    `neuralarena_backup_${new Date().toISOString().slice(0,10)}.json`);
+  toast(`${all.length} cerveaux exportés`);
+}
 
 // Drag & drop
 const dropZone=document.querySelector('.file-drop');
@@ -3534,7 +3614,7 @@ if(dropZone){dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZon
 
 // ================================================================
 //  UTILITIES
-function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),2500)}
+function toast(msg, ms=2500){const el=document.getElementById('toast');if(!el)return;el.textContent=msg;el.classList.add('show');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),ms)}
 
 if(!CanvasRenderingContext2D.prototype.roundRect){CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){if(typeof r==='number')r=[r,r,r,r];this.moveTo(x+r[0],y);this.lineTo(x+w-r[1],y);this.quadraticCurveTo(x+w,y,x+w,y+r[1]);this.lineTo(x+w,y+h-r[2]);this.quadraticCurveTo(x+w,y+h,x+w-r[2],y+h);this.lineTo(x+r[3],y+h);this.quadraticCurveTo(x,y+h,x,y+h-r[3]);this.lineTo(x,y+r[0]);this.quadraticCurveTo(x,y,x+r[0],y);this.closePath()}}
 // Block scroll only on game canvas and joysticks
@@ -3547,11 +3627,7 @@ const EVO_DEFAULTS = {
   mutRateLoss : 0.16,
   mutPower    : 0.26,
   hofSize     : 8,
-  stagThresh  : 5,
-  kStart      : 40,
   winBonus    : 8,
-  lossPen     : 3,
-  matchRounds : 3,
 };
 let evoParams = {...EVO_DEFAULTS};
 
@@ -3564,13 +3640,7 @@ function updateParam(key, input){
 
 function resetParams(){
   evoParams = {...EVO_DEFAULTS};
-  for(const [k,v] of Object.entries(EVO_DEFAULTS)){
-    const key = k.replace(/([A-Z])/g,'-$1').toLowerCase();
-    const slider = document.getElementById('p-'+key);
-    const label  = document.getElementById('v-'+key);
-    if(slider){ slider.value=v; }
-    if(label)  { label.textContent=v; }
-  }
+  initParamSliders();
   toast('Paramètres réinitialisés');
 }
 
@@ -3580,11 +3650,7 @@ function initParamSliders(){
     'p-mutrate-loss':{k:'mutRateLoss','v-mutrate-loss':true},
     'p-mutpower'    :{k:'mutPower'   ,'v-mutpower'    :true},
     'p-hofsize'     :{k:'hofSize'    ,'v-hofsize'     :true},
-    'p-stagthresh'  :{k:'stagThresh' ,'v-stagthresh'  :true},
-    'p-kstart'      :{k:'kStart'     ,'v-kstart'      :true},
     'p-winbonus'    :{k:'winBonus'   ,'v-winbonus'    :true},
-    'p-losspen'     :{k:'lossPen'    ,'v-losspen'     :true},
-    'p-matchrounds' :{k:'matchRounds','v-matchrounds' :true},
   };
   for(const [id,{k}] of Object.entries(map)){
     const el=document.getElementById(id);
@@ -3595,486 +3661,8 @@ function initParamSliders(){
   }
 }
 
-// ================================================================
-//  TOURNOI AUTOMATIQUE
-let tourneyRunning = false;
-let tourneySpeed   = 1;      // ×1, ×4, ×16, 0=MAX
-let tourneyMatches = [];     // [{a,b,scoreA,scoreB,done,running}]
-let tourneyInterval= null;
-let tourneyBrains  = [];     // [{id,name,elo,fitness,brain}]
-let tourneyRound   = 0;      // round actuel du match en cours
-let tourneyMatchIdx= 0;
-let tourneyA = null, tourneyB = null;   // Ent en cours
-let tourneyRoundOver = false;
-let tourneyTimer = 0;
-let tourneyParticles = [];
-let tourneyScoreA = 0, tourneyScoreB = 0;
-
-// Graphique : historique ELO/fitness par brainId
-// {brainId: [{round, elo, fitness}]}
-const evoHistory = {};
-
-function arenaTab(name){
-  document.querySelectorAll('.arena-tab').forEach((t,i)=>{
-    const names=['tourney','graph','params','stats'];
-    t.classList.toggle('active', names[i]===name);
-  });
-  ['tourney','graph','params','stats'].forEach(n=>{
-    const el=document.getElementById('panel-'+n);
-    if(el) el.style.display = n===name?'':'none';
-  });
-  if(name==='graph') drawEvoGraph();
-  if(name==='stats') renderStats();
-  if(name==='params') initParamSliders();
-}
-
-function setArenaSpeed(spd, btn){
-  tourneySpeed = spd;
-  document.querySelectorAll('.speed-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-}
-
-async function arenaToggle(){
-  if(tourneyRunning){ arenaStop(); return; }
-  await arenaStart();
-}
-
-async function arenaStart(){
-  const all = await store.getAll('brains');
-  if(all.length < 2){ toast('Il faut au moins 2 cerveaux pour un tournoi'); return; }
-
-  tourneyBrains = all.map(e=>({
-    id: e.id,
-    name: e.name || e.id,
-    elo: e.elo || ELO_BASE,
-    fitness: e.fitness || 0,
-    wins: 0, played: 0,
-    brain: deserializeBrain(e.brain),
-  }));
-  tourneyBrains.forEach(b=>{ b.brain.resetMemory(); });
-
-  // Round-robin : tous contre tous
-  tourneyMatches = [];
-  for(let i=0;i<tourneyBrains.length;i++){
-    for(let j=i+1;j<tourneyBrains.length;j++){
-      tourneyMatches.push({
-        aIdx:i, bIdx:j,
-        scoreA:0, scoreB:0,
-        done:false, running:false,
-        winner:null,
-      });
-    }
-  }
-
-  tourneyMatchIdx = 0;
-  tourneyRunning  = true;
-  document.getElementById('tourney-btn').textContent = '■ STOP';
-  renderBracket();
-  runNextMatch();
-}
-
-function arenaStop(){
-  tourneyRunning = false;
-  if(tourneyInterval){ clearInterval(tourneyInterval); tourneyInterval=null; }
-  document.getElementById('tourney-btn').textContent = '▶ LANCER';
-  document.getElementById('tourney-status').textContent = '';
-  // Sauvegarder les ELO mis à jour
-  saveTourneyResults();
-}
-
-async function saveTourneyResults(){
-  for(const tb of tourneyBrains){
-    const entry = await store.get('brains', tb.id);
-    if(!entry) continue;
-    entry.elo     = Math.round(tb.elo);
-    entry.fitness = tb.fitness;
-    entry.wins    = (entry.wins||0) + tb.wins;
-    entry.played  = (entry.played||0) + tb.played;
-    entry.brain   = tb.brain.serialize();
-    await store.put('brains', entry);
-  }
-  toast('Résultats sauvegardés');
-}
-
-function runNextMatch(){
-  if(!tourneyRunning) return;
-  if(tourneyMatchIdx >= tourneyMatches.length){
-    // Tournoi terminé
-    arenaStop();
-    renderBracket();
-    toast('Tournoi terminé !');
-    drawEvoGraph();
-    return;
-  }
-  const match = tourneyMatches[tourneyMatchIdx];
-  match.running = true;
-  renderBracket();
-
-  const bA = tourneyBrains[match.aIdx];
-  const bB = tourneyBrains[match.bIdx];
-  document.getElementById('tourney-status').textContent =
-    `${bA.name.substring(0,14)} vs ${bB.name.substring(0,14)}`;
-
-  bA.brain.resetMemory();
-  bB.brain.resetMemory();
-
-  tourneyScoreA = 0; tourneyScoreB = 0;
-  tourneyRound  = 0;
-  startTourneyRound(match);
-}
-
-function startTourneyRound(match){
-  if(!tourneyRunning) return;
-  if(tourneyRound >= evoParams.matchRounds){
-    finishMatch(match); return;
-  }
-
-  tourneyTimer = 0;
-  tourneyRoundOver = false;
-  tourneyParticles = [];
-
-  const bA = tourneyBrains[match.aIdx];
-  const bB = tourneyBrains[match.bIdx];
-
-  tourneyA = new Ent(160, WH-100, SLOT_COLORS[0], true); tourneyA.face=1;
-  tourneyB = new Ent(WW-180, WH-100, SLOT_COLORS[1], true); tourneyB.face=-1;
-  bA.brain.resetMemory(); bB.brain.resetMemory();
-
-  if(tourneyInterval){ clearInterval(tourneyInterval); tourneyInterval=null; }
-
-  // Statistiques comportementales pour la fitness
-  const matchStats = { arrowsDodgedA:0, shotsNearMissA:0, platformChangesA:0,
-                       arrowsDodgedB:0, shotsNearMissB:0, platformChangesB:0,
-                       lastPlatYA:-1, lastPlatYB:-1 };
-
-  function runStep(){
-    if(!tourneyRunning || tourneyRoundOver) return;
-
-    // IA A
-    const inpA = aiInputsFor(tourneyA, tourneyB, tourneyB.arr, tourneyTimer);
-    const outA = bA.brain.forward(inpA);
-    aiProcessFor(outA, tourneyA);
-    tourneyA.face = tourneyB.x < tourneyA.x ? -1 : 1;
-    tourneyA.update();
-
-    // IA B
-    const inpB = aiInputsFor(tourneyB, tourneyA, tourneyA.arr, tourneyTimer);
-    const outB = bB.brain.forward(inpB);
-    aiProcessFor(outB, tourneyB);
-    tourneyB.face = tourneyA.x < tourneyB.x ? -1 : 1;
-    tourneyB.update();
-
-    // Collecte stats comportementales
-    for(const a of tourneyA.arr){
-      if(a.st) continue;
-      const dx=a.x-(tourneyB.x+tourneyB.w/2), dy=a.y-(tourneyB.y+tourneyB.h/2);
-      if(Math.sqrt(dx*dx+dy*dy)<80) matchStats.shotsNearMissA+=0.15;
-    }
-    for(const a of tourneyB.arr){
-      if(a.st) continue;
-      const dx=a.x-(tourneyA.x+tourneyA.w/2), dy=a.y-(tourneyA.y+tourneyA.h/2);
-      if(Math.sqrt(dx*dx+dy*dy)<80) matchStats.shotsNearMissB+=0.15;
-      const dx2=a.x-(tourneyA.x+tourneyA.w/2), dy2=a.y-(tourneyA.y+tourneyA.h/2);
-      if(Math.sqrt(dx2*dx2+dy2*dy2)<80) matchStats.arrowsDodgedA+=0.1;
-    }
-    if(tourneyA.gnd){
-      const py=Math.round(tourneyA.y/10)*10;
-      if(py!==matchStats.lastPlatYA&&matchStats.lastPlatYA!==-1) matchStats.platformChangesA++;
-      matchStats.lastPlatYA=py;
-    }
-    if(tourneyB.gnd){
-      const py=Math.round(tourneyB.y/10)*10;
-      if(py!==matchStats.lastPlatYB&&matchStats.lastPlatYB!==-1) matchStats.platformChangesB++;
-      matchStats.lastPlatYB=py;
-    }
-
-    // Hits
-    const hit = checkTourneyHits();
-    tourneyTimer++;
-    if(hit==='a'){ tourneyScoreA++; tourneyRoundOver=true; }
-    else if(hit==='b'){ tourneyScoreB++; tourneyRoundOver=true; }
-    else if(tourneyTimer>=60*35){ tourneyRoundOver=true; }
-  }
-
-  function onRoundEnd(){
-    tourneyRound++;
-    const aWon = tourneyScoreA > tourneyScoreB;
-    const statsA = {arrowsDodged:matchStats.arrowsDodgedA, shotsNearMiss:matchStats.shotsNearMissA, platformChanges:matchStats.platformChangesA};
-    const statsB = {arrowsDodged:matchStats.arrowsDodgedB, shotsNearMiss:matchStats.shotsNearMissB, platformChanges:matchStats.platformChangesB};
-    evolveTourneyBrain(bA, aWon, tourneyTimer, statsA);
-    evolveTourneyBrain(bB, !aWon, tourneyTimer, statsB);
-    recordEvoHistory(bA);
-    recordEvoHistory(bB);
-
-    // Prochain round après un court délai visuel (sauf MAX)
-    const delay = tourneySpeed===0 ? 0 : tourneySpeed<=4 ? 300 : 50;
-    setTimeout(()=>startTourneyRound(match), delay);
-  }
-
-  if(tourneySpeed === 0){
-    // MAX : tout en synchrone, aucun affichage
-    const cv2=document.getElementById('tourney-preview');
-    if(cv2) cv2.style.display='none';
-    while(!tourneyRoundOver){ runStep(); }
-    onRoundEnd();
-
-  } else {
-    // Avec affichage (×1, ×4, ×16)
-    const cv2=document.getElementById('tourney-preview');
-    if(cv2) cv2.style.display = tourneySpeed<=16 ? 'block' : 'none';
-
-    const stepsPerFrame = tourneySpeed;
-    tourneyInterval = setInterval(()=>{
-      if(!tourneyRunning||tourneyRoundOver){ clearInterval(tourneyInterval); tourneyInterval=null; return; }
-      for(let s=0;s<stepsPerFrame;s++){
-        if(tourneyRoundOver) break;
-        runStep();
-      }
-      if(tourneySpeed<=16) drawTourneyFrame();
-      if(tourneyRoundOver){
-        clearInterval(tourneyInterval); tourneyInterval=null;
-        onRoundEnd();
-      }
-    }, 1000/60);
-  }
-}
-
-function checkTourneyHits(){
-  // A's arrows hit B
-  for(let i=tourneyA.arr.length-1;i>=0;i--){
-    const a=tourneyA.arr[i]; if(a.st)continue;
-    if(a.x>tourneyB.x&&a.x<tourneyB.x+tourneyB.w&&a.y>tourneyB.y&&a.y<tourneyB.y+tourneyB.h){
-      boom(a.x,a.y,tourneyB.col); tourneyA.arr.splice(i,1); return 'a';
-    }
-  }
-  // B's arrows hit A
-  for(let i=tourneyB.arr.length-1;i>=0;i--){
-    const a=tourneyB.arr[i]; if(a.st)continue;
-    if(a.x>tourneyA.x&&a.x<tourneyA.x+tourneyA.w&&a.y>tourneyA.y&&a.y<tourneyA.y+tourneyA.h){
-      boom(a.x,a.y,tourneyA.col); tourneyB.arr.splice(i,1); return 'b';
-    }
-  }
-  return null;
-}
-
-function evolveTourneyBrain(tb, won, timer, stats){
-  const gain = computeFitnessGain(
-    stats || {arrowsDodged:0, shotsNearMiss:0, platformChanges:0},
-    won, timer
-  );
-
-  tb.fitness = updateFitness(tb.fitness, gain, won);
-  if(won) tb.wins++;
-  tb.played++;
-  tb.brain.fitness = tb.fitness;
-
-  // Mutation avec crossover si possible
-  const rate  = won
-    ? evoParams.mutRateWin  * (1 - Math.min(tb.fitness/200,0.85)*0.6)
-    : Math.min(evoParams.mutRateLoss * 1.2, 0.4);
-  const power = evoParams.mutPower * (won ? 0.8 : 1.2);
-
-  if(!won && tourneyBrains.length >= 2){
-    const rand = Math.random();
-    // Trouver le meilleur cerveau du tournoi
-    const best = tourneyBrains.reduce((b,c)=> (c.elo>b.elo&&c.id!==tb.id)?c:b, tourneyBrains[0]);
-    if(rand < 0.4 && best.id !== tb.id){
-      // 40% crossover avec le meilleur
-      const child = MultiExpertBrain.crossover(tb.brain, best.brain);
-      child.mutate(rate*0.9, power*0.9);
-      copyBrainInto(tb.brain, child);
-    } else if(rand < 0.75){
-      // 35% mutation pure
-      tb.brain.mutate(rate, power);
-    } else {
-      // 25% clone du meilleur + mutation
-      if(best.id !== tb.id){
-        const child = best.brain.clone();
-        child.mutate(rate*1.3, power*1.3);
-        copyBrainInto(tb.brain, child);
-      } else {
-        tb.brain.mutate(rate*1.5, power*1.5);
-      }
-    }
-    tb.brain.resetMemory();
-  } else {
-    tb.brain.mutate(rate * 0.7, power * 0.7);
-  }
-}
-
-function finishMatch(match){
-  const bA = tourneyBrains[match.aIdx];
-  const bB = tourneyBrains[match.bIdx];
-
-  match.scoreA = tourneyScoreA;
-  match.scoreB = tourneyScoreB;
-  match.done   = true;
-  match.running= false;
-  match.winner = tourneyScoreA > tourneyScoreB ? match.aIdx
-               : tourneyScoreB > tourneyScoreA ? match.bIdx : null;
-
-  // ELO entre les deux
-  const score = tourneyScoreA > tourneyScoreB ? 1
-              : tourneyScoreB > tourneyScoreA ? 0 : 0.5;
-  const K = bA.played < 20 ? evoParams.kStart : evoParams.kStart * 0.5;
-  const expA = eloExpected(bA.elo, bB.elo);
-  bA.elo = Math.max(400, Math.round(bA.elo + K * (score - expA)));
-  bB.elo = Math.max(400, Math.round(bB.elo + K * ((1-score) - (1-expA))));
-  bA.brain.elo = bA.elo;
-  bB.brain.elo = bB.elo;
-
-  renderBracket();
-
-  tourneyMatchIdx++;
-  setTimeout(()=>runNextMatch(), tourneySpeed===0?0:400);
-}
-
-function recordEvoHistory(tb){
-  if(!evoHistory[tb.id]) evoHistory[tb.id] = [];
-  evoHistory[tb.id].push({
-    round: evoHistory[tb.id].length + 1,
-    elo:   tb.elo,
-    fitness: Math.round(tb.fitness),
-    name:  tb.name,
-  });
-}
-
-function renderBracket(){
-  const list = document.getElementById('bracket-list');
-  if(!list) return;
-  if(tourneyMatches.length === 0){
-    list.innerHTML='<div style="font-size:6px;color:#6040a0;padding:12px">Lance un tournoi pour voir le bracket</div>';
-    return;
-  }
-  list.innerHTML = tourneyMatches.map((m,i)=>{
-    const bA = tourneyBrains[m.aIdx], bB = tourneyBrains[m.bIdx];
-    const cls = m.running?'running':m.done?'done':'';
-    const winnerStr = m.done
-      ? (m.winner===null?'NUL':m.winner===m.aIdx?'◀':' ▶')
-      : '';
-    return `<div class="match-row ${cls}">
-      <span class="match-a">${sanitize(bA.name.substring(0,16))}</span>
-      <span class="match-score">${m.done||m.running?`${m.scoreA}-${m.scoreB}`:'-'} <span class="match-winner">${winnerStr}</span></span>
-      <span class="match-b">${sanitize(bB.name.substring(0,16))}</span>
-    </div>`;
-  }).join('');
-}
-
-function drawTourneyFrame(){
-  const cv2 = document.getElementById('tourney-preview');
-  if(!cv2) return;
-  cv2.style.display = 'block';
-  const ctx2 = cv2.getContext('2d');
-  const W=cv2.width, H=cv2.height;
-  // Scale world → preview
-  const scX = W/WW, scY = H/WH;
-  const sc = Math.min(scX,scY)*0.85;
-  const offX=(W-WW*sc)/2, offY=(H-WH*sc)/2;
-
-  ctx2.fillStyle='#0d0818'; ctx2.fillRect(0,0,W,H);
-  ctx2.save(); ctx2.translate(offX,offY); ctx2.scale(sc,sc);
-
-  // Plateformes (simplifiées)
-  for(const p of platforms){
-    if(p.w<=12||p.h>=WH-40){ctx2.fillStyle='#1e1630';ctx2.fillRect(p.x,p.y,p.w,p.h);continue;}
-    ctx2.fillStyle='#2e2448'; ctx2.fillRect(p.x,p.y,p.w,p.h);
-    ctx2.fillStyle='#5a4e80'; ctx2.fillRect(p.x,p.y,p.w,2);
-  }
-
-  if(tourneyA) tourneyA.draw(ctx2);
-  if(tourneyB) tourneyB.draw(ctx2);
-
-  ctx2.restore();
-
-  // Scores
-  const match = tourneyMatches[tourneyMatchIdx];
-  if(match){
-    const bA=tourneyBrains[match.aIdx], bB=tourneyBrains[match.bIdx];
-    ctx2.fillStyle='rgba(13,8,24,0.8)'; ctx2.fillRect(W/2-70,4,140,20);
-    ctx2.font='bold 7px monospace'; ctx2.textAlign='right';
-    ctx2.fillStyle=SLOT_COLORS[0];
-    ctx2.fillText(sanitize(bA.name.substring(0,9)),W/2-8,17);
-    ctx2.fillStyle='#fff'; ctx2.textAlign='center';
-    ctx2.fillText(`${tourneyScoreA} - ${tourneyScoreB}`,W/2,17);
-    ctx2.fillStyle=SLOT_COLORS[1]; ctx2.textAlign='left';
-    ctx2.fillText(sanitize(bB.name.substring(0,9)),W/2+8,17);
-  }
-}
-
-// ================================================================
-//  GRAPHIQUE ÉVOLUTION
+// Couleurs des courbes (graphique d'entraînement)
 const GRAPH_COLORS=['#f0c040','#60c8ff','#60ff80','#ff4444','#ff80ff','#80ffff','#ffaa40','#aaffaa'];
-
-function drawEvoGraph(){
-  const cv2=document.getElementById('evo-canvas');
-  if(!cv2) return;
-  const ctx=cv2.getContext('2d');
-  const W=cv2.width, H=cv2.height;
-  ctx.fillStyle='#10081e'; ctx.fillRect(0,0,W,H);
-
-  const ids=Object.keys(evoHistory);
-  if(ids.length===0){
-    ctx.fillStyle='#6040a0'; ctx.font='10px monospace'; ctx.textAlign='center';
-    ctx.fillText('Lance un tournoi pour voir le graphique',W/2,H/2);
-    return;
-  }
-
-  // Trouver min/max ELO
-  let minElo=Infinity,maxElo=-Infinity;
-  for(const id of ids){
-    for(const pt of evoHistory[id]){
-      minElo=Math.min(minElo,pt.elo);
-      maxElo=Math.max(maxElo,pt.elo);
-    }
-  }
-  const eloRange=Math.max(maxElo-minElo,50);
-  const maxRound=Math.max(...ids.map(id=>evoHistory[id].length));
-  const pad={l:40,r:10,t:10,b:20};
-  const gW=W-pad.l-pad.r, gH=H-pad.t-pad.b;
-
-  // Grille
-  ctx.strokeStyle='#2a1a3a'; ctx.lineWidth=1;
-  for(let i=0;i<=4;i++){
-    const y=pad.t+gH*(1-i/4);
-    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+gW,y); ctx.stroke();
-    const elo=Math.round(minElo+eloRange*(i/4));
-    ctx.fillStyle='#6040a0'; ctx.font='8px monospace'; ctx.textAlign='right';
-    ctx.fillText(elo,pad.l-3,y+3);
-  }
-
-  // Courbes ELO
-  ids.forEach((id,ci)=>{
-    const pts=evoHistory[id];
-    if(pts.length<2) return;
-    const col=GRAPH_COLORS[ci%GRAPH_COLORS.length];
-    ctx.strokeStyle=col; ctx.lineWidth=2; ctx.beginPath();
-    pts.forEach((pt,pi)=>{
-      const x=pad.l+gW*(pi/(maxRound-1||1));
-      const y=pad.t+gH*(1-(pt.elo-minElo)/eloRange);
-      pi===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
-    });
-    ctx.stroke();
-    // Point terminal
-    const last=pts[pts.length-1];
-    const lx=pad.l+gW*((pts.length-1)/(maxRound-1||1));
-    const ly=pad.t+gH*(1-(last.elo-minElo)/eloRange);
-    ctx.fillStyle=col; ctx.fillRect(lx-3,ly-3,6,6);
-  });
-
-  // Légende
-  const legend=document.getElementById('chart-legend');
-  if(legend){
-    legend.innerHTML=ids.map((id,ci)=>{
-      const col=GRAPH_COLORS[ci%GRAPH_COLORS.length];
-      const name=(tourneyBrains.find(b=>b.id===id)?.name||id).substring(0,16);
-      const last=evoHistory[id][evoHistory[id].length-1];
-      return `<div class="legend-item">
-        <div class="legend-dot" style="background:${col}"></div>
-        <span style="color:${col};font-size:5px">${sanitize(name)} · ELO ${last?.elo||'?'}</span>
-      </div>`;
-    }).join('');
-  }
-}
 
 // ================================================================
 //  STATS PAR CERVEAU
@@ -4096,19 +3684,20 @@ async function renderStats(){
   if(!e){ cont.innerHTML='<div class="empty-state">Aucun cerveau sélectionné</div>'; return; }
 
   // ── Données de base ──────────────────────────────────────────
-  const elo  = e.elo || ELO_BASE;
-  const gen  = e.generation || 1;
-  const fit  = Math.round(e.fitness||0);
-  const wr   = e.played>0 ? Math.round(e.wins/e.played*100) : 0;
-  const hist = evoHistory[e.id] || [];
+  const elo  = Math.round(safeNum(e.elo, ELO_BASE));
+  const gen  = Math.round(safeNum(e.generation, 1));
+  const fit  = Math.round(safeNum(e.fitness, 0));
+  const wins = Math.round(safeNum(e.wins, 0)), played = Math.round(safeNum(e.played, 0));
+  const wr   = played>0 ? Math.round(wins/played*100) : 0;
+  const hist = (trRunning && e.id===trTrainedId) ? trEvoHistory : [];
   const eloTrend = hist.length>=2 ? hist[hist.length-1].elo - hist[hist.length-2].elo : 0;
 
   // ── Données live (si c'est le cerveau en cours d'entraînement) ─
-  const isLive = trRunning && trBrain && e.id===currentBrainId;
+  const isLive = trRunning && trBrain && e.id===trTrainedId;
   const liveSkills  = isLive ? (trBrain.skills || {}) : null;
   const liveWin     = isLive ? trGenWinWindow : [];
   const liveGenHist = isLive ? trGenHistory   : [];
-  const skills = liveSkills || (e.brain ? (deserializeBrain(e.brain)?.skills || {}) : {});
+  const skills = liveSkills || e.skills || {};
 
   // ── Objectif prochaine génération ────────────────────────────
   const target  = computeGenTarget(gen);
@@ -4122,7 +3711,7 @@ async function renderStats(){
 
   // ── Compétences ───────────────────────────────────────────────
   function skillBar(val, col){
-    const pct = Math.round(val||0);
+    const pct = Math.round(safeNum(val,0,0,100));
     return `<div class="ss-skill-bar"><div class="ss-skill-fill" style="width:${pct}%;background:${col}"></div></div><span style="color:${col};font-size:6px;min-width:26px;text-align:right">${pct}%</span>`;
   }
 
@@ -4140,8 +3729,8 @@ async function renderStats(){
     <div class="ss-row"><span class="ss-key">Cerveau</span><span class="ss-val">${sanitize(e.name||e.id)}</span></div>
     <div class="ss-row"><span class="ss-key">ELO</span><span class="ss-val">${elo} <span style="color:${eloTrend>=0?'#40ff80':'#ff4444'}">${eloTrend>=0?'▲':'▼'}${Math.abs(eloTrend)}</span></span></div>
     <div class="ss-row"><span class="ss-key">Fitness</span><span class="ss-val">${fit} / 100</span></div>
-    <div class="ss-row"><span class="ss-key">Victoires</span><span class="ss-val">${e.wins||0} / ${e.played||0} <span style="color:#8060c0">(${wr}%)</span></span></div>
-    <div class="ss-row"><span class="ss-key">Topologie</span><span class="ss-val" style="font-size:5px">${e.topology||'?'}</span></div>
+    <div class="ss-row"><span class="ss-key">Victoires</span><span class="ss-val">${wins} / ${played} <span style="color:#8060c0">(${wr}%)</span></span></div>
+    <div class="ss-row"><span class="ss-key">Topologie</span><span class="ss-val" style="font-size:5px">${sanitize(e.topology||'?')}</span></div>
   </div>
 
   <!-- Prochain palier -->
@@ -4172,7 +3761,7 @@ async function renderStats(){
     <div class="ss-section">
       <div class="ss-header">SESSION</div>
       <div class="ss-row"><span class="ss-key">Rondes</span><span class="ss-val">${isLive?trRoundsDone:'—'}</span></div>
-      <div class="ss-row"><span class="ss-key">V / D</span><span class="ss-val">${e.wins||0} / ${Math.max(0,(e.played||0)-(e.wins||0))}</span></div>
+      <div class="ss-row"><span class="ss-key">V / D</span><span class="ss-val">${wins} / ${Math.max(0,played-wins)}</span></div>
       <div class="ss-row"><span class="ss-key">Win rate</span><span class="ss-val">${wr}%</span></div>
       <div class="ss-row"><span class="ss-key">Paliers</span><span class="ss-val">${liveGenHist.length}</span></div>
       <div class="ss-row"><span class="ss-key">Stagnation</span><span class="ss-val">${isLive?trStag:'—'}</span></div>
@@ -4206,10 +3795,8 @@ function drawStatsHistory(id){
   const ctx=cv2.getContext('2d');
   const W=cv2.width, H=cv2.height;
 
-  // Combiner evoHistory (tournois) + trEvoHistory (entraînement live)
-  const stored = evoHistory[id] || [];
-  const live   = (trRunning && id===currentBrainId) ? trEvoHistory : [];
-  const pts    = [...stored, ...live].slice(-60);
+  // Historique de la session d'entraînement en cours
+  const pts = ((trRunning && id===trTrainedId) ? trEvoHistory : []).slice(-60);
 
   ctx.fillStyle='#10081e'; ctx.fillRect(0,0,W,H);
 
@@ -4242,7 +3829,7 @@ function drawStatsHistory(id){
   ctx.stroke();
 
   // Marqueurs de palier de génération
-  const genHist = trRunning && id===currentBrainId ? trGenHistory : [];
+  const genHist = trRunning && id===trTrainedId ? trGenHistory : [];
   genHist.forEach(g=>{
     const idx = pts.findIndex(p=>p.round>=g.round);
     if(idx<0) return;
@@ -4265,6 +3852,12 @@ function drawStatsHistory(id){
 class ScriptedAgent {
   constructor(level=1){
     this.level = level; // 1=KURO 2=SERA 3=VENN 4=RYUN
+    this.reset();
+  }
+
+  // Réinitialise la mémoire entre deux rounds (toujours passer par ici :
+  // un champ manquant donne NaN dans act() et l'agent ne tire plus).
+  reset(){
     this.mem = {
       jumpCooldown:0, retreatDir:0, retreatTimer:0,
       patternBuf:[], losSearchDir:0, losSearchTimer:0, platSearchTimer:0,
@@ -4658,7 +4251,7 @@ function personalityToast(event){
   const bank = p.quotes[event];
   if(!bank || !bank.length) return;
   const quote = bank[Math.floor(Math.random()*bank.length)];
-  const brainName = document.getElementById('tr-brain-name')?.textContent?.trim() || 'Cerveau';
+  const brainName = trTrainedName || 'Cerveau';
   toast(`${p.icon} ${brainName} : "${quote}"`);
 }
 
@@ -4944,6 +4537,12 @@ let trInterval = null;
 let trBrain = null;    // MultiExpertBrain actif
 let trTrainees = [];   // Ent[] (cerveau + agents)
 let trAgentObjs = [];  // ScriptedAgent[]
+let trTrainedId = null;   // cerveau entraîné, figé au démarrage (le sélecteur peut changer)
+let trTrainedName = '';
+let trSession = 0;        // invalide les rounds/timers d'une session arrêtée
+let trEvaluated = null;   // copie du cerveau tel qu'il a joué le dernier round (avant mutation)
+let trStartGen = 1;
+let trSaveChain = Promise.resolve();
 let trTraps = [];      // Trap[]
 let trTrapProj = [];   // projectiles des pièges
 let trHof = [];        // Hall of Fame local
@@ -4983,15 +4582,19 @@ function renderTraining(){
 async function renderTrBrainSel(){
   const all=await store.getAll('brains');
   // Pré-sélectionner le cerveau actif en solo par défaut
-  if(!trConfig.brainId || !all.find(e=>e.id===trConfig.brainId)){
+  if(!trRunning && (!trConfig.brainId || !all.find(e=>e.id===trConfig.brainId))){
     trConfig.brainId = currentBrainId || (all[0]?.id);
   }
+  const selId = trRunning ? trTrainedId : trConfig.brainId;
   document.getElementById('tr-brain-sel').innerHTML=all.map(e=>`
-    <button class="tr-brain-btn ${e.id===trConfig.brainId?'active':''}"
+    <button class="tr-brain-btn ${e.id===selId?'active':''}"
       onclick="trSetBrain('${e.id}')">${sanitize((e.name||e.id).substring(0,12))}${e.id===currentBrainId?' ●':''}</button>`).join('');
 }
 
-function trSetBrain(id){ trConfig.brainId=id; renderTrBrainSel(); }
+function trSetBrain(id){
+  if(trRunning){ toast('Arrête l\'entraînement avant de changer de cerveau'); return; }
+  trConfig.brainId=id; renderTrBrainSel();
+}
 
 function renderTrAgents(){
   const el=document.getElementById('tr-agents');
@@ -5093,13 +4696,26 @@ function checkGenerationAdvancement(won, brain, round){
 }
 
 async function trainingStart(){
+  if(trRunning || trainingStart._busy) return; // double clic
   if(!trConfig.brainId){toast('Choisis un cerveau');return;}
-  const entry=await store.get('brains',trConfig.brainId);
+  trainingStart._busy=true;
+  let entry;
+  try{
+    await trSaveChain; // une sauvegarde de la session précédente peut être en cours
+    entry=await store.get('brains',trConfig.brainId);
+  } finally { trainingStart._busy=false; }
   if(!entry){toast('Cerveau introuvable');return;}
 
+  trSession++;
+  trTrainedId=entry.id;
+  trTrainedName=entry.name||entry.id;
   trBrain=deserializeBrain(entry.brain);
   trBrain.fitness=entry.fitness||0;
   trBrain.elo=entry.elo||ELO_BASE;
+  trBrain.skills={...(entry.skills||{})};
+  trBrain.generation=entry.generation||1;
+  trStartGen=trBrain.generation;
+  trEvaluated=null;
   // Attacher le learner par gradient (persistance de l'état Adam)
   trBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
   if(entry.adamState) trBrain.pgLearner.loadAdam(entry.adamState);
@@ -5142,7 +4758,8 @@ async function trainingStart(){
   // Agents
   const lvl = trConfig.curriculum ? trCurriculumLevel : trConfig.agents[0].level;
   _trainerLevel = lvl;
-  trAgentObjs=trConfig.agents.map(()=>new ScriptedAgent(lvl));
+  trAgentObjs=trConfig.agents.map(a=>new ScriptedAgent(trConfig.curriculum ? lvl : a.level));
+  renderTrBrainSel();
   trTraps=buildTraps(trConfig.traps);
 
   // Roleplay : greeting de l'entraîneur
@@ -5153,6 +4770,7 @@ async function trainingStart(){
 
 function startTrainRound(){
   if(!trRunning) return;
+  const session = trSession;
   if(trRoundsDone>=trConfig.rounds){
     trainingStop(); toast('Entraînement terminé !'); drawTrainGraph(); return;
   }
@@ -5161,16 +4779,17 @@ function startTrainRound(){
 
   // En mode population : choisir le prochain individu à évaluer (round-robin)
   if(popMode){
+    // Tous les N rounds = 1 génération → sélection + croisement (avant de choisir
+    // l'individu, sinon le round est joué par un cerveau et crédité à un autre)
+    if(trRoundsDone>0 && trRoundsDone % trPopulation.length === 0){
+      _evolvePopulation();
+    }
     const idx = trRoundsDone % trPopulation.length;
     const popEntry = trPopulation[idx];
     trBrain = popEntry.brain;
     // Attacher/restaurer pgLearner depuis l'état Adam sauvegardé
     if(!trBrain.pgLearner) trBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
     if(popEntry.adamState) trBrain.pgLearner.loadAdam(popEntry.adamState);
-    // Tous les N rounds = 1 génération → sélection + croisement
-    if(trRoundsDone>0 && trRoundsDone % trPopulation.length === 0){
-      _evolvePopulation();
-    }
   }
 
   trRoundTimer=0; trRoundOver=false; trTrapProj=[]; trShapedReward=0;
@@ -5200,8 +4819,7 @@ function startTrainRound(){
       const td=TRAINER_DATA[_trainerLevel-1];
       setTimeout(()=>toast(`↓ ${td.name} ${td.title} reprend l'entraînement.`), 400);
     }
-    const lvl=trConfig.curriculum?trCurriculumLevel:trConfig.agents[0].level;
-    trAgentObjs.forEach(a=>a.level=lvl);
+    trAgentObjs.forEach(a=>a.level=trCurriculumLevel);
   }
 
   // Créer entités
@@ -5222,21 +4840,22 @@ function startTrainRound(){
   });
   trBrain.resetMemory();
   trAgentObjs.forEach(a=>{
-    a.mem={lastEnemyX:0,lastEnemyY:0,jumpCooldown:0,retreatDir:0,retreatTimer:0,patternBuf:[],lastShot:0};
+    a.reset();
   });
 
-  // Self-play : 25 % des rounds affrontent un cerveau HoF passé (ELO > 1350)
+  // Self-play : 25 % des rounds affrontent un cerveau HoF passé (ELO > 1350).
+  // L'adversaire HoF remplace le 1er entraîneur pour CE round uniquement.
   trHofRoundElo = null;
+  const roundAgents = trAgentObjs.slice();
   if(!popMode && trHof.length > 0 && (trBrain.elo||ELO_BASE) > 1350 && Math.random() < 0.25){
     const hofBrain = trHof[Math.floor(Math.random()*trHof.length)];
     hofBrain.resetMemory();
     trHofRoundElo = hofBrain.elo || ELO_BASE; // ELO réel de l'adversaire HoF pour onRoundEnd
-    trAgentObjs[0] = { level:1, mem:{},
+    roundAgents[0] = {
       act(ent, ce, arrows){ aiProcessFor(hofBrain.forward(aiInputsFor(ent,ce,arrows,trRoundTimer)), ent, ce); }
     };
   }
 
-  const stepsPerFrame=trConfig.speed===0?1000:trConfig.speed;
   if(trInterval){clearInterval(trInterval);trInterval=null;}
 
   // Stats comportementales du round
@@ -5358,8 +4977,8 @@ function startTrainRound(){
     }
 
     // Agents scriptés
-    for(let i=0;i<trAgentObjs.length;i++){
-      const ag=trAgentObjs[i];
+    for(let i=0;i<roundAgents.length;i++){
+      const ag=roundAgents[i];
       const ent=trTrainees[i+1];
       const arrows=trTrainees.filter((_,j)=>j!==i+1).flatMap(e=>e.arr);
       ag.act(ent,ce,arrows,trTraps,trRoundTimer);
@@ -5435,7 +5054,7 @@ function startTrainRound(){
     // Mode population : stocker le score pour sélection
     if(popMode){
       const popIdx = (trRoundsDone - 1 + trPopulation.length) % trPopulation.length;
-      trPopulation[popIdx].shapedScore += totalGain / Math.max(trRoundTimer, 1) * 1000;
+      trPopulation[popIdx].shapedScore += totalGain;
       trPopulation[popIdx].totalFrames  = (trPopulation[popIdx].totalFrames||0) + trRoundTimer;
       trPopulation[popIdx].played++;
       if(won) trPopulation[popIdx].wins++;
@@ -5510,8 +5129,14 @@ function startTrainRound(){
       }
     }
 
-    // Mutation (seulement en mode individuel — pop gère sa propre évolution)
-    if(!popMode) selectMutationStrategy(trBrain,trStag,won,trHof,trBestBrain);
+    // Copie du cerveau tel qu'il vient de jouer : c'est elle qu'on sauvegarde
+    // (la mutation qui suit produit un candidat pas encore évalué)
+    if(!popMode){
+      trEvaluated = trBrain.clone();
+      trEvaluated.skills = {...(trBrain.skills||{})};
+      trEvaluated.generation = trBrain.generation;
+      selectMutationStrategy(trBrain,trStag,won,trHof,trBestBrain);
+    }
 
     if(popMode && trPopulation.length > 0){
       const elos = trPopulation.map(p=>p.elo||ELO_BASE);
@@ -5546,26 +5171,29 @@ function startTrainRound(){
     if(trRoundsDone%5===0&&document.getElementById('panel-graph')?.style.display!=='none') drawTrainGraph();
 
     // Toujours async pour éviter stack overflow en MAX speed
-    setTimeout(()=>startTrainRound(), 0);
+    setTimeout(()=>{ if(session===trSession) startTrainRound(); }, 0);
   }
 
   // Exécution
   if(trConfig.speed===0){
     const cv2=document.getElementById('tr-preview');
     if(cv2) cv2.style.display='none';
-    // Boucle synchrone — on sort dès que trRoundOver
-    let safetyCounter=0;
-    while(!trRoundOver && safetyCounter<60*35+10){
-      runStep();
-      safetyCounter++;
-    }
-    onRoundEnd();
+    // MAX : tranches de ~12 ms pour garder l'interface réactive (bouton STOP, onglets)
+    const runChunk=()=>{
+      if(!trRunning||session!==trSession) return;
+      const t0=performance.now();
+      while(!trRoundOver && performance.now()-t0<12) runStep();
+      if(trRoundOver) onRoundEnd(); else setTimeout(runChunk,0);
+    };
+    runChunk();
   } else {
     const cv2=document.getElementById('tr-preview');
     if(cv2) cv2.style.display='block';
     trInterval=setInterval(()=>{
-      if(!trRunning||trRoundOver){clearInterval(trInterval);trInterval=null;return;}
-      for(let s=0;s<trConfig.speed;s++){
+      if(!trRunning||trRoundOver||session!==trSession){clearInterval(trInterval);trInterval=null;return;}
+      // Passage en MAX pendant un round : on accélère jusqu'à la fin du round
+      const steps=trConfig.speed===0?64:trConfig.speed;
+      for(let s=0;s<steps;s++){
         if(trRoundOver) break;
         runStep();
       }
@@ -5584,12 +5212,8 @@ function _evolvePopulation(){
   const N=trPopulation.length;
   const keep=Math.max(2,Math.floor(N*0.25)); // garder top 25%
 
-  // Trier par score shaped normalisé par durée totale
-  trPopulation.sort((a,b)=>{
-    const sa = a.totalFrames>0 ? a.shapedScore/a.totalFrames : -999;
-    const sb = b.totalFrames>0 ? b.shapedScore/b.totalFrames : -999;
-    return sb-sa;
-  });
+  // Trier par gain moyen par round joué
+  trPopulation.sort((a,b)=>popScore(b)-popScore(a));
 
   // Le meilleur devient le nouveau trBrain
   const champion=trPopulation[0];
@@ -5671,6 +5295,10 @@ function _evolvePopulation(){
   if(trHof.length>evoParams.hofSize) trHof.length=evoParams.hofSize;
   trBestBrain=trHof[0]||trBestBrain;
 }
+// Score d'un individu de la population : gain moyen par round joué
+function popScore(p){ return p.played>0 ? p.shapedScore/p.played : -Infinity; }
+function popBest(){ return trPopulation.reduce((best,c)=>popScore(c)>popScore(best)?c:best, trPopulation[0]); }
+
 function _curriculumLevel(elo){
   if(elo<1300) return 1;
   if(elo<1500) return 2;
@@ -5679,37 +5307,51 @@ function _curriculumLevel(elo){
 }
 
 function trainingStop(){
+  if(!trRunning) return;
   trRunning=false;
+  trSession++;
   if(trInterval){clearInterval(trInterval);trInterval=null;}
   document.getElementById('tr-start-btn').textContent='▶ LANCER';
   document.getElementById('tr-status').textContent='';
   const cv2=document.getElementById('tr-preview');
   if(cv2) cv2.style.display='none';
   saveTrainResults();
+  renderTrBrainSel();
 }
 
-async function saveTrainResults(){
-  if(!trConfig.brainId||!trBrain) return;
-  const entry=await store.get('brains',trConfig.brainId);
+// Les sauvegardes sont enchaînées : deux lecture-modification-écriture ne se croisent jamais
+function saveTrainResults(){
+  trSaveChain = trSaveChain.then(_saveTrainResults).catch(e=>{
+    console.error('[saveTrainResults]', e); toast('Sauvegarde entraînement échouée');
+  });
+  return trSaveChain;
+}
+
+async function _saveTrainResults(){
+  if(!trTrainedId||!trBrain) return;
+  const entry=await store.get('brains',trTrainedId);
   if(!entry) return;
 
-  // En mode population : champion = meilleur score normalisé par durée
+  // Mode population : champion = meilleur gain moyen ; sinon le cerveau tel qu'il a joué
   let champEntry = null;
-  const brainToSave = trPopulation.length>0
-    ? (() => {
-        const sorted = [...trPopulation].sort((a,b)=>
-          (b.totalFrames>0?b.shapedScore/b.totalFrames:-999)-(a.totalFrames>0?a.shapedScore/a.totalFrames:-999));
-        champEntry = sorted[0];
-        return sorted[0]?.brain || trBrain;
-      })()
-    : trBrain;
+  let brainToSave;
+  if(trPopulation.length>0){
+    champEntry = popBest();
+    brainToSave = champEntry?.brain || trBrain;
+  } else {
+    brainToSave = trEvaluated || trBrain;
+  }
 
   entry.brain      = brainToSave.serialize();
   entry.fitness    = brainToSave.fitness;
   entry.elo        = brainToSave.elo;
   entry.peakElo    = Math.max(entry.peakElo||0, entry.elo);
-  entry.skills     = (champEntry?.skills) || trBrain.skills || {};
-  entry.generation = (entry.generation||1) + Math.max(trRoundsDone,1);
+  entry.skills     = (champEntry?.skills) || brainToSave.skills || trBrain.skills || {};
+  entry.personality= trBrainPersonality;
+  // Génération = paliers d'objectifs atteints (solo) ou générations de population
+  entry.generation = trPopulation.length>0
+    ? trStartGen + trPopGeneration
+    : Math.max(entry.generation||1, brainToSave.generation||1);
   // Sauvegarder l'état Adam : utiliser celui du champion en mode pop
   const adamToSave = trPopulation.length>0
     ? (champEntry?.adamState || trBrain?.pgLearner?.serializeAdam())
@@ -5718,7 +5360,7 @@ async function saveTrainResults(){
   await store.put('brains', entry);
 
   // Sync activeBrain si c'est le cerveau actif en solo
-  if(trConfig.brainId===currentBrainId){
+  if(trTrainedId===currentBrainId){
     activeBrain = brainToSave.clone();
     activeBrain.fitness = brainToSave.fitness;
     activeBrain.elo     = brainToSave.elo;
@@ -5730,15 +5372,11 @@ async function saveTrainResults(){
 
 // Sync légère après chaque round (sans écrire dans IndexedDB)
 function _syncActiveBrainLive(){
-  if(trConfig.brainId!==currentBrainId) return;
+  if(trTrainedId!==currentBrainId) return;
   // En mode pop : utiliser le meilleur individu évalué jusqu'ici
   const src = trPopulation.length>0
-    ? (trPopulation.reduce((best,c)=>{
-        const sc = c.totalFrames>0 ? c.shapedScore/c.totalFrames : -Infinity;
-        const sb = best.totalFrames>0 ? best.shapedScore/best.totalFrames : -Infinity;
-        return sc > sb ? c : best;
-      }, trPopulation[0])?.brain || trBrain)
-    : trBrain;
+    ? (popBest()?.brain || trBrain)
+    : (trEvaluated || trBrain);
   activeBrain = src.clone();
   activeBrain.fitness = src.fitness;
   activeBrain.elo     = src.elo;
@@ -5890,7 +5528,7 @@ function openBrainModal(){
       store.get('brains', currentBrainId).then(e=>{
         const n = e?.name || currentBrainId;
         const elo = activeBrain.elo || ELO_BASE;
-        seedEl.innerHTML = `⚡ Basé sur : <b style="color:#60ff80">${sanitize(n)}</b> — ELO ${elo} · Gén. ${e?.generation||1}`;
+        seedEl.innerHTML = `⚡ Basé sur : <b style="color:#60ff80">${sanitize(n)}</b> — ELO ${Math.round(safeNum(elo,ELO_BASE))} · Gén. ${Math.round(safeNum(e?.generation,1))}`;
       });
     } else {
       seedEl.innerHTML = '<span style="color:#5a4070">Cerveau aléatoire (aucun cerveau actif)</span>';
@@ -5908,14 +5546,14 @@ function updateBrainPreview(){
   const H=parseInt(document.getElementById('bc-h').value)||8;
   const out=parseInt(document.getElementById('bc-out').value)||4;
   const arb=parseInt(document.getElementById('bc-arb').value)||8;
-  // Calcul params
-  const gruParams=(H*(H+6)*3+out*H)*3; // 3 experts
-  const arbParams=(3*out)*arb+arb+arb*6+6;
-  const total=gruParams+arbParams;
-  document.getElementById('brain-preview-info').innerHTML=
-    `Topologie : GRU(H=${H}) × 3 experts → dense(${3*out}→${arb}→6)\n`+
+  const nE=MultiExpertBrain.EXPERT_INPUTS.length;
+  const total=new MultiExpertBrain(H,out,arb).paramCount();
+  const seeded=!!(activeBrain && currentBrainId);
+  document.getElementById('brain-preview-info').textContent=
+    `Topologie : GRU(H=${H}) × ${nE} experts → dense(${nE*out}→${arb}→${arb}→${MultiExpertBrain.N_OUTPUTS})\n`+
     `Paramètres : ${total}\n`+
-    `Mémoire par round : ${H*3} valeurs GRU`;
+    `Mémoire par round : ${H*nE} valeurs GRU`+
+    (seeded?`\n⚠ Basé sur le cerveau actif : sa topologie est conservée, ces réglages ne s'appliquent pas`:'');
 }
 
 function confirmNewBrain(){
@@ -5931,16 +5569,34 @@ function confirmNewBrain(){
 // ── GAUNTLET : sélection par parcours du combattant ──────────────
 // Étape 1 : traverser l'arène de gauche à droite (mobilité/saut)
 // Étape 2 : toucher une cible statique (visée de base)
-// 8 candidats générés ; le premier à passer les 2 étapes est retenu.
-// Si aucun passe l'étape 2, le meilleur (au moins étape 1) est gardé.
+// Étape 3 : toucher le rookie avant d'être touché
+// Le premier candidat qui passe les 3 étapes est retenu. Après GL_MAX_CANDIDATES
+// échecs, on garde le candidat allé le plus loin.
+const GL_MAX_CANDIDATES = 30;
+let glBest = null; // {brain, stage}
 
 function startGauntlet(params){
   glParams  = params;
   glTested  = 0;
   glHistory = [];
+  glBest    = null;
   document.getElementById('gl-config-panel').style.display   = 'none';
   document.getElementById('gl-gauntlet-panel').style.display = '';
   glActive  = true;
+  glNextCandidate();
+}
+
+// Enregistre l'échec du candidat courant puis passe au suivant (ou conclut)
+function glFailCandidate(result){
+  glHistory.push(result);
+  const stage = result==='s3'?3:result==='s2'?2:1;
+  if(!glBest || stage>glBest.stage) glBest = {brain:glCurrentBrain, stage};
+  if(glTested >= GL_MAX_CANDIDATES){
+    toast(`Aucun candidat parfait après ${glTested} essais : meilleur retenu (étape ${glBest.stage}/3)`);
+    glBest.brain.resetMemory();
+    glFinish(glBest.brain);
+    return;
+  }
   glNextCandidate();
 }
 
@@ -5958,8 +5614,8 @@ function glNextCandidate(){
   glStage  = 1;
   glTimer  = 0;
   glCurrentBrain.resetMemory();
-  glEnt    = new Ent(80, WH-62, SLOT_COLORS[0], true);
-  glDummy  = new Ent(WW-120, WH-62, '#444444', false);
+  glEnt    = new Ent(80, WH-62, SLOT_COLORS[0], true, GL_PLATFORMS);
+  glDummy  = new Ent(WW-120, WH-62, '#444444', false, GL_PLATFORMS);
   glTarget = null;
   glRookie = null;
   glUpdateStatus();
@@ -5972,8 +5628,8 @@ function glStartStage2(){
   glStage = 2;
   glTimer = 0;
   glCurrentBrain.resetMemory();
-  glEnt    = new Ent(500, WH-62, SLOT_COLORS[0], true);
-  glTarget = new Ent(100, WH-62, '#ff4444', false);
+  glEnt    = new Ent(500, WH-62, SLOT_COLORS[0], true, GL_PLATFORMS);
+  glTarget = new Ent(100, WH-62, '#ff4444', false, GL_PLATFORMS);
   glTarget.w = 50; glTarget.h = 50;
   glDummy  = glTarget;
   glRookie = null;
@@ -5985,8 +5641,8 @@ function glStartStage3(){
   glTimer = 0;
   glCurrentBrain.resetMemory();
   // Candidat à droite, rookie à gauche
-  glEnt    = new Ent(WW-250, WH-62, SLOT_COLORS[0], true);
-  glRookie = new Ent(120, WH-62, '#ff6600', true);
+  glEnt    = new Ent(WW-250, WH-62, SLOT_COLORS[0], true, GL_PLATFORMS);
+  glRookie = new Ent(120, WH-62, '#ff6600', true, GL_PLATFORMS);
   glDummy  = glRookie;
   glTarget = null;
   glUpdateStatus();
@@ -6035,7 +5691,7 @@ function glStep(){
 
   if(glStage === 1){
     if(ce.x + ce.w >= GL_FINISH_X){ glStartStage2(); return; }
-    if(glTimer >= GL_MAX_S1){ glHistory.push('none'); glNextCandidate(); }
+    if(glTimer >= GL_MAX_S1) glFailCandidate('none');
 
   } else if(glStage === 2){
     const t = glTarget;
@@ -6048,11 +5704,20 @@ function glStep(){
         return;
       }
     }
-    if(glTimer >= GL_MAX_S2){ glHistory.push('s2'); glNextCandidate(); }
+    if(glTimer >= GL_MAX_S2) glFailCandidate('s2');
 
   } else { // stage 3 : vaincre le rookie
     glRookieThink(glRookie, ce);
     glRookie.update();
+    // Le rookie riposte : être touché élimine le candidat
+    for(const a of glRookie.arr){
+      if(a.st) continue;
+      if(a.x>ce.x && a.x<ce.x+ce.w && a.y>ce.y && a.y<ce.y+ce.h){
+        boom(a.x, a.y, ce.col);
+        glFailCandidate('s3');
+        return;
+      }
+    }
     for(let j=ce.arr.length-1; j>=0; j--){
       const a = ce.arr[j];
       if(a.st) continue;
@@ -6064,7 +5729,7 @@ function glStep(){
         return;
       }
     }
-    if(glTimer >= GL_MAX_S3){ glHistory.push('s3'); glNextCandidate(); }
+    if(glTimer >= GL_MAX_S3) glFailCandidate('s3');
   }
 }
 
@@ -6080,7 +5745,7 @@ async function glFinish(brain){
   const id         = 'brain_' + Date.now();
   const name       = srcEntry ? await cloneBrainName(srcEntry.name) : await nextBrainName();
   const newGen     = srcEntry ? ((srcEntry.generation||1) + 1) : 1;
-  const topology   = srcEntry ? (srcEntry.topology||'GRU×3') : `GRU(H=${H})×3+ARB(${arb})`;
+  const topology   = brain.topologyLabel();
 
   const personalityKey = srcEntry?.personality
     || PERSONALITY_KEYS[Math.floor(Math.random()*PERSONALITY_KEYS.length)];
@@ -6092,7 +5757,7 @@ async function glFinish(brain){
     personality:personalityKey});
   currentBrainId=id; store.setConfig('currentBrainId',id); activeBrain=brain;
   activeBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
-  generation=newGen; bestBrain=null; totalWins=0; totalPlayed=0;
+  generation=newGen; totalWins=0; totalPlayed=0;
   closeBrainModal();
   const persIcon = personalityInfo ? `${personalityInfo.icon} ${personalityInfo.name}` : '';
   const msg = srcEntry
@@ -6104,8 +5769,7 @@ async function glFinish(brain){
 
 function glSkip(){
   if(!glActive) return;
-  glHistory.push(glStage===3?'s3':glStage===2?'s2':'none');
-  glNextCandidate();
+  glFailCandidate(glStage===3?'s3':glStage===2?'s2':'none');
 }
 
 function glAbort(){
@@ -6219,6 +5883,10 @@ function glDrawFrame(){
   ctx.fillStyle=tLeft<4?'#ff4444':'#8060c0';
   ctx.fillText(`#${glTested} · ${tLeft}s`,W-6,15);
 }
+
+// ================================================================
+//  NOMMAGE DES CERVEAUX
+//  Créateur : [adjectif][nom] tiré au hasard une fois par appareil
 //             ex: "darknode"
 //
 //  Cerveau  : [creator]#[NNN]   numéro séquentiel
@@ -6270,7 +5938,6 @@ async function cloneBrainName(sourceName){
 }
 
 // ================================================================
-// ================================================================
 //  SIMULATION DE FOND — MENU SCREEN
 // ================================================================
 //  Le meilleur cerveau disponible joue en boucle contre un MASTER.
@@ -6288,7 +5955,10 @@ const menuBg = {
   active: false,
 };
 
+const _menuIsVisible = () => document.getElementById('menu-screen')?.classList.contains('active');
+
 async function initMenuBg(){
+  if(!_menuIsVisible()) return;
   menuBg.cv = document.getElementById('menu-bg-canvas');
   if(!menuBg.cv) return;
   menuBg.ctx = menuBg.cv.getContext('2d');
@@ -6297,6 +5967,8 @@ async function initMenuBg(){
 
   let all = [];
   try { all = await store.getAll('brains'); } catch(e){}
+  // L'utilisateur a pu quitter le menu pendant la lecture IndexedDB
+  if(!_menuIsVisible()) return;
   let bestEntry = all.sort((a,b)=>(b.elo||0)-(a.elo||0))[0] || null;
 
   menuBg.brainA = bestEntry ? deserializeBrain(bestEntry.brain) : new MultiExpertBrain();
@@ -6342,7 +6014,7 @@ function _startMenuBgRound(){
     const e=new Ent(sp.x, sp.y, sp.col, true); e.face=sp.face; return e;
   });
   menuBg.agents.forEach(ag=>{
-    ag.mem={lastEnemyX:0,lastEnemyY:0,jumpCooldown:0,retreatDir:0,retreatTimer:0,patternBuf:[],lastShot:0};
+    ag.reset();
   });
 
   if(menuBg.interval){ clearInterval(menuBg.interval); menuBg.interval=null; }
@@ -6373,7 +6045,7 @@ function _stepMenuBg(){
       const allEnemyArrows=allAgentEnts.flatMap(e=>e.arr);
       const inp = aiInputsFor(A, nearest, allEnemyArrows, menuBg.timer);
       const out = menuBg.brainA.forward(inp);
-      aiProcessFor(out, A);
+      aiProcessFor(out, A, nearest);
       A.face = nearest.x < A.x ? -1 : 1;
     }
     A?.update();
@@ -6507,36 +6179,30 @@ function _drawMenuBg(){
 }
 
 async function init(){
-  await loadCreator();
-  await loadBrains();
-  await githubSync.loadConfig();
+  // Service worker en premier : l'app reste installable/hors-ligne même si IndexedDB échoue
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+  try{
+    await loadCreator();
+    await loadBrains();
+    await githubSync.loadConfig();
+  }catch(e){
+    console.error('[init]', e);
+    toast('Sauvegarde locale indisponible ('+(e?.message||e)+') : la progression ne sera pas enregistrée', 8000);
+  }
   updateMenuUI();
+  // Demander au navigateur de ne pas effacer les cerveaux en cas de manque d'espace (iOS surtout)
+  navigator.storage?.persisted?.().then(p=>{ if(!p) navigator.storage.persist(); }).catch(()=>{});
 
   if(githubSync.repo){ githubSync.sync(); }
-  if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 
   // Lancer la simulation de fond du menu après un court délai
   setTimeout(()=>initMenuBg(), 300);
 }
 // ================================================================
-// PATCH v4 : Deep Learning — Policy Gradient (REINFORCE + Adam)
-// (doit être défini AVANT init() pour éviter TDZ sur mobile)
+//  DEEP LEARNING — Policy Gradient (REINFORCE + Adam) sur l'arbitre
+//  Entraîne arb1..arb3 par rétropropagation ; les experts GRU
+//  évoluent par mutation/sélection.
 // ================================================================
-
-// ── 1. DenseLayer : auto-cache _lastX et _lastZ ─────────────────
-(function patchDenseLayerCache(){
-  DenseLayer.prototype.forward = function(x){
-    const z = this.W.map((row,i) => this.b[i] + row.reduce((s,w,j)=>s+w*x[j],0));
-    this._lastX = x;
-    this._lastZ = z;
-    if(this.act==='sigmoid') return z.map(v=>1/(1+Math.exp(-Math.max(-10,Math.min(10,v)))));
-    if(this.act==='relu')    return z.map(v=>v>0?v:v*0.01);
-    return z;
-  };
-  console.log('[NeuralArena v4] DenseLayer.forward patché → auto-cache _lastX/_lastZ');
-})();
-
-// ── 2. PolicyGradientLearner ─────────────────────────────────────
 class PolicyGradientLearner {
   constructor(lr=0.001, gamma=0.97){
     this.lr      = lr;
@@ -6571,10 +6237,28 @@ class PolicyGradientLearner {
       run = this.buffer[t].reward + this.gamma * run;
       G[t] = run;
     }
+    return this._advantageFromReturns(G);
+  }
+
+  // Avantage = (retour − baseline glissante) / écart-type glissant.
+  // Ne PAS normaliser par la moyenne de l'épisode : sinon une victoire et une
+  // défaite donnent des avantages symétriques et le bonus ±3 de fin de round
+  // ne dit plus rien sur le résultat.
+  _advantageFromReturns(G){
+    const n = G.length;
     const mean = G.reduce((a,b)=>a+b,0)/n;
-    const std  = Math.sqrt(G.reduce((a,b)=>a+(b-mean)**2,0)/n + 1e-8);
-    this.baseline = 0.95*this.baseline + 0.05*mean;
-    return G.map(g => (g - mean)/std);
+    const b0 = this.baseline;
+    const varNow = G.reduce((a,g)=>a+(g-b0)**2,0)/n;
+    this.retVar   = 0.95*(this.retVar ?? varNow) + 0.05*varNow;
+    this.baseline = 0.95*b0 + 0.05*mean;
+    const std = Math.sqrt(this.retVar) + 1e-6;
+    return G.map(g => Math.max(-5, Math.min(5, (g - b0)/std)));
+  }
+
+  // Refuse une mise à jour non finie (NaN/Infinity) : elle corromprait le cerveau pour de bon
+  _finiteGrads(...mats){
+    for(const M of mats) for(const row of M) for(const v of row) if(!Number.isFinite(v)) return false;
+    return true;
   }
 
   _backDense(layer, cache, dOut){
@@ -6660,6 +6344,7 @@ class PolicyGradientLearner {
     const avg2d = M => M.map(r => r.map(v => v/n));
     const avg1d = v => v.map(x => x/n);
     const gdW3 = avg2d(dW3), gdW2 = avg2d(dW2), gdW1 = avg2d(dW1);
+    if(!this._finiteGrads(gdW3, gdW2, gdW1, [db1, db2, db3])){ this.buffer = []; return null; }
     this._adam(this.adamS.arb3, brain.arb3.W, gdW3, brain.arb3.b, avg1d(db3));
     this._adam(this.adamS.arb2, brain.arb2.W, gdW2, brain.arb2.b, avg1d(db2));
     this._adam(this.adamS.arb1, brain.arb1.W, gdW1, brain.arb1.b, avg1d(db1));
@@ -6688,10 +6373,7 @@ class PolicyGradientLearner {
       run = batch[t].reward + this.gamma * run;
       G[t] = run;
     }
-    const mean = G.reduce((a,b)=>a+b,0)/n;
-    const std  = Math.sqrt(G.reduce((a,b)=>a+(b-mean)**2,0)/n + 1e-8);
-    this.baseline = 0.95*this.baseline + 0.05*mean;
-    const adv = G.map(g => (g-mean)/std);
+    const adv = this._advantageFromReturns(G);
 
     this.adamT++;
     const savedLr = this.lr;
@@ -6725,6 +6407,7 @@ class PolicyGradientLearner {
     const avg2d = M => M.map(r => r.map(v=>v/n));
     const avg1d = v => v.map(x=>x/n);
     const gdW3=avg2d(dW3), gdW2=avg2d(dW2), gdW1=avg2d(dW1);
+    if(!this._finiteGrads(gdW3, gdW2, gdW1, [db1, db2, db3])){ this.lr = savedLr; return null; }
     this._adam(this.adamS.arb3, brain.arb3.W, gdW3, brain.arb3.b, avg1d(db3));
     this._adam(this.adamS.arb2, brain.arb2.W, gdW2, brain.arb2.b, avg1d(db2));
     this._adam(this.adamS.arb1, brain.arb1.W, gdW1, brain.arb1.b, avg1d(db1));
@@ -6741,10 +6424,11 @@ class PolicyGradientLearner {
   serializeAdam(){
     return {
       t        : this.adamT,
-      s        : this.adamS,
+      s        : JSON.parse(JSON.stringify(this.adamS)),
       baseline : this.baseline,
+      retVar   : this.retVar,
       rounds   : this.roundsLearned,
-      lossHist : this.lossHist,
+      lossHist : this.lossHist.slice(),
       online   : this.onlineLearned||0,
     };
   }
@@ -6752,8 +6436,9 @@ class PolicyGradientLearner {
   loadAdam(d){
     if(!d) return;
     this.adamT         = d.t        || 0;
-    this.adamS         = d.s        || {arb1:{}, arb2:{}, arb3:{}};
+    this.adamS         = d.s ? JSON.parse(JSON.stringify(d.s)) : {arb1:{}, arb2:{}, arb3:{}};
     this.baseline      = d.baseline || 0;
+    this.retVar        = d.retVar;
     this.roundsLearned = d.rounds   || 0;
     this.lossHist      = d.lossHist || [];
     this.onlineLearned = d.online   || 0;
@@ -6766,398 +6451,8 @@ class PolicyGradientLearner {
   }
 }
 
-console.log('[NeuralArena v4] PolicyGradientLearner prêt');
-// ================================================================
-
+// Démarrage : en toute fin de script, une fois toutes les classes définies
 init();
-
-// ================================================================
-// NEURAL ARENA - PATCH v3 : SelfAttention + Recap
-// À injecter AVANT la fermeture </script>
-// ================================================================
-
-// ================================================================
-//  SELF-ATTENTION LAYER  — couche d'attention entre experts
-class SelfAttentionLayer {
-  constructor(seqLen, dModel, xavierScale=1.0){
-    this.seqLen=seqLen; this.dModel=dModel;
-    const s=Math.sqrt(2/dModel)*xavierScale;
-    const mat=(r,c,sc)=>Array.from({length:r},()=>Array.from({length:c},()=>(Math.random()*2-1)*sc));
-    this.Wq=mat(dModel,dModel,s); this.bq=new Array(dModel).fill(0);
-    this.Wk=mat(dModel,dModel,s); this.bk=new Array(dModel).fill(0);
-    this.Wv=mat(dModel,dModel,s); this.bv=new Array(dModel).fill(0);
-    this.Wo=mat(dModel,dModel,s*0.5); this.bo=new Array(dModel).fill(0);
-    this.gamma=new Array(dModel).fill(1.0);
-    this.beta =new Array(dModel).fill(0.0);
-  }
-  _mv(W,b,v){return W.map((row,i)=>b[i]+row.reduce((s,w,j)=>s+w*v[j],0))}
-  _softmax(v){
-    const m=Math.max(...v);
-    const e=v.map(x=>Math.exp(Math.min(x-m,20)));
-    const s=e.reduce((a,b)=>a+b,1e-8);
-    return e.map(x=>x/s);
-  }
-  _layerNorm(v){
-    const m=v.reduce((a,b)=>a+b,0)/v.length;
-    const va=v.reduce((a,b)=>a+(b-m)**2,0)/v.length;
-    return v.map((x,i)=>this.gamma[i]*(x-m)/Math.sqrt(va+1e-6)+this.beta[i]);
-  }
-  forward(expertOuts){
-    const scale=Math.sqrt(this.dModel);
-    const Q=expertOuts.map(x=>this._mv(this.Wq,this.bq,x));
-    const K=expertOuts.map(x=>this._mv(this.Wk,this.bk,x));
-    const V=expertOuts.map(x=>this._mv(this.Wv,this.bv,x));
-    return Q.map((q,i)=>{
-      const scores=K.map(k=>q.reduce((s,qi,d)=>s+qi*k[d],0)/scale);
-      const w=this._softmax(scores);
-      const ctx=new Array(this.dModel).fill(0);
-      for(let j=0;j<this.seqLen;j++) for(let d=0;d<this.dModel;d++) ctx[d]+=w[j]*V[j][d];
-      const proj=this._mv(this.Wo,this.bo,ctx);
-      const res=proj.map((v,d)=>v+expertOuts[i][d]);
-      return this._layerNorm(res);
-    });
-  }
-  mutate(rate,power){
-    const g=()=>{const u=Math.random(),v=Math.random();return Math.sqrt(-2*Math.log(u||1e-4))*Math.cos(2*Math.PI*v)};
-    for(const k of['Wq','Wk','Wv','Wo'])
-      for(let r=0;r<this[k].length;r++)
-        for(let c=0;c<this[k][r].length;c++)
-          if(Math.random()<rate) this[k][r][c]+=g()*power*0.35;
-    for(const k of['bq','bk','bv','bo'])
-      for(let i=0;i<this[k].length;i++)
-        if(Math.random()<rate) this[k][i]+=(Math.random()*2-1)*power*0.15;
-    for(let i=0;i<this.dModel;i++){
-      if(Math.random()<rate*0.25) this.gamma[i]+=(Math.random()*2-1)*power*0.08;
-      if(Math.random()<rate*0.25) this.beta[i] +=(Math.random()*2-1)*power*0.08;
-    }
-  }
-  clone(){
-    const e=new SelfAttentionLayer(this.seqLen,this.dModel);
-    for(const k of['Wq','Wk','Wv','Wo']) e[k]=JSON.parse(JSON.stringify(this[k]));
-    for(const k of['bq','bk','bv','bo']) e[k]=this[k].slice();
-    e.gamma=this.gamma.slice(); e.beta=this.beta.slice();
-    return e;
-  }
-  static crossover(a,b){
-    const ch=a.clone();
-    for(const k of['Wq','Wk','Wv','Wo']){
-      const cut=Math.floor(Math.random()*ch[k].length);
-      for(let r=cut;r<ch[k].length;r++) ch[k][r]=b[k][r].slice();
-    }
-    return ch;
-  }
-  serialize(){
-    return{seqLen:this.seqLen,dModel:this.dModel,
-      Wq:this.Wq,Wk:this.Wk,Wv:this.Wv,Wo:this.Wo,
-      bq:this.bq,bk:this.bk,bv:this.bv,bo:this.bo,
-      gamma:this.gamma,beta:this.beta};
-  }
-  static deserialize(d){
-    const e=new SelfAttentionLayer(d.seqLen,d.dModel);
-    for(const k of['Wq','Wk','Wv','Wo','bq','bk','bv','bo','gamma','beta']) e[k]=d[k];
-    return e;
-  }
-  paramCount(){ return 4*this.dModel*this.dModel+4*this.dModel+2*this.dModel; }
-}
-
-// ================================================================
-// PATCH: Monkey-patch MultiExpertBrain pour ajouter l'attention
-// ────────────────────────────────────────────────────────────────
-// On surcharge les méthodes clés APRÈS que la classe a été définie.
-
-(function patchMultiExpertBrain(){
-  const proto = MultiExpertBrain.prototype;
-
-  // ── Sauvegarder forward original ──────────────────────────────
-  const _origForward = proto.forward;
-
-  // ── Nouveau forward avec attention ───────────────────────────
-  proto.forward = function(inp){
-    const expertOuts = this.experts.map((exp,i)=>{
-      const x = MultiExpertBrain.EXPERT_INPUTS[i].map(idx=>inp[idx]||0);
-      return exp.forward(x);
-    });
-    // S'assurer que l'attention existe (migration de cerveaux existants)
-    if(!this.attention){
-      const out = expertOuts[0].length;
-      this.attention = new SelfAttentionLayer(this.experts.length, out, 1.0);
-    }
-    const attendedOuts = this.attention.forward(expertOuts);
-    const arbIn = attendedOuts.flat();
-    const h1 = this.arb1.forward(arbIn);
-    const h2 = this.arb2.forward(h1);
-    const out = this.arb3.forward(h2);
-    this.acts = [inp.slice(), expertOuts[0], expertOuts[1], expertOuts[2], expertOuts[3],
-                 attendedOuts[0], attendedOuts[1], arbIn, h1, h2, out];
-    return out;
-  };
-
-  // ── Nouveau mutate avec attention ─────────────────────────────
-  const _origMutate = proto.mutate;
-  proto.mutate = function(rate=0.15, power=0.35, expertIdx=null){
-    _origMutate.call(this, rate, power, expertIdx);
-    if(this.attention) this.attention.mutate(rate*0.4, power*0.4);
-  };
-
-  // ── Nouveau clone avec attention ──────────────────────────────
-  const _origClone = proto.clone;
-  proto.clone = function(){
-    const b = _origClone.call(this);
-    if(this.attention) b.attention = this.attention.clone();
-    return b;
-  };
-
-  // ── Nouveau paramCount avec attention ─────────────────────────
-  const _origParamCount = proto.paramCount;
-  proto.paramCount = function(){
-    return _origParamCount.call(this) + (this.attention?.paramCount()||0);
-  };
-
-  // ── Nouveau serialize v4 (SelfAttention + capteurs spatiaux) ─────
-  proto.serialize = function(){
-    return{
-      type:'multi-expert-v4',
-      experts:this.experts.map(e=>e.serialize()),
-      arb1:this.arb1.serialize(),
-      arb2:this.arb2.serialize(),
-      arb3:this.arb3.serialize(),
-      attention:this.attention?.serialize(),
-      _H:this._H, _out:this._out, _arb:this._arb,
-    };
-  };
-
-  // ── Patcher copyBrainInto ─────────────────────────────────────
-  window._origCopyBrainInto = window.copyBrainInto;
-  window.copyBrainInto = function(target, src){
-    window._origCopyBrainInto(target, src);
-    if(src.attention) target.attention = src.attention.clone();
-  };
-
-  console.log('[NeuralArena] MultiExpertBrain patché → v4 (SelfAttention + capteurs spatiaux)');
-})();
-
-// ── Patcher deserializeBrain pour gérer v4 et migrer v3/v2 ──────
-const _origDeserialize = window.deserializeBrain;
-window.deserializeBrain = function(data){
-  if(!data) return new MultiExpertBrain();
-  // v4 : topologie actuelle (Expert 2 inSize=12, SelfAttention)
-  if(data.type==='multi-expert-v4'){
-    const b = new MultiExpertBrain(data._H||12, data._out||4, data._arb||16);
-    if(data.experts) b.experts = data.experts.map(e=>GRUExpert.deserialize(e));
-    if(data.arb1)    b.arb1    = DenseLayer.deserialize(data.arb1);
-    if(data.arb2)    b.arb2    = DenseLayer.deserialize(data.arb2);
-    if(data.arb3)    b.arb3    = DenseLayer.deserialize(data.arb3);
-    if(data.attention) b.attention = SelfAttentionLayer.deserialize(data.attention);
-    else b.attention = new SelfAttentionLayer(4, data._out||4, 1.0);
-    return b;
-  }
-  // v3 → migration : Expert 2 avait inSize=6, maintenant 12 (poids incompatibles)
-  if(data.type==='multi-expert-v3'){
-    const b = new MultiExpertBrain(data._H||12, data._out||4, data._arb||16);
-    if(data.experts){
-      b.experts[0] = GRUExpert.deserialize(data.experts[0]);
-      b.experts[1] = GRUExpert.deserialize(data.experts[1]);
-      // experts[2] : fresh — inSize 6→12 incompatible
-      b.experts[3] = GRUExpert.deserialize(data.experts[3]);
-    }
-    if(data.arb1) b.arb1 = DenseLayer.deserialize(data.arb1);
-    if(data.arb2) b.arb2 = DenseLayer.deserialize(data.arb2);
-    if(data.arb3) b.arb3 = DenseLayer.deserialize(data.arb3);
-    if(data.attention) b.attention = SelfAttentionLayer.deserialize(data.attention);
-    else b.attention = new SelfAttentionLayer(4, data._out||4, 1.0);
-    console.log('[NeuralArena] Cerveau v3→v4 migré (Expert TERRAIN recréé)');
-    return b;
-  }
-  // v2 → upgrade (nouveau cerveau + attention fraîche)
-  if(data.type==='multi-expert-v2'){
-    const b = _origDeserialize(data);
-    if(!b.attention) b.attention = new SelfAttentionLayer(4, data._out||4, 1.0);
-    return b;
-  }
-  return _origDeserialize(data);
-};
-
-// ================================================================
-// PATCH: updateBrainPreview enrichie
-window.updateBrainPreview = function(){
-  const H   = parseInt(document.getElementById('bc-h')?.value)||8;
-  const out = parseInt(document.getElementById('bc-out')?.value)||4;
-  const arb = parseInt(document.getElementById('bc-arb')?.value)||8;
-  const xav = parseFloat(document.getElementById('bc-xavier')?.value)||1.0;
-
-  const nExp=4;
-  const attP  = 4*out*out + 4*out + 2*out;
-  const arb1P = (nExp*out)*arb+arb;
-  const arb2P = arb*arb+arb;
-  const arb3P = arb*7+7;
-  const gruPer= 3*(H*(H+8)+H*out) + H*out;
-  const gruTot= nExp*gruPer;
-  const totalP= gruTot+attP+arb1P+arb2P+arb3P;
-  const kP    = Math.round(totalP/100)/10;
-  const capacity= totalP<400?'Minimal':totalP<800?'Standard':totalP<1400?'Avancé':'Expert';
-  const capCol  = totalP<400?'#ff8844':totalP<800?'var(--gold)':totalP<1400?'#60c8ff':'#60ff80';
-
-  const el = document.getElementById('brain-preview-info');
-  if(!el) return;
-  el.innerHTML =
-    '<span style="color:var(--gold)">Topologie v3 (Deep) :</span>\n'+
-    '• 4× GRU Expert  H='+H+'  →  '+out+' sorties\n'+
-    '<span style="color:#a080ff">• Self-Attention  d='+out+'  (résidu+LayerNorm)</span>\n'+
-    '• Arbitre dense  '+(nExp*out)+'→'+arb+'→'+arb+'→7\n'+
-    '——————\n'+
-    '<span style="color:#60ff80">Total : ~'+totalP+' params  ('+kP+'k)</span>\n'+
-    '  Attention : '+attP+' | GRU : '+gruTot+'\n'+
-    'Mémoire GRU / round : '+H*nExp+' val\n'+
-    'Xavier σ : '+xav.toFixed(1)+'  |  Capacité : <span style="color:'+capCol+'">'+capacity+'</span>';
-};
-
-// ================================================================
-// PATCH: showBrainRecap + confirmNewBrain
-window.showBrainRecap = function(){
-  const H   = parseInt(document.getElementById('bc-h')?.value)||8;
-  const out = parseInt(document.getElementById('bc-out')?.value)||4;
-  const arb = parseInt(document.getElementById('bc-arb')?.value)||8;
-  const xav = parseFloat(document.getElementById('bc-xavier')?.value)||1.0;
-  const elo = parseInt(document.getElementById('bc-elo')?.value)||1200;
-
-  const nExp=4;
-  const attP  = 4*out*out + 4*out + 2*out;
-  const arb1P = (nExp*out)*arb+arb;
-  const arb2P = arb*arb+arb;
-  const arb3P = arb*7+7;
-  const gruPer= 3*(H*(H+8)+H*out) + H*out;
-  const gruTot= nExp*gruPer;
-  const totalP= gruTot+attP+arb1P+arb2P+arb3P;
-  const kP    = Math.round(totalP/100)/10;
-  const capacity= totalP<400?'Minimal':totalP<800?'Standard':totalP<1400?'Avancé':'Expert';
-  const capCol  = totalP<400?'#ff8844':totalP<800?'var(--gold)':totalP<1400?'#60c8ff':'#60ff80';
-
-  const modal = document.getElementById('brain-create-modal');
-  modal._recap_backup = modal.innerHTML;
-
-  modal.innerHTML = `
-<div style="background:var(--card);border:2px solid var(--border);max-width:360px;width:92%;padding:16px;box-shadow:4px 4px 0 rgba(0,0,0,0.6);max-height:90vh;overflow-y:auto">
-
-  <div style="font-family:'Press Start 2P';font-size:9px;color:var(--gold);margin-bottom:4px;text-shadow:2px 2px 0 #7a4400">RÉCAPITULATIF</div>
-  <div style="font-size:5px;color:#6040a0;letter-spacing:2px;margin-bottom:14px">AVANT GÉNÉRATION DU CERVEAU</div>
-
-  <!-- FLUXOGRAMME ARCHITECTURE -->
-  <div style="font-size:5px;color:var(--gold);letter-spacing:1px;margin-bottom:6px">FLUX DE CALCUL</div>
-  <div style="background:#0a0614;border:1px solid rgba(255,200,100,0.1);padding:10px;margin-bottom:10px;font-size:5px;line-height:2.0;font-family:monospace;color:#8878aa">
-    <div style="color:#a080ff">20 inputs</div>
-    <div style="color:#666">      ↓ ↓ ↓ ↓  (sélection par expert)</div>
-    <div><span style="color:#ff8844">DANGER</span>  <span style="color:#60c8ff">VISÉE</span>  <span style="color:#60ff80">TERRAIN</span>  <span style="color:#f0c040">TACTIQUE</span></div>
-    <div><span style="color:#888">GRU(H=${H}) × 4  →  ${nExp}×${out} sorties</span></div>
-    <div style="color:#666">           ↓  ↓  ↓  ↓</div>
-    <div style="color:#a080ff">  ┌─ Self-Attention (d=${out}) ─┐</div>
-    <div style="color:#888">  │  Q·K⊤/√d → softmax → V  │</div>
-    <div style="color:#a080ff">  └── Résidu + LayerNorm ───┘</div>
-    <div style="color:#666">           ↓  ${nExp*out} dims</div>
-    <div style="color:#60c8ff">  Dense ${nExp*out} → ${arb}  (ReLU)</div>
-    <div style="color:#60c8ff">  Dense ${arb} → ${arb}  (ReLU)</div>
-    <div style="color:#60ff80">  Dense ${arb} → 7   (Sigmoid)</div>
-    <div style="color:#666">           ↓</div>
-    <div style="color:#f0c040">  [←][→][↑][⬎L][⬎R][🏹][⚡]</div>
-  </div>
-
-  <!-- PARAMÈTRES PAR COUCHE -->
-  <div style="font-size:5px;color:var(--gold);letter-spacing:1px;margin-bottom:6px">PARAMÈTRES PAR COUCHE</div>
-  <div style="background:var(--surface);border:1px solid var(--border);padding:8px;margin-bottom:10px">
-    ${[
-      ['GRU × 4 experts','~'+gruTot,'#f0c040'],
-      ['Self-Attention (Wq,Wk,Wv,Wo+LN)',''+attP,'#a080ff'],
-      ['Arbitre dense 1 ('+nExp*out+'→'+arb+')',''+arb1P,'#60c8ff'],
-      ['Arbitre dense 2 ('+arb+'→'+arb+')',''+arb2P,'#60c8ff'],
-      ['Sortie ('+arb+'→7)',''+arb3P,'#60ff80'],
-    ].map(([label,val,col])=>`
-      <div style="display:flex;justify-content:space-between;font-size:5px;padding:2px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
-        <span style="color:#8878aa">${label}</span>
-        <span style="color:${col}">${val}</span>
-      </div>`).join('')}
-    <div style="display:flex;justify-content:space-between;font-size:5px;padding:4px 0;margin-top:2px">
-      <span style="color:var(--bright);font-weight:bold">TOTAL</span>
-      <span style="color:var(--bright);font-weight:bold">~${totalP} (~${kP}k)</span>
-    </div>
-  </div>
-
-  <!-- CONFIGURATION -->
-  <div style="font-size:5px;color:var(--gold);letter-spacing:1px;margin-bottom:6px">CONFIGURATION</div>
-  <div style="background:var(--surface);border:1px solid var(--border);padding:8px;margin-bottom:12px">
-    ${[
-      ['GRU hidden H',''+H,'var(--bright)'],
-      ['Sortie par expert',''+out,'var(--bright)'],
-      ['Couche arbitre',''+arb,'var(--bright)'],
-      ['Xavier σ',''+xav.toFixed(1),'var(--bright)'],
-      ['ELO de départ',''+elo,'var(--gold)'],
-      ['Mémoire GRU / round',''+(H*nExp)+' val','#60c8ff'],
-      ['Capacité estimée',capacity,capCol],
-    ].map(([label,val,col])=>`
-      <div style="display:flex;justify-content:space-between;font-size:5px;padding:2px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
-        <span style="color:#8878aa">${label}</span>
-        <span style="color:${col}">${val}</span>
-      </div>`).join('')}
-  </div>
-
-  <div style="font-size:5px;color:#6040a0;margin-bottom:10px;text-align:center">
-    ⚡ Poids initialisés aléatoirement — évolue par entraînement
-  </div>
-
-  <div style="display:flex;gap:8px">
-    <button class="btn small" onclick="backToCreateModal()">← Retour</button>
-    <button class="btn small primary" onclick="confirmNewBrain()">✓ CRÉER CE CERVEAU</button>
-  </div>
-</div>`;
-};
-
-window.backToCreateModal = function(){
-  const modal = document.getElementById('brain-create-modal');
-  if(modal._recap_backup){
-    modal.innerHTML = modal._recap_backup;
-    window.updateBrainPreview();
-  }
-};
-
-// confirmNewBrain : défini dans le code principal — lance le gauntlet de sélection.
-
-// Patcher le bouton du modal au chargement
-document.addEventListener('DOMContentLoaded', ()=>{
-  const modal = document.getElementById('brain-create-modal');
-  if(!modal) return;
-  // Remplacer le bouton Créer par → Récapitulatif
-  modal.innerHTML = modal.innerHTML.replace(
-    /onclick="confirmNewBrain\(\)">✓ Créer/g,
-    'onclick="showBrainRecap()">→ Récapitulatif'
-  );
-  // Patcher aussi openBrainModal pour re-appliquer
-  const _orig = window.openBrainModal;
-  window.openBrainModal = function(){
-    _orig();
-    // Re-patch le bouton après ouverture
-    setTimeout(()=>{
-      const btn = modal.querySelector('button.primary');
-      if(btn && btn.textContent.trim()==='✓ Créer'){
-        btn.textContent='→ Récapitulatif';
-        btn.onclick=window.showBrainRecap;
-      }
-    },0);
-  };
-});
-
-// ── Patcher topology tag dans updateLabUI ─────────────────────────
-const _origUpdateLabUI = window.updateLabUI;
-window.updateLabUI = async function(){
-  await _origUpdateLabUI();
-  // Remplacer les badges de topologie dans le DOM
-  document.querySelectorAll('.bc-stats').forEach(el=>{
-    el.innerHTML = el.innerHTML
-      .replace(/<span style="color:var\(--accent\)">GRU×3<\/span>/g,
-               '<span style="color:#a080ff">GRU×4+ATT</span>')
-      .replace(/GRU\(H=\d+\)×3/g, m => m.replace('×3','×4+ATT'));
-  });
-};
-
-console.log('[NeuralArena] Patch v3 chargé : SelfAttention + Récapitulatif');
-
 
 </script>
 </body>
