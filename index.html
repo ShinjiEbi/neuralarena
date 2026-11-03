@@ -225,6 +225,10 @@ canvas#game.crosshair{cursor:crosshair}
 #brain-create-modal.open{display:flex!important}
 .btn:disabled{opacity:0.3;pointer-events:none}
 
+/* Pastille d'entraînement en arrière-plan */
+#tr-bg-pill{display:none;position:fixed;left:50%;bottom:10px;transform:translateX(-50%);z-index:250;background:rgba(20,10,36,0.92);border:2px solid var(--gold);color:var(--gold);font-family:'Press Start 2P',monospace;font-size:7px;padding:7px 12px;cursor:pointer;white-space:nowrap}
+body.in-game #tr-bg-pill{bottom:auto;top:44px}
+
 /* Sélecteur d'arène */
 .map-select{flex:1;width:100%;background:var(--card);border:2px solid var(--border);color:var(--bright);font-family:'Press Start 2P',monospace;font-size:7px;padding:6px}
 
@@ -447,6 +451,11 @@ canvas#game.crosshair{cursor:crosshair}
           <span class="param-val" id="tv-rounds">100</span>
         </div>
         <div class="param-row">
+          <span class="param-name">♾ Sans fin</span>
+          <input type="checkbox" id="tr-infinite" style="width:16px;height:16px;cursor:pointer">
+          <span class="param-val" style="color:#6040a0;font-size:5px">tourne jusqu'à STOP, sauvegarde tous les 10 rounds</span>
+        </div>
+        <div class="param-row">
           <span class="param-name">Vitesse</span>
           <div style="display:flex;gap:4px;flex:1">
             <button class="speed-btn active" onclick="setTrainSpeed(1,this)">×1</button>
@@ -456,14 +465,14 @@ canvas#game.crosshair{cursor:crosshair}
           </div>
         </div>
         <div class="param-row">
-          <span class="param-name">🧬 Mode population</span>
+          <span class="param-name">🧬 Plusieurs candidats</span>
           <input type="checkbox" id="tr-population" style="width:16px;height:16px;cursor:pointer" onchange="document.getElementById('tr-popsize-row').style.display=this.checked?'flex':'none'">
-          <span class="param-val" style="color:#60ff80;font-size:5px">20 cerveaux en //</span>
+          <span class="param-val" style="color:#60ff80;font-size:5px">sinon 1 candidat par génération</span>
         </div>
         <div class="param-row" id="tr-popsize-row" style="display:none">
-          <span class="param-name">Taille population</span>
-          <input type="range" class="param-slider" id="tr-popsize" min="10" max="50" step="5" value="20" oninput="document.getElementById('tv-popsize').textContent=this.value">
-          <span class="param-val" id="tv-popsize">20</span>
+          <span class="param-name">Candidats / génération</span>
+          <input type="range" class="param-slider" id="tr-popsize" min="6" max="40" step="2" value="12" oninput="document.getElementById('tv-popsize').textContent=this.value">
+          <span class="param-val" id="tv-popsize">12</span>
         </div>
         <div class="param-row">
           <span class="param-name">Curriculum auto</span>
@@ -715,6 +724,8 @@ canvas#game.crosshair{cursor:crosshair}
   </div>
 </div>
 
+<!-- Entraînement en arrière-plan (visible hors de l'écran d'entraînement) -->
+<div id="tr-bg-pill" onclick="showScreen('training')"></div>
 <!-- NAV supprimée — navigation via les boutons du menu -->
 <div id="toast"></div>
 
@@ -816,19 +827,24 @@ class GRUExpert {
     this.inSize=inSize; this.H=H; this.outSize=outSize;
     const s=Math.sqrt(2/(inSize+H))*xavierScale;
     // Initialisation Xavier pour Wz, Wr, Wc : shape [H][H+inSize]
-    this._init=()=>{
-      const mat=(rows,cols,sc)=>Array.from({length:rows},()=>Array.from({length:cols},()=>(Math.random()*2-1)*sc));
-      const vec=(n,sc=0.05)=>Array.from({length:n},()=>(Math.random()*2-1)*sc);
-      return{
-        Wz:mat(H,H+inSize,s), bz:vec(H),
-        Wr:mat(H,H+inSize,s), br:vec(H),
-        Wc:mat(H,H+inSize,s), bc:vec(H),
-        Wo:mat(outSize,H,Math.sqrt(2/H)), bo:vec(outSize),
-      };
+    const mat=(rows,cols,sc)=>Array.from({length:rows},()=>Array.from({length:cols},()=>(Math.random()*2-1)*sc));
+    const vec=(n,sc=0.05)=>Array.from({length:n},()=>(Math.random()*2-1)*sc);
+    this.p={
+      Wz:mat(H,H+inSize,s), bz:vec(H),
+      Wr:mat(H,H+inSize,s), br:vec(H),
+      Wc:mat(H,H+inSize,s), bc:vec(H),
+      Wo:mat(outSize,H,Math.sqrt(2/H)), bo:vec(outSize),
     };
-    this.p=this._init();   // poids
     this.h=new Array(H).fill(0);  // état caché (mémoire)
     this.fitness=0; this.elo=1200;
+  }
+
+  // Instance sans tirage de poids aléatoires (les poids sont fournis ensuite)
+  static _bare(inSize, H, outSize, p){
+    const e=Object.create(GRUExpert.prototype);
+    e.inSize=inSize; e.H=H; e.outSize=outSize; e.p=p;
+    e.h=new Array(H).fill(0); e.fitness=0; e.elo=1200;
+    return e;
   }
 
   // Fonctions d'activation
@@ -836,21 +852,36 @@ class GRUExpert {
   _tanh(x){const e=Math.exp(-2*Math.max(-10,Math.min(10,x)));return(1-e)/(1+e)}
   _matvec(W,b,v){return W.map((row,i)=>b[i]+row.reduce((s,w,j)=>s+w*v[j],0))}
 
+  // Même calcul que la version map/reduce d'origine (mêmes sommes dans le même ordre),
+  // en boucles sans tableaux intermédiaires : ~10× plus rapide.
   forward(x){
     const {Wz,bz,Wr,br,Wc,bc,Wo,bo}=this.p;
-    const H=this.H, h=this.h;
-    const hx=[...h,...x];  // concat [h, x]
-
-    const z=this._matvec(Wz,bz,hx).map(v=>this._sig(v));
-    const r=this._matvec(Wr,br,hx).map(v=>this._sig(v));
-    const rh=h.map((v,i)=>r[i]*v);
-    const cx=[...rh,...x];
-    const c=this._matvec(Wc,bc,cx).map(v=>this._tanh(v));
-    const hNew=h.map((_,i)=>(1-z[i])*h[i]+z[i]*c[i]);
+    const H=this.H, h=this.h, n=x.length;
+    const z=this._z||(this._z=new Array(H)), r=this._r||(this._r=new Array(H));
+    for(let i=0;i<H;i++){
+      const wz=Wz[i], wr=Wr[i];
+      let sz=0, sr=0;
+      for(let j=0;j<H;j++){ sz+=wz[j]*h[j]; sr+=wr[j]*h[j]; }
+      for(let j=0;j<n;j++){ sz+=wz[H+j]*x[j]; sr+=wr[H+j]*x[j]; }
+      z[i]=this._sig(bz[i]+sz); r[i]=this._sig(br[i]+sr);
+    }
+    const hNew=new Array(H);
+    for(let i=0;i<H;i++){
+      const wc=Wc[i];
+      let sc=0;
+      for(let j=0;j<H;j++) sc+=wc[j]*(r[j]*h[j]);
+      for(let j=0;j<n;j++) sc+=wc[H+j]*x[j];
+      const c=this._tanh(bc[i]+sc);
+      hNew[i]=(1-z[i])*h[i]+z[i]*c;
+    }
     this.h=hNew;
-
     // Projection vers outSize
-    const out=this._matvec(Wo,bo,hNew).map(v=>this._tanh(v));
+    const out=new Array(this.outSize);
+    for(let o=0;o<this.outSize;o++){
+      const wo=Wo[o]; let so=0;
+      for(let i=0;i<H;i++) so+=wo[i]*hNew[i];
+      out[o]=this._tanh(bo[o]+so);
+    }
     return out;
   }
 
@@ -871,8 +902,9 @@ class GRUExpert {
   }
 
   clone(){
-    const e=new GRUExpert(this.inSize,this.H,this.outSize);
-    e.p=JSON.parse(JSON.stringify(this.p));
+    const cp=this.p, p={};
+    for(const k in cp) p[k]=Array.isArray(cp[k][0]) ? cp[k].map(r=>r.slice()) : cp[k].slice();
+    const e=GRUExpert._bare(this.inSize,this.H,this.outSize,p);
     e.fitness=this.fitness; e.elo=this.elo;
     return e;
   }
@@ -894,7 +926,7 @@ class GRUExpert {
   }
 
   serialize(){return{inSize:this.inSize,H:this.H,outSize:this.outSize,p:this.p}}
-  static deserialize(d){const e=new GRUExpert(d.inSize,d.H,d.outSize);e.p=d.p;return e}
+  static deserialize(d){return GRUExpert._bare(d.inSize,d.H,d.outSize,d.p)}
   paramCount(){
     const {Wz,Wr,Wc,Wo,bz,br,bc,bo}=this.p;
     return[Wz,Wr,Wc,Wo].reduce((s,m)=>s+m.length*m[0].length,0)
@@ -914,11 +946,17 @@ class DenseLayer {
   // Garde l'entrée et la pré-activation du dernier passage (_lastX/_lastZ) :
   // le PolicyGradientLearner en a besoin pour la rétropropagation.
   forward(x){
-    const z = this.W.map((row,i) => this.b[i] + row.reduce((s,w,j)=>s+w*x[j],0));
+    const W=this.W, b=this.b, n=W.length;
+    const z=new Array(n), y=new Array(n);
+    for(let i=0;i<n;i++){
+      const row=W[i]; let s=0;
+      for(let j=0;j<row.length;j++) s+=row[j]*x[j];
+      z[i]=b[i]+s;
+    }
     this._lastX = x;
     this._lastZ = z;
-    if(this.act==='sigmoid') return z.map(v=>1/(1+Math.exp(-Math.max(-10,Math.min(10,v)))));
-    if(this.act==='relu')    return z.map(v=>v>0?v:v*0.01); // leaky relu
+    if(this.act==='sigmoid'){ for(let i=0;i<n;i++) y[i]=1/(1+Math.exp(-Math.max(-10,Math.min(10,z[i])))); return y; }
+    if(this.act==='relu'){    for(let i=0;i<n;i++) y[i]=z[i]>0?z[i]:z[i]*0.01; return y; } // leaky relu
     return z;
   }
   mutate(rate,power){
@@ -926,10 +964,11 @@ class DenseLayer {
     for(let r=0;r<this.W.length;r++)for(let c=0;c<this.W[r].length;c++)if(Math.random()<rate)this.W[r][c]+=gauss()*power;
     for(let i=0;i<this.b.length;i++)if(Math.random()<rate)this.b[i]+=(Math.random()*2-1)*power*0.5;
   }
-  clone(){const d=new DenseLayer(this.W[0].length,this.W.length,this.act);d.W=JSON.parse(JSON.stringify(this.W));d.b=this.b.slice();return d}
+  static _bare(W,b,act){ const l=Object.create(DenseLayer.prototype); l.W=W; l.b=b; l.act=act; return l; }
+  clone(){ return DenseLayer._bare(this.W.map(r=>r.slice()), this.b.slice(), this.act); }
   static crossover(a,b){const ch=a.clone();const cut=Math.floor(Math.random()*ch.W.length);for(let r=cut;r<ch.W.length;r++){ch.W[r]=b.W[r].slice();ch.b[r]=b.b[r]}return ch}
   serialize(){return{W:this.W,b:this.b,act:this.act}}
-  static deserialize(d){const l=new DenseLayer(d.W[0].length,d.W.length,d.act||'sigmoid');l.W=d.W;l.b=d.b;return l}
+  static deserialize(d){return DenseLayer._bare(d.W, d.b, d.act||'sigmoid')}
   paramCount(){return this.W.length*this.W[0].length+this.b.length}
 }
 
@@ -977,11 +1016,15 @@ class MultiExpertBrain {
   }
 
   forward(inp){
-    const expertOuts=this.experts.map((exp,i)=>{
-      const x=MultiExpertBrain.EXPERT_INPUTS[i].map(idx=>inp[idx]||0);
-      return exp.forward(x);
-    });
-    const arbIn=expertOuts.flat();
+    const EI=MultiExpertBrain.EXPERT_INPUTS;
+    const arbIn=new Array(this.experts.length*this._out);
+    let k=0;
+    for(let i=0;i<this.experts.length;i++){
+      const idx=EI[i], x=new Array(idx.length);
+      for(let j=0;j<idx.length;j++) x[j]=inp[idx[j]]||0;
+      const o=this.experts[i].forward(x);
+      for(let j=0;j<o.length;j++) arbIn[k++]=o[j];
+    }
     const h1=this.arb1.forward(arbIn);
     const h2=this.arb2.forward(h1);
     return this.arb3.forward(h2);
@@ -1007,8 +1050,16 @@ class MultiExpertBrain {
     }
   }
 
+  // Instance vide (sans tirer de poids aléatoires qui seraient aussitôt remplacés)
+  static _bare(H,out,arb){
+    const b=Object.create(MultiExpertBrain.prototype);
+    b._H=H; b._out=out; b._arb=arb; b.fitness=0; b.elo=1200;
+    b.topo=[MultiExpertBrain.N_INPUTS,H,H,H,H,MultiExpertBrain.EXPERT_INPUTS.length*out,arb,arb,MultiExpertBrain.N_OUTPUTS];
+    return b;
+  }
+
   clone(){
-    const b=new MultiExpertBrain(this._H, this._out, this._arb);
+    const b=MultiExpertBrain._bare(this._H, this._out, this._arb);
     b.experts=this.experts.map(e=>e.clone());
     b.arb1=this.arb1.clone();
     b.arb2=this.arb2.clone();
@@ -1053,7 +1104,7 @@ class MultiExpertBrain {
     if(!d) return null;
     // v4 : topologie actuelle (Expert 2 inSize=12, N_INPUTS=26)
     if(d.type==='multi-expert-v4'){
-      const b=new MultiExpertBrain(d._H||12, d._out||4, d._arb||16);
+      const b=MultiExpertBrain._bare(d._H||12, d._out||4, d._arb||16);
       b.experts=d.experts.map(e=>GRUExpert.deserialize(e));
       b.arb1=DenseLayer.deserialize(d.arb1);
       b.arb2=DenseLayer.deserialize(d.arb2);
@@ -2926,6 +2977,22 @@ function selectMutationStrategy(brain, stag, won, hof, best){
   }
 }
 
+// Nouveau candidat : 1 ou 2 experts GRU mutés (la visée plus souvent), plus fort en stagnation.
+// L'arbitre n'est pas muté : il apprend par gradient.
+function mutateExperts(brain, stag){
+  const expl  = Math.min(1 + stag*0.15, 2.5);
+  const rate  = Math.min(evoParams.mutRateLoss*expl, 0.4);
+  const power = Math.min(evoParams.mutPower*expl, 0.6);
+  const pickW = [0.2, 0.4, 0.2, 0.2];
+  const k = Math.random()<0.5 ? 1 : 2;
+  for(let n=0;n<k;n++){
+    let r=Math.random(), idx=0;
+    while(idx<pickW.length-1 && (r-=pickW[idx])>0) idx++;
+    brain.mutate(rate, power, Math.min(idx, brain.experts.length-1));
+  }
+  brain.resetMemory();
+}
+
 // ── MULTI : évolue tous les cerveaux IA après un round ──────────
 // Gère proprement le cas où le même brainId joue plusieurs fois :
 // les deltas ELO et fitness sont moyennés avant application.
@@ -3417,6 +3484,7 @@ function showScreen(name){
   }
   if(name==='lab')updateLabUI();
   if(name==='pvp')renderPVP();
+  updateTrainPill();
   if(name==='training'){renderTraining();}
   if(name==='community'){
     document.getElementById('cfg-repo').value=githubSync.repo;
@@ -4550,9 +4618,23 @@ let trAgentObjs = [];  // ScriptedAgent[]
 let trTrainedId = null;   // cerveau entraîné, figé au démarrage (le sélecteur peut changer)
 let trTrainedName = '';
 let trSession = 0;        // invalide les rounds/timers d'une session arrêtée
-let trEvaluated = null;   // copie du cerveau tel qu'il a joué le dernier round (avant mutation)
 let trStartGen = 1;
 let trSaveChain = Promise.resolve();
+// ── Sélection évolutive appariée ──
+// Après chaque round affiché, des candidats (experts GRU mutés) et le champion jouent en
+// coulisse les MÊMES rounds (même carte, mêmes apparitions, même hasard) : un candidat ne
+// remplace le champion que s'il fait nettement mieux à conditions égales.
+// L'arbitre, lui, apprend par gradient de politique pendant les rounds affichés.
+// Réglages retenus après comparaison de variantes (taux de victoire déterministe vs SERA) :
+// mutation des seuls experts + gradient = progression la plus régulière ; 16 rounds et une
+// marge de 0.1 évitent d'accepter des candidats chanceux (≈25 % acceptés au lieu de 50 %).
+const ES_ROUNDS_SOLO = 16, ES_ROUNDS_POP = 8;
+const ES_MARGIN = 0.1;
+const ES_ENABLED = true;
+const ES_MUTATE_ARBITER = false;
+const ES_USE_PG = true;
+let trPopSize = 1;              // candidats par génération (1 = solo)
+let trEsGen = 0, trEsAccepted = 0, trEsLast = null, trEvolving = false;
 let trTraps = [];      // Trap[]
 let trTrapProj = [];   // projectiles des pièges
 let trHof = [];        // Hall of Fame local
@@ -4604,6 +4686,20 @@ async function renderTrBrainSel(){
       onclick="trSetBrain('${e.id}')">${sanitize((e.name||e.id).substring(0,12))}${e.id===currentBrainId?' ●':''}</button>`).join('');
 }
 
+const roundsLabel = () => Number.isFinite(trConfig.rounds) ? trConfig.rounds : '∞';
+
+// Pastille visible sur les autres écrans pendant un entraînement (revenir d'un clic)
+function updateTrainPill(){
+  const pill=document.getElementById('tr-bg-pill'); if(!pill) return;
+  const onTraining=document.getElementById('training-screen')?.classList.contains('active');
+  pill.style.display = trRunning && !onTraining ? 'block' : 'none';
+  if(trRunning) pill.textContent=`🧠 Entraînement · round ${trRoundsDone}/${roundsLabel()} · ELO ${trBrain?.elo??'?'}`;
+}
+
+// Écran verrouillé / onglet fermé : on sauvegarde la progression en cours
+document.addEventListener('visibilitychange', ()=>{ if(document.hidden && trRunning) saveTrainResults(); });
+window.addEventListener('pagehide', ()=>{ if(trRunning) saveTrainResults(); });
+
 function trSetBrain(id){
   if(trRunning){ toast('Arrête l\'entraînement avant de changer de cerveau'); return; }
   trConfig.brainId=id; renderTrBrainSel();
@@ -4654,8 +4750,6 @@ async function trainingToggle(){
 
 // ================================================================
 //  ÉTAT POPULATION
-let trPopulation = [];       // [{brain, fitness, elo, wins, played}]
-let trPopGeneration = 0;
 let trCurriculumLevel = 1;   // niveau courant
 let trCurriculumWins = 0;    // victoires depuis dernier changement
 let trCurriculumTotal = 0;   // rounds depuis dernier changement
@@ -4703,7 +4797,6 @@ function checkGenerationAdvancement(won, brain, round){
   trGenHistory.push({ gen:brain.generation, elo:brain.elo,
     fitness:Math.round(brain.fitness||0), round, reason });
 
-  brain.mutate(0.06, 0.12); // légère mutation "nouveau souffle"
   toast(`🧬 GÉN. ${brain.generation} — ${reason}`);
   if(document.getElementById('panel-stats')?.style.display !== 'none') renderStats();
 }
@@ -4728,7 +4821,7 @@ async function trainingStart(){
   trBrain.skills={...(entry.skills||{})};
   trBrain.generation=entry.generation||1;
   trStartGen=trBrain.generation;
-  trEvaluated=null;
+  trEsGen=0; trEsAccepted=0; trEsLast=null; trEvolving=false;
   // Attacher le learner par gradient (persistance de l'état Adam)
   trBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
   if(entry.adamState) trBrain.pgLearner.loadAdam(entry.adamState);
@@ -4740,11 +4833,11 @@ async function trainingStart(){
   trBestBrain=null; trHof=[]; trStag=0;
   trRoundsDone=0; trRunning=true;
   trEvoHistory=[]; trGenWinWindow=[]; trGenHistory=[];
-  trConfig.rounds=parseInt(document.getElementById('tr-rounds').value)||100;
+  trConfig.rounds=document.getElementById('tr-infinite')?.checked ? Infinity : (parseInt(document.getElementById('tr-rounds').value)||100);
   trConfig.curriculum=document.getElementById('tr-curriculum').checked;
   trConfig.objective=document.getElementById('tr-objective').value;
   const popMode=document.getElementById('tr-population').checked;
-  const popSize=parseInt(document.getElementById('tr-popsize').value)||20;
+  const popSize=parseInt(document.getElementById('tr-popsize').value)||12;
 
   document.getElementById('tr-start-btn').textContent='■ STOP';
   document.getElementById('tr-status').textContent='';
@@ -4753,20 +4846,7 @@ async function trainingStart(){
   trCurriculumLevel = _curriculumLevel(trBrain.elo);
   trCurriculumWins=0; trCurriculumTotal=0;
 
-  // Mode population : créer N clones mutés du cerveau de base
-  if(popMode){
-    trPopulation=[];
-    for(let i=0;i<popSize;i++){
-      const b=trBrain.clone();
-      if(i>0) b.mutate(0.3,0.4); // varier la pop initiale
-      b.fitness=trBrain.fitness; b.elo=trBrain.elo;
-      if(trBrain.pgLearner) b.pgLearner = new PolicyGradientLearner(0.001, 0.97);
-      trPopulation.push({brain:b,fitness:b.fitness,elo:b.elo,wins:0,played:0,shapedScore:0,totalFrames:0,adamState:null,skills:null});
-    }
-    trPopGeneration=0;
-  } else {
-    trPopulation=[];
-  }
+  trPopSize = popMode ? popSize : 1;
 
   // Agents
   const lvl = trConfig.curriculum ? trCurriculumLevel : trConfig.agents[0].level;
@@ -4787,23 +4867,6 @@ function startTrainRound(){
   const session = trSession;
   if(trRoundsDone>=trConfig.rounds){
     trainingStop(); toast('Entraînement terminé !'); drawTrainGraph(); return;
-  }
-
-  const popMode = trPopulation.length>0;
-
-  // En mode population : choisir le prochain individu à évaluer (round-robin)
-  if(popMode){
-    // Tous les N rounds = 1 génération → sélection + croisement (avant de choisir
-    // l'individu, sinon le round est joué par un cerveau et crédité à un autre)
-    if(trRoundsDone>0 && trRoundsDone % trPopulation.length === 0){
-      _evolvePopulation();
-    }
-    const idx = trRoundsDone % trPopulation.length;
-    const popEntry = trPopulation[idx];
-    trBrain = popEntry.brain;
-    // Attacher/restaurer pgLearner depuis l'état Adam sauvegardé
-    if(!trBrain.pgLearner) trBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
-    if(popEntry.adamState) trBrain.pgLearner.loadAdam(popEntry.adamState);
   }
 
   trRoundTimer=0; trRoundOver=false; trTrapProj=[]; trShapedReward=0;
@@ -4861,7 +4924,7 @@ function startTrainRound(){
   // L'adversaire HoF remplace le 1er entraîneur pour CE round uniquement.
   trHofRoundElo = null;
   const roundAgents = trAgentObjs.slice();
-  if(!popMode && trHof.length > 0 && (trBrain.elo||ELO_BASE) > 1350 && Math.random() < 0.25){
+  if(trHof.length > 0 && (trBrain.elo||ELO_BASE) > 1350 && Math.random() < 0.25){
     const hofBrain = trHof[Math.floor(Math.random()*trHof.length)];
     hofBrain.resetMemory();
     trHofRoundElo = hofBrain.elo || ELO_BASE; // ELO réel de l'adversaire HoF pour onRoundEnd
@@ -4894,7 +4957,11 @@ function startTrainRound(){
     const enemyArrows=trTrainees.slice(1).flatMap(e=>e.arr);
     const inp=aiInputsFor(ce,nearestEnemy,enemyArrows,trRoundTimer);
     const out=trBrain.forward(inp);
-    aiProcessFor(out, ce, nearestEnemy);
+    // Exploration : chaque action est tirée selon la probabilité donnée par le réseau.
+    // E[action]=sortie : le comportement moyen est celui du jeu (déterministe) ;
+    // le gradient apprend des actions réellement jouées.
+    const act=out.map(p=>Math.random()<p?1:0);
+    aiProcessFor(act, ce, nearestEnemy);
     const edx=wrapDX(nearestEnemy.x+nearestEnemy.w/2-(ce.x+ce.w/2));
     const edy=wrapDY(nearestEnemy.y+nearestEnemy.h/2-(ce.y+ce.h/2));
     ce.face=edx<0?-1:1;
@@ -4913,7 +4980,7 @@ function startTrainRound(){
 
     // ── DEEP LEARNING : collecte d'expérience par frame ──────────
     // Récompense delta-based : récompense l'amélioration de la visée, pas la rotation
-    if(trBrain.pgLearner){
+    if(ES_USE_PG && trBrain.pgLearner){
       // Tracking convergence (intérieur du guard : inutile quand pgLearner absent)
       const aimDelta = rs.prevAimDiff !== null ? rs.prevAimDiff - aimDiff : 0;
       rs.prevAimDiff = aimDiff;
@@ -4921,12 +4988,12 @@ function startTrainRound(){
       const pgReward =
         Math.max(0, aimDelta) * 0.05 * _ow.aimPrec   // récompense convergence (pas rotation)
         + (rs.aimHeld > 5 ? 0.006 * _ow.aimPrec : 0) // bonus maintien de la visée stable
-        + (out[5]>0.5 && aimDiff<0.3 ? 0.05*_ow.shootWell : 0)  // tirer bien visé
-        + (out[5]>0.5 && aimDiff>0.8 ? -0.04 : 0)   // pénalité tir raté (renforcée)
-        + (out[2]>0.5 && !ce.gnd ? -0.018 : 0)       // saut en l'air inutile
-        + ((inp[20]<0.07&&out[0]>0.5)||(inp[21]<0.07&&out[1]>0.5) ? -0.025 : 0) // marcher dans le mur
+        + (act[5]>0.5 && aimDiff<0.3 ? 0.05*_ow.shootWell : 0)  // tirer bien visé
+        + (act[5]>0.5 && aimDiff>0.8 ? -0.04 : 0)   // pénalité tir raté (renforcée)
+        + (act[2]>0.5 && !ce.gnd ? -0.018 : 0)       // saut en l'air inutile
+        + ((inp[20]<0.07&&act[0]>0.5)||(inp[21]<0.07&&act[1]>0.5) ? -0.025 : 0) // marcher dans le mur
         + 0.002 * _ow.survival;                       // survie (réduit pour éviter dominance)
-      trBrain.pgLearner.step(out, pgReward, trBrain);
+      trBrain.pgLearner.step(out, pgReward, trBrain, act);
       // Online learning : mise à jour gradient toutes les 60 frames de simulation
       if(trRoundTimer % 60 === 0 && trBrain.pgLearner.buffer.length >= 30){
         trBrain.pgLearner.learnOnline(trBrain);
@@ -4934,9 +5001,9 @@ function startTrainRound(){
     }
 
     // 2. Tirer quand on vise bien : la vraie récompense
-    if(out[5]>0.5 && aimDiff<0.3 && ce.cd===0){
+    if(act[5]>0.5 && aimDiff<0.3 && ce.cd===0){
       trShapedReward += 0.08 * _ow.shootWell;
-    } else if(out[5]>0.5 && aimDiff>0.8){
+    } else if(act[5]>0.5 && aimDiff>0.8){
       trShapedReward -= 0.04; // pénalité tir raté renforcée
     }
 
@@ -4963,7 +5030,7 @@ function startTrainRound(){
 
     // Tracking compétences par frame
     if(ce.cd===0) rs.shootOpps++;
-    if(out[5]>0.5 && ce.cd===0){ rs.shotsFired++; if(aimDiff<0.3) rs.preciseShots++; }
+    if(act[5]>0.5 && ce.cd===0){ rs.shotsFired++; if(aimDiff<0.3) rs.preciseShots++; }
     if(Math.abs(ce.vx)<0.5 && ce.gnd){
       rs.stationaryFrames++;
       trShapedReward += 0.003 * _ow.stationary; // négatif si objectif dodge/mobility
@@ -4975,8 +5042,8 @@ function startTrainRound(){
     if(inp[20]<0.1||inp[21]<0.1) trShapedReward -= 0.008 * _ow.wall;
 
     // 6. Anti-spam : pénalités comportements inutiles
-    if(out[2]>0.5 && !ce.gnd)                                            trShapedReward -= 0.018;
-    if((inp[20]<0.07&&out[0]>0.5)||(inp[21]<0.07&&out[1]>0.5))          trShapedReward -= 0.025;
+    if(act[2]>0.5 && !ce.gnd)                                            trShapedReward -= 0.018;
+    if((inp[20]<0.07&&act[0]>0.5)||(inp[21]<0.07&&act[1]>0.5))          trShapedReward -= 0.025;
 
     // 7. Tracking changement de plateforme
     if(ce.gnd){
@@ -5059,19 +5126,6 @@ function startTrainRound(){
     trBrain.skills  = updateSkills(trBrain.skills||{}, rs, trRoundTimer);
     trBrain.fitness = computeGlobalFitness(trBrain.skills);
 
-    // Mode population : stocker le score pour sélection
-    if(popMode){
-      const popIdx = (trRoundsDone - 1 + trPopulation.length) % trPopulation.length;
-      trPopulation[popIdx].shapedScore += totalGain;
-      trPopulation[popIdx].totalFrames  = (trPopulation[popIdx].totalFrames||0) + trRoundTimer;
-      trPopulation[popIdx].played++;
-      if(won) trPopulation[popIdx].wins++;
-      trPopulation[popIdx].fitness = trBrain.fitness;
-      trPopulation[popIdx].elo    = trBrain.elo;
-      trPopulation[popIdx].skills = trBrain.skills ? {...trBrain.skills} : {};
-      if(trBrain.pgLearner) trPopulation[popIdx].adamState = trBrain.pgLearner.serializeAdam();
-    }
-
     if(won){
       if(!trBestBrain||trBrain.fitness>=(trBestBrain.fitness||0)) trBestBrain=trBrain.clone();
       trHof.push(trBrain.clone());
@@ -5090,7 +5144,7 @@ function startTrainRound(){
     trBrain.elo=Math.max(400,eloUpdate(prevElo,eloExpected(prevElo,agentElo),won?1:0,trRoundsDone));
 
     // ── Vérification palier de génération ────────────────────────
-    if(!popMode) checkGenerationAdvancement(won, trBrain, trRoundsDone);
+    checkGenerationAdvancement(won, trBrain, trRoundsDone);
 
     // ── Mise à jour état émotionnel ───────────────────────────────
     if(won){
@@ -5107,7 +5161,7 @@ function startTrainRound(){
     }
 
     // ── Roleplay : quote personnalité + entraîneur ────────────────
-    if(!popMode){
+    {
       // Toast personnalité du cerveau (victoire / défaite)
       if(trRoundsDone % 5 === 0)
         setTimeout(()=>personalityToast(won?'win':'lose'), 400);
@@ -5130,29 +5184,17 @@ function startTrainRound(){
     // ── DEEP LEARNING : gradient update avant mutation ────────────
     // Le policy gradient affine les couches d'arbitrage par gradient réel.
     // L'évolution (mutation) affine ensuite les experts GRU.
-    if(trBrain.pgLearner){
+    if(ES_USE_PG && trBrain.pgLearner){
       const pgResult = trBrain.pgLearner.learn(trBrain, won ? 3.0 : -3.0);
       if(pgResult && trRoundsDone % 5 === 0){
         console.log(`[PG Round ${trRoundsDone}] loss=${pgResult.loss.toFixed(4)} |∇|=${pgResult.gradNorm.toFixed(5)}`);
       }
     }
 
-    // Copie du cerveau tel qu'il vient de jouer : c'est elle qu'on sauvegarde
-    // (la mutation qui suit produit un candidat pas encore évalué)
-    if(!popMode){
-      trEvaluated = trBrain.clone();
-      trEvaluated.skills = {...(trBrain.skills||{})};
-      trEvaluated.generation = trBrain.generation;
-      selectMutationStrategy(trBrain,trStag,won,trHof,trBestBrain);
-    }
+    // Sélection appariée en coulisse (une génération à la fois)
+    if(ES_ENABLED && !trEvolving) runEvolutionStep(session);
 
-    if(popMode && trPopulation.length > 0){
-      const elos = trPopulation.map(p=>p.elo||ELO_BASE);
-      trEvoHistory.push({round:trRoundsDone, elo:trBrain.elo, fitness:Math.round(trBrain.fitness),
-        eloMin:Math.min(...elos), eloMax:Math.max(...elos)});
-    } else {
-      trEvoHistory.push({round:trRoundsDone, elo:trBrain.elo, fitness:Math.round(trBrain.fitness)});
-    }
+    trEvoHistory.push({round:trRoundsDone, elo:trBrain.elo, fitness:Math.round(trBrain.fitness)});
 
     const td=TRAINER_DATA[_trainerLevel-1]||TRAINER_DATA[0];
     const lvlLabel=trConfig.curriculum?td.name:td.name;
@@ -5163,23 +5205,17 @@ function startTrainRound(){
       : '';
     const objLabel = trConfig.objective && trConfig.objective !== 'balanced'
       ? ` · ${trConfig.objective.toUpperCase()}` : '';
-    if(popMode){
-      const popElos = trPopulation.map(p=>p.elo||ELO_BASE);
-      const popMean = Math.round(popElos.reduce((a,b)=>a+b,0)/popElos.length);
-      const bestElo = Math.max(...popElos);
-      document.getElementById('tr-status').textContent=
-        `Gén ${trPopGeneration} · Round ${trRoundsDone}/${trConfig.rounds} · Champion ${bestElo} · Moy ${popMean}${pgInfo}${objLabel}`;
-    } else {
-      document.getElementById('tr-status').textContent=
-        `Round ${trRoundsDone}/${trConfig.rounds} · ELO ${trBrain.elo} · ${lvlLabel} ${wr}%${pgInfo}${objLabel}`;
-    }
+    const esInfo = ` · 🧬 ${trEsGen} gén. (${trEsAccepted} progrès)`;
+    document.getElementById('tr-status').textContent=
+      `Round ${trRoundsDone}/${roundsLabel()} · ELO ${trBrain.elo} · ${lvlLabel} ${wr}%${esInfo}${pgInfo}${objLabel}`;
 
     if(trRoundsDone%10===0) saveTrainResults();
     else _syncActiveBrainLive(); // sync RAM sans écrire disque
+    updateTrainPill();
     if(trRoundsDone%5===0&&document.getElementById('panel-graph')?.style.display!=='none') drawTrainGraph();
 
     // Toujours async pour éviter stack overflow en MAX speed
-    setTimeout(()=>{ if(session===trSession) startTrainRound(); }, 0);
+    yieldThen(()=>{ if(session===trSession) startTrainRound(); });
   }
 
   // Exécution
@@ -5190,8 +5226,8 @@ function startTrainRound(){
     const runChunk=()=>{
       if(!trRunning||session!==trSession) return;
       const t0=performance.now();
-      while(!trRoundOver && performance.now()-t0<12) runStep();
-      if(trRoundOver) onRoundEnd(); else setTimeout(runChunk,0);
+      while(!trRoundOver && performance.now()-t0<14) runStep();
+      if(trRoundOver) onRoundEnd(); else yieldThen(runChunk);
     };
     runChunk();
   } else {
@@ -5214,98 +5250,93 @@ function startTrainRound(){
   }
 }
 
-// ── Évolution de la population (appelée chaque génération) ───────
-function _evolvePopulation(){
-  trPopGeneration++;
-  const N=trPopulation.length;
-  const keep=Math.max(2,Math.floor(N*0.25)); // garder top 25%
-
-  // Trier par gain moyen par round joué
-  trPopulation.sort((a,b)=>popScore(b)-popScore(a));
-
-  // Le meilleur devient le nouveau trBrain
-  const champion=trPopulation[0];
-  trBrain=champion.brain.clone();
-  trBrain.fitness=champion.fitness;
-  trBrain.elo=champion.elo;
-  trBrain.skills=champion.skills ? {...champion.skills} : {};
-  // Transférer l'état Adam du champion
-  trBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
-  if(champion.adamState) trBrain.pgLearner.loadAdam(champion.adamState);
-
-  // Sauvegarder le champion toutes les 5 générations
-  if(trPopGeneration%5===0){
-    saveTrainResults();
-    toast(`Gén ${trPopGeneration} · Champion ELO ${trBrain.elo} · Win ${champion.played>0?Math.round(champion.wins/champion.played*100):0}%`);
+// ── Sélection évolutive appariée ─────────────────────────────────
+// Round d'évaluation déterministe et sans rendu : cerveau contre entraîneur scripté.
+// Score : défaite -1 (jusqu'à -0.5 si tardive), temps écoulé 0, victoire +1 (jusqu'à 1.5 si rapide).
+function simEvalRound(brain, level, def){
+  const A=new Arena(def);
+  const sp=A.randomSpawns(2);
+  const me=new Ent(sp[0].x,sp[0].y,'#60c8ff',true,A), op=new Ent(sp[1].x,sp[1].y,'#ff4444',true,A);
+  const ag=new ScriptedAgent(level);
+  brain.resetMemory();
+  const T=60*20;
+  for(let t=1;t<=T;t++){
+    aiProcessFor(brain.forward(aiInputsFor(me,op,op.arr,t)), me, op);
+    me.face=wrapDX(op.x-me.x)<0?-1:1;
+    me.update();
+    ag.act(op,me,me.arr,[],t); op.update();
+    for(const a of op.arr) if(!a.st && arrowHitsEnt(a,me)) return -1 + 0.5*t/T;
+    for(const a of me.arr) if(!a.st && arrowHitsEnt(a,op)) return 1 + 0.5*(1-t/T);
   }
-
-  // Reconstruire la population : élite + croisements + mutations
-  const elite=trPopulation.slice(0,keep);
-  const newPop=[];
-
-  // 1. Garder l'élite — copier pgLearner et skills
-  for(const e of elite){
-    const b=e.brain.clone();
-    b.fitness=e.fitness; b.elo=e.elo;
-    b.pgLearner = new PolicyGradientLearner(0.001, 0.97);
-    if(e.adamState) b.pgLearner.loadAdam(e.adamState);
-    newPop.push({brain:b,fitness:b.fitness,elo:b.elo,wins:0,played:0,shapedScore:0,
-                 totalFrames:0,adamState:e.adamState||null,skills:e.skills?{...e.skills}:{}});
-  }
-
-  // 2. Croisements élite × élite
-  while(newPop.length<Math.floor(N*0.6)){
-    const a=elite[Math.floor(Math.random()*elite.length)];
-    const b=elite[Math.floor(Math.random()*elite.length)];
-    const child=MultiExpertBrain.crossover(a.brain,b.brain);
-    child.mutate(evoParams.mutRateWin,evoParams.mutPower);
-    child.fitness=(a.fitness+b.fitness)/2;
-    child.elo=Math.round((a.elo+b.elo)/2);
-    child.pgLearner = new PolicyGradientLearner(0.001, 0.97);
-    const bestP = a.fitness >= b.fitness ? a : b;
-    if(bestP.brain.pgLearner) child.pgLearner.baseline = bestP.brain.pgLearner.baseline;
-    newPop.push({brain:child,fitness:child.fitness,elo:child.elo,wins:0,played:0,shapedScore:0,
-                 totalFrames:0,adamState:null,skills:{}});
-  }
-
-  // 3. Remplir le reste avec mutations aléatoires de l'élite
-  while(newPop.length<N){
-    const src=elite[Math.floor(Math.random()*elite.length)];
-    const child=src.brain.clone();
-    child.mutate(evoParams.mutRateLoss,evoParams.mutPower*1.5);
-    child.fitness=src.fitness; child.elo=src.elo;
-    child.pgLearner = new PolicyGradientLearner(0.001, 0.97);
-    newPop.push({brain:child,fitness:child.fitness,elo:child.elo,wins:0,played:0,shapedScore:0,
-                 totalFrames:0,adamState:null,skills:{}});
-  }
-
-  // Injection de diversité : remplacer bottom 10% par des cerveaux fortement mutés
-  const freshCount = Math.max(1, Math.floor(N * 0.10));
-  for(let d=0; d<freshCount; d++){
-    const replIdx = newPop.length - 1 - d;
-    const base = trBestBrain || trHof[0] || champion.brain;
-    const fresh = base.clone();
-    fresh.mutate(0.5, 0.6);
-    fresh.pgLearner = new PolicyGradientLearner(0.001, 0.97);
-    fresh.fitness = champion.fitness * 0.5;
-    fresh.elo     = champion.elo;
-    newPop[replIdx] = {brain:fresh,fitness:fresh.fitness,elo:fresh.elo,wins:0,played:0,shapedScore:0,
-                       totalFrames:0,adamState:null,skills:{}};
-  }
-
-  trPopulation=newPop;
-
-  // Mettre à jour le HoF avec les meilleurs de l'élite
-  for(const e of elite.slice(0,3)){
-    trHof.push(e.brain.clone());
-  }
-  trHof.sort((a,b)=>(b.elo||0)-(a.elo||0));
-  if(trHof.length>evoParams.hofSize) trHof.length=evoParams.hofSize;
-  trBestBrain=trHof[0]||trBestBrain;
+  return 0;
 }
-// Score d'un individu de la population : gain moyen par round joué
-function popScore(p){ return p.played>0 ? p.shapedScore/p.played : -Infinity; }
-function popBest(){ return trPopulation.reduce((best,c)=>popScore(c)>popScore(best)?c:best, trPopulation[0]); }
+
+// Fait jouer à chaque cerveau les mêmes rounds (même carte, apparitions et hasard des
+// entraîneurs, via un Math.random graine pendant chaque round). Rend la main toutes les ~12 ms.
+async function evalPaired(brains, level, rounds, isAlive){
+  const scores=new Array(brains.length).fill(0);
+  const seed=(Math.random()*2147483647)|0;
+  let t0=performance.now();
+  for(let r=0;r<rounds;r++){
+    const def = trConfig.map==='random' ? ARENA_DEFS[(seed+r)%ARENA_DEFS.length] : arenaById(trConfig.map);
+    for(let b=0;b<brains.length;b++){
+      const saved=Math.random;
+      Math.random=mulberry32(seed+r*7919);
+      try{ scores[b]+=simEvalRound(brains[b], level, def); } finally { Math.random=saved; }
+      if(performance.now()-t0>12){
+        await new Promise(res=>yieldThen(res));
+        if(!isAlive()) return null;
+        t0=performance.now();
+      }
+    }
+  }
+  return scores.map(v=>v/rounds);
+}
+
+// Une génération : le champion (= cerveau entraîné) contre trPopSize candidats mutés
+async function runEvolutionStep(session){
+  if(trEvolving) return;
+  trEvolving=true;
+  try{
+    const lambda=Math.max(1,trPopSize);
+    const rounds=lambda>1?ES_ROUNDS_POP:ES_ROUNDS_SOLO;
+    const champ=trBrain.clone();
+    const cands=[champ];
+    for(let k=0;k<lambda;k++){
+      const c=champ.clone();
+      mutateExperts(c, trStag);
+      if(ES_MUTATE_ARBITER){
+        const expl=Math.min(1+trStag*0.15,2.5);
+        const rate=Math.min(evoParams.mutRateWin*2*expl,0.3), power=Math.min(evoParams.mutPower*0.6*expl,0.4);
+        c.arb1.mutate(rate,power); c.arb2.mutate(rate,power); c.arb3.mutate(rate*0.7,power*0.7);
+      }
+      cands.push(c);
+    }
+    const level=trConfig.curriculum ? trCurriculumLevel : (trAgentObjs[0]?.level||1);
+    const scores=await evalPaired(cands, level, rounds, ()=>trRunning && session===trSession);
+    if(!scores) return;
+    trEsGen++;
+    let best=0;
+    for(let k=1;k<scores.length;k++) if(scores[k]>scores[best]) best=k;
+    trEsLast={champ:scores[0], best:scores[best], level};
+    if(best>0 && scores[best] > scores[0] + ES_MARGIN){
+      const w=cands[best];
+      trBrain.experts=w.experts.map(e=>e.clone());
+      if(ES_MUTATE_ARBITER){ trBrain.arb1=w.arb1.clone(); trBrain.arb2=w.arb2.clone(); trBrain.arb3=w.arb3.clone(); }
+      trBrain.resetMemory();
+      trEsAccepted++; trStag=0;
+    } else trStag++;
+  } finally {
+    trEvolving=false;
+  }
+}
+
+// Rend la main au navigateur puis continue (MessageChannel : sans le délai minimal
+// de 4 ms que setTimeout impose aux appels imbriqués)
+const _yieldChan = new MessageChannel(); const _yieldQ = [];
+_yieldChan.port1.onmessage = () => { const f=_yieldQ.shift(); if(f) f(); };
+function yieldThen(f){ _yieldQ.push(f); _yieldChan.port2.postMessage(0); }
+
 
 function _curriculumLevel(elo){
   if(elo<1300) return 1;
@@ -5325,6 +5356,7 @@ function trainingStop(){
   if(cv2) cv2.style.display='none';
   saveTrainResults();
   renderTrBrainSel();
+  updateTrainPill();
 }
 
 // Les sauvegardes sont enchaînées : deux lecture-modification-écriture ne se croisent jamais
@@ -5340,30 +5372,17 @@ async function _saveTrainResults(){
   const entry=await store.get('brains',trTrainedId);
   if(!entry) return;
 
-  // Mode population : champion = meilleur gain moyen ; sinon le cerveau tel qu'il a joué
-  let champEntry = null;
-  let brainToSave;
-  if(trPopulation.length>0){
-    champEntry = popBest();
-    brainToSave = champEntry?.brain || trBrain;
-  } else {
-    brainToSave = trEvaluated || trBrain;
-  }
-
+  // Le cerveau entraîné est toujours le champion de la sélection appariée
+  const brainToSave = trBrain;
   entry.brain      = brainToSave.serialize();
   entry.fitness    = brainToSave.fitness;
   entry.elo        = brainToSave.elo;
   entry.peakElo    = Math.max(entry.peakElo||0, entry.elo);
-  entry.skills     = (champEntry?.skills) || brainToSave.skills || trBrain.skills || {};
+  entry.skills     = brainToSave.skills || {};
   entry.personality= trBrainPersonality;
-  // Génération = paliers d'objectifs atteints (solo) ou générations de population
-  entry.generation = trPopulation.length>0
-    ? trStartGen + trPopGeneration
-    : Math.max(entry.generation||1, brainToSave.generation||1);
-  // Sauvegarder l'état Adam : utiliser celui du champion en mode pop
-  const adamToSave = trPopulation.length>0
-    ? (champEntry?.adamState || trBrain?.pgLearner?.serializeAdam())
-    : trBrain?.pgLearner?.serializeAdam();
+  // Génération = paliers d'objectifs atteints
+  entry.generation = Math.max(entry.generation||1, brainToSave.generation||1);
+  const adamToSave = trBrain?.pgLearner?.serializeAdam();
   if(adamToSave) entry.adamState = adamToSave;
   await store.put('brains', entry);
 
@@ -5381,10 +5400,7 @@ async function _saveTrainResults(){
 // Sync légère après chaque round (sans écrire dans IndexedDB)
 function _syncActiveBrainLive(){
   if(trTrainedId!==currentBrainId) return;
-  // En mode pop : utiliser le meilleur individu évalué jusqu'ici
-  const src = trPopulation.length>0
-    ? (popBest()?.brain || trBrain)
-    : (trEvaluated || trBrain);
+  const src = trBrain;
   activeBrain = src.clone();
   activeBrain.fitness = src.fitness;
   activeBrain.elo     = src.elo;
@@ -5414,10 +5430,10 @@ function drawTrainFrame(){
   ctx.fillStyle='rgba(13,8,24,0.7)';ctx.fillRect(0,0,W,24);
   ctx.font='bold 11px monospace';ctx.textAlign='left';
   ctx.fillStyle=SLOT_COLORS[0];
-  const popInfo=trPopulation.length>0?` · Pop gén ${trPopGeneration}`:'';
+  const popInfo=trEsGen>0?` · 🧬 gén ${trEsGen}`:'';
   ctx.fillText(`CERVEAU ELO ${trBrain?.elo||'?'}${popInfo}`,8,16);
   ctx.fillStyle='#8060c0';ctx.textAlign='right';
-  ctx.fillText(`${trArena.name} · Round ${trRoundsDone+1}/${trConfig.rounds}`,W-8,16);
+  ctx.fillText(`${trArena.name} · Round ${trRoundsDone+1}/${roundsLabel()}`,W-8,16);
   if(_trainerLevel){
     const td=TRAINER_DATA[_trainerLevel-1];
     ctx.fillStyle=td.color; ctx.textAlign='center';
@@ -5489,8 +5505,7 @@ function drawTrainGraph(){
 
   // Radar des compétences
   const rc=document.getElementById('brain-radar');
-  const skillsToShow = (trPopulation.length>0 && trPopulation[0]?.skills)
-    ? trPopulation[0].skills : trBrain?.skills;
+  const skillsToShow = trBrain?.skills;
   if(rc && skillsToShow){
     const ctx2=rc.getContext('2d');
     ctx2.fillStyle='#10081e'; ctx2.fillRect(0,0,rc.width,rc.height);
@@ -6113,14 +6128,17 @@ class PolicyGradientLearner {
     this.lossHist= [];
     this.gradNorm= 0;
     this.roundsLearned = 0;
+    this.entropyBeta = 0.01; // pousse à garder un peu d'exploration
   }
 
-  step(logits, reward, brain){
+  // actions : actions réellement jouées (échantillonnées à l'entraînement) ;
+  // par défaut l'action déterministe p>0.5 (jeu PvP).
+  step(logits, reward, brain, actions=null){
     if(this.buffer.length >= 2500) return;
     if(!brain.arb1?._lastX) return;
     this.buffer.push({
       logits : logits.slice(),
-      actions: logits.map(p => p > 0.5 ? 1 : 0),
+      actions: actions ? actions.slice() : logits.map(p => p > 0.5 ? 1 : 0),
       reward,
       a1x: brain.arb1._lastX.slice(), a1z: brain.arb1._lastZ.slice(),
       a2x: brain.arb2._lastX.slice(), a2z: brain.arb2._lastZ.slice(),
@@ -6160,29 +6178,6 @@ class PolicyGradientLearner {
     return true;
   }
 
-  _backDense(layer, cache, dOut){
-    const {x, z} = cache;
-    const dz = dOut.map((da,i) => {
-      if(layer.act==='relu') return da * (z[i] > 0 ? 1 : 0.01);
-      if(layer.act==='sigmoid'){
-        const s = 1/(1+Math.exp(-Math.max(-10,Math.min(10,z[i]))));
-        return da * s * (1-s);
-      }
-      return da;
-    });
-    const dW = layer.W.map((row,i) => row.map((_,j) => dz[i] * x[j]));
-    const db = dz.slice();
-    const dX = x.map((_,j) => layer.W.reduce((s,row,i) => s + row[j]*dz[i], 0));
-    return {dW, db, dX};
-  }
-
-  _backDensePreAct(layer, x, dz){
-    const dW = layer.W.map((row,i) => row.map((_,j) => dz[i] * x[j]));
-    const db = dz.slice();
-    const dX = x.map((_,j) => layer.W.reduce((s,row,i) => s + row[j]*dz[i], 0));
-    return {dW, db, dX};
-  }
-
   _adam(state, W, dW, b, db){
     const b1=0.9, b2=0.999, eps=1e-8;
     const t = this.adamT;
@@ -6210,50 +6205,79 @@ class PolicyGradientLearner {
     }
   }
 
+  // Gradients moyens de -A·log π(a) (+ bonus d'entropie) sur arb3 → arb2 → arb1.
+  // Tampons typés accumulés en place : aucune matrice allouée par pas de temps.
+  _gradients(brain, batch, adv){
+    const layers=[brain.arb1, brain.arb2, brain.arb3];
+    const gW=layers.map(L=>L.W.map(r=>new Float64Array(r.length)));
+    const gb=layers.map(L=>new Float64Array(L.b.length));
+    const dz=layers.map(L=>new Float64Array(L.b.length));
+    const dx=layers.map(L=>new Float64Array(L.W[0].length));
+    const ENT=this.entropyBeta;
+    let loss=0;
+    for(let t=0;t<batch.length;t++){
+      const e=batch[t], A=adv[t], d3=dz[2];
+      for(let i=0;i<d3.length;i++){
+        const p=Math.min(1-1e-6,Math.max(1e-6,e.logits[i])), a=e.actions[i];
+        // sortie sigmoïde : d(-A·log π)/dz = -A·(a-p) ; entropie : dH/dz = p(1-p)·ln((1-p)/p)
+        d3[i] = -A*(a-p) - (ENT ? ENT*p*(1-p)*Math.log((1-p)/p) : 0);
+        loss -= (a*Math.log(p)+(1-a)*Math.log(1-p))*Math.abs(A);
+      }
+      PolicyGradientLearner._back(layers[2].W, e.a3x, d3, gW[2], gb[2], dx[2]);
+      PolicyGradientLearner._actGrad(layers[1].act, e.a2z, dx[2], dz[1]);
+      PolicyGradientLearner._back(layers[1].W, e.a2x, dz[1], gW[1], gb[1], dx[1]);
+      PolicyGradientLearner._actGrad(layers[0].act, e.a1z, dx[1], dz[0]);
+      PolicyGradientLearner._back(layers[0].W, e.a1x, dz[0], gW[0], gb[0], dx[0]);
+    }
+    const inv=1/batch.length;
+    for(let k=0;k<3;k++){ for(const r of gW[k]) for(let j=0;j<r.length;j++) r[j]*=inv; for(let i=0;i<gb[k].length;i++) gb[k][i]*=inv; }
+    return {gW, gb, loss:loss*inv};
+  }
+
+  // Couche dense : accumule dW (+= d·xᵀ), db (+= d) et calcule DX = Wᵀ·d
+  static _back(W, x, d, GW, GB, DX){
+    DX.fill(0);
+    for(let i=0;i<W.length;i++){
+      const di=d[i];
+      GB[i]+=di;
+      const row=W[i], gr=GW[i];
+      for(let j=0;j<row.length;j++){ gr[j]+=di*x[j]; DX[j]+=row[j]*di; }
+    }
+  }
+  // Gradient à travers l'activation : dz = dy · f'(z)
+  static _actGrad(act, z, dy, dz){
+    if(act==='relu'){ for(let i=0;i<dz.length;i++) dz[i]=dy[i]*(z[i]>0?1:0.01); }
+    else if(act==='sigmoid'){ for(let i=0;i<dz.length;i++){ const s=1/(1+Math.exp(-Math.max(-10,Math.min(10,z[i])))); dz[i]=dy[i]*s*(1-s); } }
+    else { for(let i=0;i<dz.length;i++) dz[i]=dy[i]; }
+  }
+
+  // Applique Adam si les gradients sont finis ; renvoie false sinon (mise à jour refusée)
+  _apply(brain, g, lrScale=1){
+    if(!this._finiteGrads(...g.gW, g.gb)) return false;
+    this.adamT++;
+    const savedLr=this.lr; this.lr=savedLr*lrScale;
+    this._adam(this.adamS.arb3, brain.arb3.W, g.gW[2], brain.arb3.b, g.gb[2]);
+    this._adam(this.adamS.arb2, brain.arb2.W, g.gW[1], brain.arb2.b, g.gb[1]);
+    this._adam(this.adamS.arb1, brain.arb1.W, g.gW[0], brain.arb1.b, g.gb[0]);
+    this.lr=savedLr;
+    let sq=0; for(const r of g.gW[2]) for(const v of r) sq+=v*v;
+    this.gradNorm=Math.sqrt(sq+1e-8);
+    this.lossHist.push(g.loss);
+    if(this.lossHist.length > 30) this.lossHist.shift();
+    return true;
+  }
+
+  // Fin de round : tout le tampon, avec le bonus/malus de victoire sur le dernier pas
   learn(brain, terminalReward=0){
     const n = this.buffer.length;
     if(n < 15){ this.buffer = []; return null; }
-    if(terminalReward !== 0)
-      this.buffer[n-1].reward += terminalReward;
+    if(terminalReward !== 0) this.buffer[n-1].reward += terminalReward;
     const adv = this._computeAdvantage();
-    this.adamT++;
-    const zeroLike2d = M => M.map(r => r.map(()=>0));
-    const zeroLike1d = v => v.map(()=>0);
-    let dW3=zeroLike2d(brain.arb3.W), db3=zeroLike1d(brain.arb3.b);
-    let dW2=zeroLike2d(brain.arb2.W), db2=zeroLike1d(brain.arb2.b);
-    let dW1=zeroLike2d(brain.arb1.W), db1=zeroLike1d(brain.arb1.b);
-    let totalLoss = 0;
-    for(let t=0; t<n; t++){
-      const {logits, actions, a1x, a1z, a2x, a2z, a3x} = this.buffer[t];
-      const A = adv[t];
-      const dz3 = logits.map((p,i) => -A * (actions[i] - p));
-      totalLoss += logits.reduce((s,p,i) =>
-        s - (actions[i]*Math.log(p+1e-8) + (1-actions[i])*Math.log(1-p+1e-8)), 0
-      ) * Math.abs(A);
-      const r3 = this._backDensePreAct(brain.arb3, a3x, dz3);
-      const r2 = this._backDense(brain.arb2, {x:a2x, z:a2z}, r3.dX);
-      const r1 = this._backDense(brain.arb1, {x:a1x, z:a1z}, r2.dX);
-      for(let i=0;i<dW3.length;i++) for(let j=0;j<dW3[i].length;j++) dW3[i][j]+=r3.dW[i][j];
-      for(let i=0;i<db3.length;i++) db3[i]+=r3.db[i];
-      for(let i=0;i<dW2.length;i++) for(let j=0;j<dW2[i].length;j++) dW2[i][j]+=r2.dW[i][j];
-      for(let i=0;i<db2.length;i++) db2[i]+=r2.db[i];
-      for(let i=0;i<dW1.length;i++) for(let j=0;j<dW1[i].length;j++) dW1[i][j]+=r1.dW[i][j];
-      for(let i=0;i<db1.length;i++) db1[i]+=r1.db[i];
-    }
-    const avg2d = M => M.map(r => r.map(v => v/n));
-    const avg1d = v => v.map(x => x/n);
-    const gdW3 = avg2d(dW3), gdW2 = avg2d(dW2), gdW1 = avg2d(dW1);
-    if(!this._finiteGrads(gdW3, gdW2, gdW1, [db1, db2, db3])){ this.buffer = []; return null; }
-    this._adam(this.adamS.arb3, brain.arb3.W, gdW3, brain.arb3.b, avg1d(db3));
-    this._adam(this.adamS.arb2, brain.arb2.W, gdW2, brain.arb2.b, avg1d(db2));
-    this._adam(this.adamS.arb1, brain.arb1.W, gdW1, brain.arb1.b, avg1d(db1));
-    this.gradNorm = Math.sqrt(gdW3.flat().reduce((s,v)=>s+v*v,0) + 1e-8);
-    const avgLoss = totalLoss / n;
-    this.lossHist.push(avgLoss);
-    if(this.lossHist.length > 30) this.lossHist.shift();
-    this.roundsLearned++;
+    const g = this._gradients(brain, this.buffer, adv);
     this.buffer = [];
-    return {loss: avgLoss, gradNorm: this.gradNorm};
+    if(!this._apply(brain, g)) return null;
+    this.roundsLearned++;
+    return {loss: g.loss, gradNorm: this.gradNorm};
   }
 
   // Mise à jour en ligne toutes les ~60 frames (pendant le jeu)
@@ -6261,63 +6285,16 @@ class PolicyGradientLearner {
   learnOnline(brain, nStep=60, lrScale=0.3){
     const n = Math.min(nStep, this.buffer.length);
     if(n < 15) return null;
-
-    // Extraire les n entrées les plus anciennes
     const batch = this.buffer.splice(0, n);
-
     // Retours tronqués n-step, bootstrappés sur la baseline courante
     const G = new Array(n);
     let run = this.baseline;
-    for(let t = n-1; t >= 0; t--){
-      run = batch[t].reward + this.gamma * run;
-      G[t] = run;
-    }
+    for(let t = n-1; t >= 0; t--){ run = batch[t].reward + this.gamma * run; G[t] = run; }
     const adv = this._advantageFromReturns(G);
-
-    this.adamT++;
-    const savedLr = this.lr;
-    this.lr = savedLr * lrScale;
-
-    const zeroLike2d = M => M.map(r => r.map(()=>0));
-    const zeroLike1d = v => v.map(()=>0);
-    let dW3=zeroLike2d(brain.arb3.W), db3=zeroLike1d(brain.arb3.b);
-    let dW2=zeroLike2d(brain.arb2.W), db2=zeroLike1d(brain.arb2.b);
-    let dW1=zeroLike2d(brain.arb1.W), db1=zeroLike1d(brain.arb1.b);
-    let totalLoss = 0;
-
-    for(let t=0; t<n; t++){
-      const {logits, actions, a1x, a1z, a2x, a2z, a3x} = batch[t];
-      const A = adv[t];
-      const dz3 = logits.map((p,i) => -A*(actions[i]-p));
-      totalLoss += logits.reduce((s,p,i) =>
-        s - (actions[i]*Math.log(p+1e-8) + (1-actions[i])*Math.log(1-p+1e-8)), 0
-      ) * Math.abs(A);
-      const r3 = this._backDensePreAct(brain.arb3, a3x, dz3);
-      const r2 = this._backDense(brain.arb2, {x:a2x, z:a2z}, r3.dX);
-      const r1 = this._backDense(brain.arb1, {x:a1x, z:a1z}, r2.dX);
-      for(let i=0;i<dW3.length;i++) for(let j=0;j<dW3[i].length;j++) dW3[i][j]+=r3.dW[i][j];
-      for(let i=0;i<db3.length;i++) db3[i]+=r3.db[i];
-      for(let i=0;i<dW2.length;i++) for(let j=0;j<dW2[i].length;j++) dW2[i][j]+=r2.dW[i][j];
-      for(let i=0;i<db2.length;i++) db2[i]+=r2.db[i];
-      for(let i=0;i<dW1.length;i++) for(let j=0;j<dW1[i].length;j++) dW1[i][j]+=r1.dW[i][j];
-      for(let i=0;i<db1.length;i++) db1[i]+=r1.db[i];
-    }
-
-    const avg2d = M => M.map(r => r.map(v=>v/n));
-    const avg1d = v => v.map(x=>x/n);
-    const gdW3=avg2d(dW3), gdW2=avg2d(dW2), gdW1=avg2d(dW1);
-    if(!this._finiteGrads(gdW3, gdW2, gdW1, [db1, db2, db3])){ this.lr = savedLr; return null; }
-    this._adam(this.adamS.arb3, brain.arb3.W, gdW3, brain.arb3.b, avg1d(db3));
-    this._adam(this.adamS.arb2, brain.arb2.W, gdW2, brain.arb2.b, avg1d(db2));
-    this._adam(this.adamS.arb1, brain.arb1.W, gdW1, brain.arb1.b, avg1d(db1));
-    this.gradNorm = Math.sqrt(gdW3.flat().reduce((s,v)=>s+v*v,0) + 1e-8);
-    this.lr = savedLr;
-
-    const avgLoss = totalLoss / n;
-    this.lossHist.push(avgLoss);
-    if(this.lossHist.length > 30) this.lossHist.shift();
+    const g = this._gradients(brain, batch, adv);
+    if(!this._apply(brain, g, lrScale)) return null;
     this.onlineLearned = (this.onlineLearned||0) + 1;
-    return {loss: avgLoss, n};
+    return {loss: g.loss, n};
   }
 
   serializeAdam(){
