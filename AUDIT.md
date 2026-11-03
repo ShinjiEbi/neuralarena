@@ -79,45 +79,87 @@ Chaque bug corrigé ci-dessous a été reproduit puis revérifié dans Chromium 
 - Étiquettes de topologie calculées.
 - Icônes : 3 copies identiques de 1,8 Mo (1024 px) remplacées par de vraies icônes 192 et 512, plus une version maskable (5,4 Mo → 0,9 Mo).
 
+## Passe 2 — arènes, apprentissage, gameplay
+
+### Arènes à la manière des jeux d'arène sur un seul écran
+
+- **Moteur en tuiles** : arène de 40×24 tuiles de 20 px (800×480) qui tient entièrement à l'écran. Il n'y a plus de caméra qui suit ni de caméra libre.
+- **Bords rebouclés** : sortir à gauche fait réapparaître à droite, tomber dans un puits fait réapparaître en haut. L'IA, les entraîneurs, les flèches et les touches en tiennent compte.
+- **4 cartes originales** :
+  - Crypte ;
+  - Forge ;
+  - Jardins suspendus ;
+  - Beffroi.
+- **Validation automatique des cartes** :
+  - rebouclage cohérent ;
+  - chaque point d'apparition est posé sur un sol ;
+  - toutes les zones sont accessibles en sautant.
+- **Éléments de décor** :
+  - plateformes traversables (on peut s'en laisser tomber avec la touche bas) ;
+  - blocs friables qui tombent vraiment ;
+  - rendu par thème mis en cache.
+- **Pièges** :
+  - placés selon la géométrie de chaque carte ;
+  - lanceur, téléporteur (dans les deux sens) et zone électrique corrigés.
+- **Choix de l'arène** en PvP et à l'entraînement. « Aléatoire » change de carte à chaque round ; à l'entraînement, c'est ce qui force l'IA à généraliser.
+- **Vérification par simulation** : 40 rounds IA contre entraîneurs ont donné 0 entité coincée, 0 NaN, des passages par les bords dans les deux axes, et des rounds tous conclus par une touche.
+
+### Apprentissage
+
+| Mesure | Avant | Après |
+|---|---|---|
+| Passe avant du réseau | 84 µs | 13 µs (résultats identiques au bit près) |
+| Copie d'un cerveau | 1,1 ms | 0,02 ms |
+| Entrées IA (capteurs) | 19 µs | 1,6 µs |
+| Gradients d'un lot | 3,4 ms | 0,24 ms (poids identiques) |
+| Image simulée en entraînement | ~234 µs | ~46 µs |
+
+- **Exploration réelle** : à l'entraînement, les actions sont tirées selon les probabilités du réseau, et le gradient apprend des actions réellement jouées (avec un bonus d'entropie). En partie, l'IA reste déterministe.
+- **Sélection appariée en coulisse** : le champion et un candidat dont les experts GRU sont mutés jouent les mêmes 16 rounds (même carte, mêmes apparitions, même hasard). Le candidat ne remplace le champion qu'avec une avance nette. L'arbitre apprend par gradient. Cela remplace la marche aléatoire (une mutation après chaque round) et la population en round-robin, trop bruitée.
+- **Choix des réglages** : plusieurs variantes ont été comparées sur le taux de victoire en jeu déterministe contre SERA. Un cerveau neuf passe de 0-30 % à environ 55-60 % en quelques centaines de rounds, soit 10 à 20 secondes en mode MAX. Les variantes sans gradient progressent mal.
+- **Entraînement sans fin** :
+  - sauvegarde quand l'écran se verrouille ou que l'onglet se ferme ;
+  - pastille « entraînement en cours » sur les autres écrans.
+- **Fiche du cerveau** : l'entraînement compte maintenant victoires et parties.
+
+### Gameplay
+
+- **Touches simultanées** : appliquées en même temps, ce qui permet une égalité. Une brève invulnérabilité suit chaque coup.
+- **Entraîneurs** : ils gardent une zone d'esquive au lieu de coller l'adversaire (issue #1), et la visée de KURO n'est plus appliquée deux fois.
+- **PvP** : le cerveau n'est plus muté au hasard après chaque round ; il apprend de ses parties par gradient.
+- **Contrôles** :
+  - visée souris possible sur un PC tactile ;
+  - aide clavier ZQSD/WASD.
+- **Mobile** :
+  - en paysage, l'arène prend toute la hauteur et les joysticks se superposent sur les côtés ;
+  - en portrait, une invitation propose de tourner l'écran.
+
 ## Reste à faire (par priorité)
 
-### Gameplay et apprentissage
-
-1. **Policy gradient** : les actions ne sont pas échantillonnées (`p > 0.5` déterministe), et les sorties 3/4 (rotation de visée, continues) sont traitées comme des Bernoulli. Il faudrait échantillonner pendant l'entraînement et sortir 3/4 de la perte.
-2. **PvP** : le cerveau mute après chaque round sans sélection (marche aléatoire). À envisager : ne garder la mutation que si elle fait mieux, ou ne muter qu'entre deux sessions.
-3. **Fitness en PvP** : elle ignore les vraies stats (esquive, précision) ; seuls la survie et la victoire comptent.
-4. **Mode population** : chaque individu ne joue qu'un round par génération, donc la sélection est très bruitée.
-5. **L'entraînement continue quand on quitte l'écran.** L'issue [#1](https://github.com/ShinjiEbi/neuralarena/issues/1) le demande justement, mais il faudrait un indicateur visible et une sauvegarde sur `beforeunload` (on perd jusqu'à 9 rounds si on ferme la page).
-6. **Fenêtre de création** : quand un cerveau actif existe, les curseurs H/out/arb/xavier n'ont pas d'effet. Le candidat est un clone muté du cerveau actif ; c'est maintenant signalé dans l'aperçu.
-7. **Plusieurs humains** : seul le premier humain reçoit les commandes alors que le lobby en autorise plusieurs.
-8. **Pièges** :
-   - le piège d'effondrement est seulement visuel ;
-   - le 2ᵉ piège d'effondrement ne se déclenche jamais ;
-   - le lanceur est réarmé par n'importe quelle entité ;
-   - les projectiles de pièges ne font pas partie des entrées du cerveau.
-9. **Touches simultanées** : l'index le plus bas gagne. Si tout le monde meurt dans la même frame, l'écran affiche « TEMPS ÉCOULÉ ». Il n'y a pas de frames d'invulnérabilité après un coup.
-10. **Stats d'entraînement** : l'entraînement ne met pas à jour victoires/parties dans la fiche du cerveau.
-11. **Visée de KURO** : elle est tournée deux fois par frame.
-12. **Laptops tactiles** : la visée souris est désactivée, et le clavier n'a pas de touche de visée.
+1. **Plafond d'apprentissage** : vers 55-60 % contre SERA. La sortie `aimSnap` (visée automatique sur la position actuelle) domine le jeu. Pistes :
+   - la limiter (temps de recharge, viser la position prédite) ;
+   - ajouter un self-play plus fréquent ;
+   - entraîner aussi la projection de sortie des experts par gradient.
+2. **Mécaniques du genre**, à décider. Toutes changent les entrées de l'IA et demandent une migration des cerveaux :
+   - carquois limité et ramassage des flèches plantées ;
+   - écrasement d'un adversaire en lui sautant sur la tête ;
+   - esquive ou rattrapage de flèche.
+3. **Évaluation de la sélection** : elle se fait sans pièges et en 1 contre 1 ; on pourrait y inclure les pièges choisis.
+4. **Plusieurs humains en local** : seul le premier humain reçoit les commandes.
+5. **Onglet en arrière-plan** : le navigateur y ralentit fortement les minuteries. Un entraînement vraiment continu demanderait un Web Worker.
+6. **Fitness en PvP** : elle ignore encore les vraies stats (esquive, précision).
+7. **Pièges et entrées** : les projectiles de pièges ne font pas partie des entrées du cerveau.
 
 ### Technique
 
-- Remplacer les `onclick="..."` inline par `addEventListener`. Cela permettrait une CSP sans `unsafe-inline`.
-- Factoriser la logique en double :
-  - test de touche flèche/rectangle (5 copies) ;
-  - boucle interval/MAX ;
-  - dessin des plateformes ;
-  - rétropropagation de `learn`/`learnOnline`.
-- Performance :
-  - `drawDungeonBG` reconstruit étoiles et dégradés à chaque frame ;
-  - `clone()` construit un cerveau aléatoire puis le jette (~2 ms).
+- Remplacer les `onclick="..."` inline par `addEventListener`, ce qui permettrait une CSP sans `unsafe-inline`.
 - Accessibilité : `user-scalable=no` combiné à des polices de 4–6 px rend le Labo et les Stats illisibles sur mobile.
 - Héberger la police localement : l'`@import` Google Fonts bloque le rendu.
 
-### Issue #1 (ouverte)
+### Issue #1 (ouverte) — état
 
-- Les entraîneurs collent trop au contact : ajouter une zone d'esquive autour des joueurs.
-- Refaire le fond de l'arène.
-- Entraînement infini en arrière-plan.
-- Sauvegarde sur Google Drive.
-- Radar de fitness par expert.
+- Entraîneurs trop collés au contact : **fait** (zone d'esquive).
+- Fond de l'arène : **fait** (4 arènes à thème).
+- Entraînement infini en arrière-plan : **fait** (mode sans fin, sauvegarde à la mise en veille, pastille). Limite : le navigateur ralentit un onglet caché.
+- Sauvegarde sur Google Drive : à faire.
+- Radar de fitness par expert : à faire.
