@@ -89,6 +89,19 @@ canvas#game.crosshair{cursor:crosshair}
   .jump-btn{width:46px;height:46px;bottom:8px;right:8px}
   .joy-label{display:none}
 }
+/* Paysage tactile : l'arène prend toute la hauteur, les joysticks se superposent
+   sur les bandes libres à gauche et à droite de l'arène */
+@media (orientation:landscape){
+  body.is-touch #touch-pad.on{position:fixed;left:0;right:0;bottom:0;height:70vh;background:transparent;border-top:none;z-index:20}
+  body.is-touch .joy-zone{height:100%}
+  body.is-touch .joy-base{bottom:14px;left:12px}
+  body.is-touch .joy-base.right-base{left:auto;right:64px}
+  body.is-touch .jump-btn{bottom:14px;right:8px}
+  body.is-touch .joy-label{display:none}
+}
+/* Portrait tactile : suggérer de tourner le téléphone */
+#rotate-hint{display:none;position:absolute;top:48px;left:0;right:0;text-align:center;font-family:'Press Start 2P',monospace;font-size:7px;color:rgba(240,160,48,0.55);pointer-events:none;z-index:15}
+@media (orientation:portrait){ body.is-touch #rotate-hint{display:block} }
 @media (max-width:400px){
   .menu-btns{width:92vw}
   .menu-stats{gap:8px}
@@ -363,7 +376,8 @@ body.in-game #tr-bg-pill{bottom:auto;top:44px}
       <div id="mhud-players"></div>
       <div id="mhud-center"><span class="gen-val" id="mh-round">Round 1</span> · <span id="mh-timer" style="color:var(--warn)">0:40</span></div>
     </div>
-    <div id="ctrl-hint-game">WASD · sauter↑ · espace=tir<br>🖱 viser · clic=tir</div>
+    <div id="rotate-hint">↻ Tourne ton téléphone : arène plus grande</div>
+    <div id="ctrl-hint-game">ZQSD / WASD · Z=sauter · S=descendre · espace=tir<br>🖱 viser · clic=tir</div>
     <div id="game-overlay" class="hidden">
       <h2 id="ov-title"></h2>
       <div class="ov-sub" id="ov-sub"></div>
@@ -2306,7 +2320,7 @@ function setupMouseAim(){
 //  ENTITIES
 class Ent {
   // arena : décor de collision (tuiles) dans lequel l'entité évolue
-  constructor(x,y,col,isAI,arena){this.x=x;this.y=y;this.vx=0;this.vy=0;this.w=20;this.h=32;this.col=col;this.ai=isAI;this.gnd=false;this.aim=0;this.face=isAI?-1:1;this.arr=[];this.cd=0;this.ht=0;this.hp=3;this.hitFlash=0;this.arena=arena;}
+  constructor(x,y,col,isAI,arena){this.x=x;this.y=y;this.vx=0;this.vy=0;this.w=20;this.h=32;this.col=col;this.ai=isAI;this.gnd=false;this.aim=0;this.face=isAI?-1:1;this.arr=[];this.cd=0;this.ht=0;this.hp=3;this.hitFlash=0;this.arena=arena;this.dropT=0;}
   update(){
     const A=this.arena;
     this.vy+=GRAV; this.vx*=this.gnd?FRIC:0.96;
@@ -2322,6 +2336,8 @@ class Ent {
     if(this.vy>0){
       if(A.boxSolid(this.x,this.y,this.w,this.h)){
         this.y=Math.floor((this.y+this.h)/TILE)*TILE-this.h; this.vy=0; this.gnd=true;
+      } else if(this.dropT>0){
+        this.dropT--;            // traverse volontairement les plateformes '-'
       } else {
         const top=A.oneWayLanding(this.x,this.w,oldBottom,this.y+this.h);
         if(top>=0){ this.y=top-this.h; this.vy=0; this.gnd=true; }
@@ -2343,6 +2359,14 @@ class Ent {
       if(--a.life<=0){ this.arr.splice(i,1); continue; }
       if(A.solidAt(a.x,a.y)){ a.st=true; a.ang=Math.atan2(a.vy,a.vx); a.vx=0; a.vy=0; a.life=Math.min(a.life,90); }
     }
+  }
+  // Se laisser tomber à travers une plateforme traversable sur laquelle on se tient
+  dropThrough(){
+    if(!this.gnd) return;
+    const ty=Math.floor((this.y+this.h+1)/TILE);
+    const x0=Math.floor(this.x/TILE), x1=Math.floor((this.x+this.w-0.001)/TILE);
+    for(let tx=x0;tx<=x1;tx++) if(this.arena.solidTile(tx,ty)) return; // sol plein dessous
+    this.dropT=8; this.gnd=false; this.vy=Math.max(this.vy,1);
   }
   shoot(){
     if(this.cd>0||this.arr.length>=MAXA)return;
@@ -2926,57 +2950,6 @@ function copyBrainInto(target, src){
   if(src.arb3) target.arb3 = src.arb3.clone();
 }
 
-// Pilote la mutation selon fitness et stagnation
-function selectMutationStrategy(brain, stag, won, hof, best){
-  const fit  = brain.fitness||0;
-  // Conservation : plus la fitness est haute, moins on mute (on préserve)
-  const cons = Math.min(fit/100, 0.85);
-  // Exploration : monte avec la stagnation
-  const expl = Math.min(1 + stag*0.18, 2.8);
-  const nExperts = brain.experts?.length||4;
-
-  if(won){
-    // Victoire : mutation très fine, on conserve ce qui marche
-    brain.mutate(
-      evoParams.mutRateWin * (1-cons*0.7),
-      evoParams.mutPower   * (1-cons*0.6)
-    );
-  } else {
-    const rate  = Math.min(evoParams.mutRateLoss * expl, 0.42);
-    const power = Math.min(evoParams.mutPower    * expl, 0.55);
-    const rand  = Math.random();
-
-    if(best && rand < 0.38){
-      // 38% : crossover avec le meilleur
-      const child = MultiExpertBrain.crossover(brain, best);
-      child.mutate(rate*0.85, power*0.85);
-      copyBrainInto(brain, child);
-
-    } else if(hof.length>=2 && rand < 0.60){
-      // 22% : crossover HoF × HoF
-      const a=hof[Math.floor(Math.random()*Math.min(hof.length,4))];
-      const b=hof[Math.floor(Math.random()*hof.length)];
-      const child=MultiExpertBrain.crossover(a,b);
-      child.mutate(rate*0.8, power*0.8);
-      copyBrainInto(brain, child);
-
-    } else if(best && rand < 0.78){
-      // 18% : repartir du meilleur + mutation forte
-      const child=best.clone();
-      child.mutate(rate*1.3, power*1.3);
-      copyBrainInto(brain, child);
-
-    } else {
-      // 22% : mutation ciblée — expert visée en priorité (le plus dur à apprendre)
-      const expertWeights=[0.15, 0.45, 0.20, 0.20]; // visée = 45% de chance
-      let r=Math.random(), idx=0;
-      for(let i=0;i<expertWeights.length;i++){ r-=expertWeights[i]; if(r<=0){idx=i;break;} }
-      brain.mutate(rate*1.6, power*1.6, Math.min(idx, nExperts-1));
-    }
-    brain.resetMemory();
-  }
-}
-
 // Nouveau candidat : 1 ou 2 experts GRU mutés (la visée plus souvent), plus fort en stagnation.
 // L'arbitre n'est pas muté : il apprend par gradient.
 function mutateExperts(brain, stag){
@@ -3076,7 +3049,8 @@ async function evolveAllMulti(winnerIdx){
       entry.adamState = inMemBrain.pgLearner.serializeAdam();
     }
 
-    selectMutationStrategy(brain, 0, won, [], null);
+    // Pas de mutation ici : en partie, le cerveau apprend de ce qu'il a joué (gradient).
+    // L'évolution (sélection appariée) se fait dans la salle d'entraînement.
 
     entry.brain      = brain.serialize();
     entry.fitness    = brain.fitness;
@@ -3307,6 +3281,7 @@ function stepGame(){
           if(keys['KeyA']||keys['ArrowLeft']){me.vx-=MSPD*0.4;me.face=-1;}
           if(keys['KeyD']||keys['ArrowRight']){me.vx+=MSPD*0.4;me.face=1;}
           if((keys['KeyW']||keys['KeyZ']||keys['ArrowUp'])&&me.gnd){me.vy=JUMP;}
+          if(keys['KeyS']||keys['ArrowDown']) me.dropThrough();
           if(keys['Space']) me.shoot();
 
           // ── Visée souris (dès qu'une souris bouge, même sur un PC tactile) ──
@@ -3327,6 +3302,7 @@ function stepGame(){
             if(ly<-0.6&&me.gnd) me.vy=JUMP;
           }
           if(joyState.jump&&me.gnd) me.vy=JUMP;
+          if(joyState.left.active&&joyState.left.y>0.7) me.dropThrough();
 
           // ── Joystick droit (visée + tir) ──────────────────────
           if(joyState.right.active){
@@ -4619,6 +4595,7 @@ let trTrainedId = null;   // cerveau entraîné, figé au démarrage (le sélect
 let trTrainedName = '';
 let trSession = 0;        // invalide les rounds/timers d'une session arrêtée
 let trStartGen = 1;
+let trUnsaved = {wins:0, played:0};   // rounds joués depuis la dernière sauvegarde
 let trSaveChain = Promise.resolve();
 // ── Sélection évolutive appariée ──
 // Après chaque round affiché, des candidats (experts GRU mutés) et le champion jouent en
@@ -4822,6 +4799,7 @@ async function trainingStart(){
   trBrain.generation=entry.generation||1;
   trStartGen=trBrain.generation;
   trEsGen=0; trEsAccepted=0; trEsLast=null; trEvolving=false;
+  trUnsaved={wins:0, played:0};
   // Attacher le learner par gradient (persistance de l'état Adam)
   trBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
   if(entry.adamState) trBrain.pgLearner.loadAdam(entry.adamState);
@@ -5104,6 +5082,7 @@ function startTrainRound(){
   function onRoundEnd(){
     const won = trRoundOutcome === 'win';
     trRoundsDone++;
+    trUnsaved.played++; if(won) trUnsaved.wins++;
 
     // Curriculum tracking
     trCurriculumTotal++;
@@ -5382,6 +5361,9 @@ async function _saveTrainResults(){
   entry.personality= trBrainPersonality;
   // Génération = paliers d'objectifs atteints
   entry.generation = Math.max(entry.generation||1, brainToSave.generation||1);
+  entry.wins   = (entry.wins||0)   + trUnsaved.wins;
+  entry.played = (entry.played||0) + trUnsaved.played;
+  trUnsaved = {wins:0, played:0};
   const adamToSave = trBrain?.pgLearner?.serializeAdam();
   if(adamToSave) entry.adamState = adamToSave;
   await store.put('brains', entry);
@@ -5391,7 +5373,11 @@ async function _saveTrainResults(){
     activeBrain = brainToSave.clone();
     activeBrain.fitness = brainToSave.fitness;
     activeBrain.elo     = brainToSave.elo;
-    generation = entry.generation;
+    activeBrain.pgLearner = new PolicyGradientLearner(0.001, 0.97);
+    if(entry.adamState) activeBrain.pgLearner.loadAdam(entry.adamState);
+    generation  = entry.generation;
+    totalWins   = entry.wins;
+    totalPlayed = entry.played;
   }
 
   if(trRoundsDone>0) toast(`${trRoundsDone} rounds · ELO ${brainToSave.elo}`);
