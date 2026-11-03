@@ -160,6 +160,36 @@ Chaque bug corrigé ci-dessous a été reproduit puis revérifié dans Chromium 
 - **Zoom** : le pinch-zoom est autorisé hors de l'écran de jeu, et il n'y a plus de zoom au double-tap sur les boutons.
 - **Mise en page** : les explications de la config d'entraînement ne sont plus coincées un mot par ligne. Aucun débordement horizontal à 390 px de large.
 
+## Passe 4 — physique et déplacements
+
+| Mesure | Avant | Après |
+|---|---|---|
+| Vitesse de course | 6,4 px/image (arène traversée en 2 s) | 3,6 px/image (3,7 s) |
+| Atteindre la vitesse max | ~10 images | 6 images |
+| Arrêt | 24 images, 29 px de glissade | 4 images, 5 px |
+| Portée d'un saut en courant | 414 px (la moitié de la carte) | 180 px |
+| Saut complet / petit saut | 127 px, toujours la même hauteur | 122 px / ~55 px (relâcher tôt) |
+| Chute maximale | 15 px/image | 9,5 px/image (12,5 en chute rapide) |
+
+- **Modèle par intention** : les pilotes (clavier, joysticks, IA, entraîneurs, rookie) ne modifient plus les vitesses. Ils donnent une intention (direction, saut maintenu, bas), et `Ent.update` applique un modèle unique :
+  - vitesse cible avec accélération et freinage rapides ;
+  - gravité plus forte en descente, et léger flottement au sommet quand on maintient le saut.
+- **Tolérances** :
+  - saut accepté 6 images après avoir quitté un bord ;
+  - appui sur saut mémorisé 6 images avant d'atterrir ;
+  - correction des coins de plafond (glisse jusqu'à 6 px au lieu de se cogner).
+- **Murs** : glissade en poussant un mur, et saut mural (rebond vers l'opposé). Les entraîneurs dès SERA utilisent le saut mural, et ils sautent quand ils restent bloqués contre un obstacle.
+- **Joueur humain** :
+  - saut variable (relâcher tôt donne un petit saut) ;
+  - chute rapide en maintenant bas ;
+  - joystick gauche analogique.
+- **Vent** : il pousse la position et non plus la vitesse, sinon le freinage actif l'annulait.
+- **Flèches plus tendues** : chute de 0,12 au lieu de 0,18, vitesse 12.
+- **Poussière** au saut, à l'atterrissage, au saut mural et pendant la glissade, dans les parties affichées uniquement.
+- **Vérifications** :
+  - Les cartes sont revalidées par simulation de la vraie physique (marches, sauts avec ou sans élan, changements de direction, sauts muraux). Toutes les apparitions communiquent et 98 à 100 % des emplacements sont accessibles. Seuls deux recoins décoratifs ne le sont plus.
+  - L'apprentissage fonctionne toujours : de 30 à 40 % de victoires contre SERA en 2 500 rounds.
+
 ## Reste à faire (par priorité)
 
 1. **Dépasser le plateau d'apprentissage**, vers 35 % contre SERA. Pistes :

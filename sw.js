@@ -1,5 +1,5 @@
 // Incrémenter à chaque déploiement qui change la liste ASSETS
-const CACHE_NAME = 'neuralarena-v27';
+const CACHE_NAME = 'neuralarena-v28';
 const ASSETS = [
   './',
   './index.html',

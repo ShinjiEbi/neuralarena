@@ -385,8 +385,28 @@ class Store {
 const SLOT_COLORS=['#60c8ff','#ff4444','#60ff80','#f0c040'];
 const SLOT_NAMES=['P1','P2','P3','P4'];
 
-const GRAV=0.38,FRIC=0.82,JUMP=-10,MSPD=3.5;
-const ASPD=13,AGRAV=0.18,ADRAG=0.998,MAXA=5,COOLDOWN=26;
+// ── Déplacements ─────────────────────────────────────────────────
+// Modèle arcade nerveux : vitesse cible avec accélération/freinage rapides, gravité plus
+// forte en descente, léger flottement au sommet du saut, tolérances (saut juste après avoir
+// quitté un bord, saut mémorisé juste avant d'atterrir), glissade et saut contre les murs,
+// correction des coins de plafond. Valeurs en px par image (60 images/s).
+const MOVE = {
+  RUN: 3.6,                         // vitesse de course
+  ACC_GROUND: 0.6, DEC_GROUND: 0.9, // ~6 images pour atteindre la vitesse, ~4 pour s'arrêter
+  ACC_AIR: 0.35,   DEC_AIR: 0.12,   // contrôle en l'air, élan conservé si on lâche
+  GRAV_UP: 0.42, GRAV_DOWN: 0.56,   // montée plus douce que la chute
+  APEX_V: 1.2, APEX_MUL: 0.55,      // flottement au sommet (saut maintenu)
+  JUMP: -10.3,                      // ≈ 6,5 tuiles de haut
+  JUMP_CUT: -3.5,                   // saut relâché tôt (humains) : petit saut
+  MAX_FALL: 9.5, FAST_FALL: 12.5,   // vitesse de chute max (bas maintenu : chute rapide)
+  WALL_SLIDE: 2.2,                  // glissade contre un mur en le poussant
+  WALL_JUMP_VX: 4.2, WALL_JUMP_VY: -9.4, WALL_LOCK: 8,
+  COYOTE: 6, BUFFER: 6,             // tolérances (images)
+  CORNER: 6,                        // correction de coin de plafond (px)
+};
+const JUMP = MOVE.JUMP;
+// Flèches : plus tendues qu'avant (chute 0.12 au lieu de 0.18)
+const ASPD=12,AGRAV=0.12,ADRAG=0.998,MAXA=5,COOLDOWN=26;
 
 // ================================================================
 //  ARÈNES — cartes en tuiles sur un seul écran, bords qui se rebouclent
@@ -910,31 +930,98 @@ let particles=[];
 // ================================================================
 //  ENTITIES
 class Ent {
-  // arena : décor de collision (tuiles) dans lequel l'entité évolue
-  constructor(x,y,col,isAI,arena){this.x=x;this.y=y;this.vx=0;this.vy=0;this.w=20;this.h=32;this.col=col;this.ai=isAI;this.gnd=false;this.aim=0;this.face=isAI?-1:1;this.arr=[];this.cd=0;this.ht=0;this.hp=3;this.hitFlash=0;this.arena=arena;this.dropT=0;}
+  // arena : décor de collision (tuiles) dans lequel l'entité évolue.
+  // ctl : intention du pilote pour cette image (humain, IA ou entraîneur) :
+  //   mx ∈ [-1,1] direction, jump (bouton maintenu), down (bas maintenu).
+  constructor(x,y,col,isAI,arena){
+    this.x=x;this.y=y;this.vx=0;this.vy=0;this.w=20;this.h=32;this.col=col;this.ai=isAI;
+    this.gnd=false;this.aim=0;this.face=isAI?-1:1;this.arr=[];this.cd=0;this.ht=0;this.hp=3;this.hitFlash=0;
+    this.arena=arena;this.dropT=0;
+    this.ctl={mx:0, jump:false, down:false};
+    this.push=0;                 // poussée extérieure de cette image (vent), px
+    this.coyote=0; this.jumpBuf=0; this._jumpPrev=false;
+    this.wallDir=0; this.wallT=0; this.lockT=0;
+    this.fx=false;               // poussière de déplacement (parties affichées seulement)
+  }
+  // Petit nuage de poussière (sauts, atterrissages, glissade murale)
+  _dust(x,y,n,dirX=0){
+    if(!this.fx) return;
+    for(let i=0;i<n;i++) particles.push({x:x+(Math.random()-0.5)*10, y, vx:dirX*Math.random()*1.5+(Math.random()-0.5)*1.2,
+      vy:-Math.random()*1.2, life:12+Math.random()*10, col:'#b8a8d8', sz:2});
+  }
   update(){
-    const A=this.arena;
-    this.vy+=GRAV; this.vx*=this.gnd?FRIC:0.96;
-    this.vx=Math.max(-8,Math.min(8,this.vx)); this.vy=Math.max(-15,Math.min(15,this.vy));
-    // Déplacement par axe contre la grille de tuiles (vitesses < 1 tuile/frame : pas de traversée)
-    this.x+=this.vx;
-    if(this.vx!==0 && A.boxSolid(this.x,this.y,this.w,this.h)){
-      this.x = this.vx>0 ? Math.floor((this.x+this.w)/TILE)*TILE-this.w-0.001 : (Math.floor(this.x/TILE)+1)*TILE+0.001;
+    const A=this.arena, M=MOVE, c=this.ctl;
+    // ── Saut : appui mémorisé quelques images, autorisé peu après avoir quitté le sol
+    const jumpEdge = c.jump && !this._jumpPrev; this._jumpPrev=!!c.jump;
+    if(jumpEdge) this.jumpBuf=M.BUFFER; else if(this.jumpBuf>0) this.jumpBuf--;
+    if(this.gnd) this.coyote=M.COYOTE; else if(this.coyote>0) this.coyote--;
+    // Contact avec un mur (en l'air) : -1 à gauche, 1 à droite
+    const wall = this.gnd ? 0 : A.boxSolid(this.x-1,this.y+4,1,this.h-8) ? -1 : A.boxSolid(this.x+this.w,this.y+4,1,this.h-8) ? 1 : 0;
+    if(wall){ this.wallDir=wall; this.wallT=4; } else if(this.wallT>0) this.wallT--;
+    if(this.lockT>0) this.lockT--;
+
+    // ── Horizontal : on tend vers la vitesse cible
+    const mx=Math.max(-1,Math.min(1,c.mx||0));
+    const target=mx*M.RUN;
+    let acc;
+    if(this.gnd) acc = mx ? (this.vx*mx<0 ? M.DEC_GROUND+M.ACC_GROUND : M.ACC_GROUND) : M.DEC_GROUND;
+    else         acc = mx ? M.ACC_AIR : M.DEC_AIR;
+    if(this.lockT>0) acc*=0.3;      // juste après un saut mural : l'élan n'est pas annulé tout de suite
+    this.vx = this.vx<target ? Math.min(this.vx+acc,target) : Math.max(this.vx-acc,target);
+
+    if(this.jumpBuf>0){
+      if(this.gnd || this.coyote>0){
+        this.vy=M.JUMP; this.jumpBuf=0; this.coyote=0; this.gnd=false;
+        this._dust(this.x+this.w/2, this.y+this.h, 4);
+      } else if(this.wallT>0){
+        this.vy=M.WALL_JUMP_VY; this.vx=-this.wallDir*M.WALL_JUMP_VX; this.face=-this.wallDir;
+        this.jumpBuf=0; this.wallT=0; this.lockT=M.WALL_LOCK;
+        this._dust(this.x+(this.wallDir>0?this.w:0), this.y+this.h*0.7, 5, -this.wallDir);
+      }
+    }
+    // Saut variable (humains) : relâcher le bouton coupe la montée
+    if(!this.ai && !c.jump && this.vy<M.JUMP_CUT) this.vy=M.JUMP_CUT;
+
+    // ── Gravité
+    let g = this.vy<0 ? M.GRAV_UP : M.GRAV_DOWN;
+    if(Math.abs(this.vy)<M.APEX_V && (c.jump||this.ai)) g*=M.APEX_MUL;
+    this.vy+=g;
+    let maxFall = (c.down && !this.ai) ? M.FAST_FALL : M.MAX_FALL;
+    if(wall && this.vy>0 && mx*wall>0){                         // glissade en poussant le mur
+      maxFall=M.WALL_SLIDE;
+      if(Math.random()<0.25) this._dust(this.x+(wall>0?this.w:0), this.y+this.h*0.6, 1, -wall);
+    }
+    this.vx=Math.max(-8,Math.min(8,this.vx)); this.vy=Math.max(-15,Math.min(maxFall,this.vy));
+
+    // ── Collisions par axe contre la grille (vitesses < 1 tuile/image : pas de traversée)
+    const dx=this.vx+this.push; this.push=0;
+    this.x+=dx;
+    if(dx!==0 && A.boxSolid(this.x,this.y,this.w,this.h)){
+      this.x = dx>0 ? Math.floor((this.x+this.w)/TILE)*TILE-this.w-0.001 : (Math.floor(this.x/TILE)+1)*TILE+0.001;
       this.vx=0;
     }
     const oldBottom=this.y+this.h;
     this.y+=this.vy; this.gnd=false;
+    const fallV=this.vy;
     if(this.vy>0){
       if(A.boxSolid(this.x,this.y,this.w,this.h)){
         this.y=Math.floor((this.y+this.h)/TILE)*TILE-this.h; this.vy=0; this.gnd=true;
+        if(fallV>4) this._dust(this.x+this.w/2, this.y+this.h, Math.min(6,Math.round(fallV/2)));
       } else if(this.dropT>0){
         this.dropT--;            // traverse volontairement les plateformes '-'
       } else {
         const top=A.oneWayLanding(this.x,this.w,oldBottom,this.y+this.h);
-        if(top>=0){ this.y=top-this.h; this.vy=0; this.gnd=true; }
+        if(top>=0){ this.y=top-this.h; this.vy=0; this.gnd=true; if(fallV>4) this._dust(this.x+this.w/2, this.y+this.h, 3); }
       }
     } else if(this.vy<0 && A.boxSolid(this.x,this.y,this.w,this.h)){
-      this.y=(Math.floor(this.y/TILE)+1)*TILE; this.vy=0;
+      // Coin de plafond frôlé : on glisse sur le côté au lieu de se cogner
+      let fixed=false;
+      for(let d=1; d<=M.CORNER && !fixed; d++){
+        for(const s of [d,-d]){
+          if(!A.boxSolid(this.x+s,this.y,this.w,this.h)){ this.x+=s; fixed=true; break; }
+        }
+      }
+      if(!fixed){ this.y=(Math.floor(this.y/TILE)+1)*TILE; this.vy=0; }
     }
     // Rebouclage : sortir d'un côté fait revenir de l'autre
     this.x=wrapX(this.x); this.y=wrapY(this.y);
@@ -1189,8 +1276,8 @@ function aiInputsFor(me, target, allArrows, timer){
   const rY=dyT/WH;
   const dist=Math.min(Math.sqrt(rX*rX+rY*rY)*2, 1);
 
-  const mVx=me.vx/MSPD, mVy=me.vy/15;
-  const eVx=target.vx/MSPD, eVy=target.vy/15;
+  const mVx=me.vx/MOVE.RUN, mVy=me.vy/10;
+  const eVx=target.vx/MOVE.RUN, eVy=target.vy/10;
 
   const aim=me.aim/Math.PI;
 
@@ -1271,9 +1358,8 @@ function aiSample(out){
 // Applique les sorties du réseau à l'entité. Renvoie les actions jouées (0/1).
 function aiProcessFor(out, ent, target=null){
   const a=aiSample(out);
-  if(a[0]){ ent.vx-=MSPD*0.4; ent.face=-1; }
-  if(a[1]){ ent.vx+=MSPD*0.4; ent.face=1; }
-  if(a[2] && ent.gnd) ent.vy=JUMP;
+  ent.ctl.mx=a[1]-a[0]; ent.ctl.jump=!!a[2];
+  if(a[0]&&!a[1]) ent.face=-1; else if(a[1]&&!a[0]) ent.face=1;
   ent.aim += (a[4]-a[3]) * 0.18;
   // Garder l'angle dans [-π, π] : sinon l'entrée aim/π sature le réseau et les
   // calculs d'écart de visée (récompenses) partent en valeurs absurdes.
@@ -1503,7 +1589,7 @@ class ScriptedAgent {
   // un champ manquant donne NaN dans act() et l'agent ne tire plus).
   reset(){
     this.mem = {
-      jumpCooldown:0, retreatDir:0, retreatTimer:0,
+      jumpCooldown:0, retreatDir:0, retreatTimer:0, stuckT:0,
       patternBuf:[], losSearchDir:0, losSearchTimer:0, platSearchTimer:0,
       shootCooldown:0,  // discipline de tir (L2+)
       frozenTimer:0,    // pause confusion KURO (L1)
@@ -1758,9 +1844,13 @@ class ScriptedAgent {
     }
 
     // ── APPLIQUER ─────────────────────────────────────────────
-    if(moveX < 0){ me.vx -= MSPD*0.4; me.face=-1; }
-    if(moveX > 0){ me.vx += MSPD*0.4; me.face=1; }
-    if(doJump && me.gnd) me.vy = JUMP;
+    // Bloqué contre un obstacle au sol : sauter ; en l'air contre un mur : saut mural
+    if(moveX!==0 && me.gnd && Math.abs(me.vx)<0.3) m.stuckT=(m.stuckT||0)+1; else m.stuckT=0;
+    if(m.stuckT>8 && m.jumpCooldown===0){ doJump=true; m.jumpCooldown=25; m.stuckT=0; }
+    if(!me.gnd && me.wallT>0 && me.wallDir===moveX && me.vy>-1 && this.level>=2 && m.jumpCooldown===0){
+      doJump=true; m.jumpCooldown=20;
+    }
+    me.ctl.mx=moveX; me.ctl.jump=doJump;
     if(doShoot) me.shoot();
     me.face = dx > 0 ? 1 : -1;
   }
@@ -1974,7 +2064,7 @@ class Trap {
   _updateWind(entities, proj){
     for(const e of entities){
       if(e.x+e.w>this.x&&e.x<this.x+this.cfg.w&&e.y+e.h>this.y&&e.y<this.y+(this.cfg.h||WH)){
-        e.vx += this.dir*this.strength*0.04;
+        e.push += this.dir*this.strength*0.5;
       }
     }
     for(const a of proj){

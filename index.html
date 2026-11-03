@@ -380,7 +380,7 @@ body.in-game #tr-bg-pill{bottom:auto;top:44px}
       <div id="mhud-center"><span class="gen-val" id="mh-round">Round 1</span> · <span id="mh-timer" style="color:var(--warn)">0:40</span></div>
     </div>
     <div id="rotate-hint">↻ Tourne ton téléphone : arène plus grande</div>
-    <div id="ctrl-hint-game">ZQSD / WASD · Z=sauter · S=descendre · espace=tir<br>🖱 viser · clic=tir</div>
+    <div id="ctrl-hint-game">ZQSD / WASD · Z=sauter (maintenir = plus haut, contre un mur = saut mural) · S=descendre / chute rapide · espace=tir<br>🖱 viser · clic=tir</div>
     <div id="game-overlay" class="hidden">
       <h2 id="ov-title"></h2>
       <div class="ov-sub" id="ov-sub"></div>
@@ -1339,6 +1339,7 @@ async function _startPVP(){
     ent._slotIndex=s.index;
     ent._label=SLOT_NAMES[s.index]+(s.type==='ai'?' IA':' JOU');
     ent._brainId=s.type==='ai'?s.brainId:null;
+    ent.fx=true;
     ent._isTrainer=false;
     players.push(ent);
     playerAlive.push(true);
@@ -1371,6 +1372,7 @@ async function _startPVP(){
     ent._label=`${['ROOKIE','FIGHTER','VETERAN','MASTER'][a.level-1]} ${ti+1}`;
     ent._brainId=null;
     ent._isTrainer=true;
+    ent.fx=true;
     players.push(ent);
     playerAlive.push(true);
     playerWins.push(0);
@@ -1836,10 +1838,12 @@ function stepGame(){
         // Humain : clavier + joysticks (premier humain seulement)
         const isFirstHuman=players.slice(0,i).every((_,j)=>playerBrains[j]!==null);
         if(isFirstHuman){
-          if(keys['KeyA']||keys['ArrowLeft']){me.vx-=MSPD*0.4;me.face=-1;}
-          if(keys['KeyD']||keys['ArrowRight']){me.vx+=MSPD*0.4;me.face=1;}
-          if((keys['KeyW']||keys['KeyZ']||keys['ArrowUp'])&&me.gnd){me.vy=JUMP;}
-          if(keys['KeyS']||keys['ArrowDown']) me.dropThrough();
+          // Intention du joueur : direction, saut maintenu (petit saut si relâché tôt), bas
+          const kl=keys['KeyA']||keys['ArrowLeft'], kr=keys['KeyD']||keys['ArrowRight'];
+          let mx=(kr?1:0)-(kl?1:0);
+          let jump=!!(keys['KeyW']||keys['KeyZ']||keys['ArrowUp']);
+          let down=!!(keys['KeyS']||keys['ArrowDown']);
+          if(mx) me.face=mx;
           if(keys['Space']) me.shoot();
 
           // ── Visée souris (dès qu'une souris bouge, même sur un PC tactile) ──
@@ -1853,14 +1857,16 @@ function stepGame(){
             if(mouseShoot) me.shoot();
           }
 
-          // ── Joystick gauche (déplacement) ─────────────────────
+          // ── Joystick gauche (déplacement analogique) + bouton saut ──
           if(joyState.left.active){
             const lx=joyState.left.x,ly=joyState.left.y;
-            if(Math.abs(lx)>DEADZONE){me.vx+=lx*MSPD*0.5;me.face=lx>0?1:-1;}
-            if(ly<-0.6&&me.gnd) me.vy=JUMP;
+            if(Math.abs(lx)>DEADZONE){ mx=Math.max(-1,Math.min(1,lx*1.4)); me.face=lx>0?1:-1; }
+            if(ly<-0.6) jump=true;
+            if(ly>0.7) down=true;
           }
-          if(joyState.jump&&me.gnd) me.vy=JUMP;
-          if(joyState.left.active&&joyState.left.y>0.7) me.dropThrough();
+          if(joyState.jump) jump=true;
+          me.ctl.mx=mx; me.ctl.jump=jump; me.ctl.down=down;
+          if(down) me.dropThrough();
 
           // ── Joystick droit (visée + tir) ──────────────────────
           if(joyState.right.active){
@@ -3056,9 +3062,9 @@ function glStartStage3(){
 function glRookieThink(rookie, target){
   const dx=(target.x+target.w/2)-(rookie.x+rookie.w/2);
   const dy=(target.y+target.h/2)-(rookie.y+rookie.h/2);
-  if(dx > 10){ rookie.vx+=MSPD*0.25; rookie.face=1; }
-  else if(dx < -10){ rookie.vx-=MSPD*0.25; rookie.face=-1; }
-  if(rookie.gnd && Math.random()<0.012) rookie.vy=JUMP;
+  rookie.ctl.mx = dx>10 ? 0.6 : dx<-10 ? -0.6 : 0;
+  if(rookie.ctl.mx) rookie.face=Math.sign(rookie.ctl.mx);
+  rookie.ctl.jump = rookie.gnd && Math.random()<0.012;
   rookie.aim=Math.atan2(dy,dx);
   if(rookie.cd===0 && Math.abs(dx)<600) rookie.shoot();
 }
