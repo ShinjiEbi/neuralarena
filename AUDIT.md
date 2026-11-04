@@ -134,32 +134,86 @@ Chaque bug corrigé ci-dessous a été reproduit puis revérifié dans Chromium 
   - en paysage, l'arène prend toute la hauteur et les joysticks se superposent sur les côtés ;
   - en portrait, une invitation propose de tourner l'écran.
 
+## Passe 3 — visée, entraînement en arrière-plan, lisibilité
+
+### Visée automatique limitée et politique stochastique
+
+- **Visée automatique** : la sortie 6 ne place plus l'arc instantanément sur l'adversaire. Elle le tourne vers lui à 0,06 rad par image, contre 0,18 pour la visée manuelle. Viser juste, en anticipant le mouvement et la chute de la flèche, redevient une compétence à apprendre.
+- **Politique stochastique partout** : l'IA tire ses actions selon les probabilités du réseau, en partie comme à l'entraînement.
+  - Avant, on seuillait à 0,5 en partie. Une IA qui avait appris « tirer 30 % du temps quand c'est bien visé » ne tirait alors jamais, et l'entraînement pouvait faire chuter le jeu à 0 % de victoires.
+  - Maintenant, la politique jouée est exactement celle qu'optimise le gradient.
+- **Résultat mesuré** (6 000 rounds, contre SERA) : un cerveau neuf passe d'environ 23-27 % à environ 35 % en 2 000 rounds, puis plafonne. C'est moins que les 55-60 % de l'ancienne visée instantanée, mais ceux-ci venaient d'un « aimbot », pas d'un apprentissage. Un taux d'apprentissage 3× plus élevé ne change rien.
+
+### Entraînement dans un Web Worker
+
+- **Découpage du code** :
+  - `sim-core.js` regroupe le cœur de simulation : réseaux, gradient, arènes, entités, IA, entraîneurs, pièges, notation, stockage et la classe `TrainingSession`. Il est partagé par la page et par `train-worker.js`.
+  - La page ne fait plus que piloter (démarrer, vitesse, arrêter) et afficher : aperçu, courbe, stats.
+- **Sauvegarde** : le worker écrit lui-même dans IndexedDB, tous les 10 rounds, toutes les 15 s, quand l'écran se verrouille et à l'arrêt.
+- **Interface** : en mode MAX, elle ne se bloque jamais plus de 8 ms (contre 40 à 70 ms avant). Un onglet en arrière-plan n'est plus ralenti par le bridage des minuteries.
+- **Secours** : sans Web Worker (par exemple en `file://`), le même pilote tourne dans la page.
+- **Limite** : sur mobile, l'écran verrouillé suspend toute la page, worker compris. Seule la sauvegarde au verrouillage protège la progression.
+
+### Lisibilité mobile
+
+- **Tailles de police** : plus aucun texte sous 8 px (avant : 4 à 7 px dans le Labo, les Stats et l'entraînement).
+- **Zoom** : le pinch-zoom est autorisé hors de l'écran de jeu, et il n'y a plus de zoom au double-tap sur les boutons.
+- **Mise en page** : les explications de la config d'entraînement ne sont plus coincées un mot par ligne. Aucun débordement horizontal à 390 px de large.
+
+## Passe 4 — physique et déplacements
+
+| Mesure | Avant | Après |
+|---|---|---|
+| Vitesse de course | 6,4 px/image (arène traversée en 2 s) | 3,6 px/image (3,7 s) |
+| Atteindre la vitesse max | ~10 images | 6 images |
+| Arrêt | 24 images, 29 px de glissade | 4 images, 5 px |
+| Portée d'un saut en courant | 414 px (la moitié de la carte) | 180 px |
+| Saut complet / petit saut | 127 px, toujours la même hauteur | 122 px / ~55 px (relâcher tôt) |
+| Chute maximale | 15 px/image | 9,5 px/image (12,5 en chute rapide) |
+
+- **Modèle par intention** : les pilotes (clavier, joysticks, IA, entraîneurs, rookie) ne modifient plus les vitesses. Ils donnent une intention (direction, saut maintenu, bas), et `Ent.update` applique un modèle unique :
+  - vitesse cible avec accélération et freinage rapides ;
+  - gravité plus forte en descente, et léger flottement au sommet quand on maintient le saut.
+- **Tolérances** :
+  - saut accepté 6 images après avoir quitté un bord ;
+  - appui sur saut mémorisé 6 images avant d'atterrir ;
+  - correction des coins de plafond (glisse jusqu'à 6 px au lieu de se cogner).
+- **Murs** : glissade en poussant un mur, et saut mural (rebond vers l'opposé). Les entraîneurs dès SERA utilisent le saut mural, et ils sautent quand ils restent bloqués contre un obstacle.
+- **Joueur humain** :
+  - saut variable (relâcher tôt donne un petit saut) ;
+  - chute rapide en maintenant bas ;
+  - joystick gauche analogique.
+- **Vent** : il pousse la position et non plus la vitesse, sinon le freinage actif l'annulait.
+- **Flèches plus tendues** : chute de 0,12 au lieu de 0,18, vitesse 12.
+- **Poussière** au saut, à l'atterrissage, au saut mural et pendant la glissade, dans les parties affichées uniquement.
+- **Vérifications** :
+  - Les cartes sont revalidées par simulation de la vraie physique (marches, sauts avec ou sans élan, changements de direction, sauts muraux). Toutes les apparitions communiquent et 98 à 100 % des emplacements sont accessibles. Seuls deux recoins décoratifs ne le sont plus.
+  - L'apprentissage fonctionne toujours : de 30 à 40 % de victoires contre SERA en 2 500 rounds.
+
 ## Reste à faire (par priorité)
 
-1. **Plafond d'apprentissage** : vers 55-60 % contre SERA. La sortie `aimSnap` (visée automatique sur la position actuelle) domine le jeu. Pistes :
-   - la limiter (temps de recharge, viser la position prédite) ;
-   - ajouter un self-play plus fréquent ;
-   - entraîner aussi la projection de sortie des experts par gradient.
-2. **Mécaniques du genre**, à décider. Toutes changent les entrées de l'IA et demandent une migration des cerveaux :
-   - carquois limité et ramassage des flèches plantées ;
-   - écrasement d'un adversaire en lui sautant sur la tête ;
-   - esquive ou rattrapage de flèche.
-3. **Évaluation de la sélection** : elle se fait sans pièges et en 1 contre 1 ; on pourrait y inclure les pièges choisis.
-4. **Plusieurs humains en local** : seul le premier humain reçoit les commandes.
-5. **Onglet en arrière-plan** : le navigateur y ralentit fortement les minuteries. Un entraînement vraiment continu demanderait un Web Worker.
-6. **Fitness en PvP** : elle ignore encore les vraies stats (esquive, précision).
-7. **Pièges et entrées** : les projectiles de pièges ne font pas partie des entrées du cerveau.
+1. **Dépasser le plateau d'apprentissage**, vers 35 % contre SERA. Pistes :
+   - entraîner aussi par gradient la projection de sortie des experts (`Wo`) ;
+   - revoir le façonnage des récompenses de visée ;
+   - plus de self-play ;
+   - une évaluation de la sélection qui inclut les pièges.
+2. **Mécaniques du genre**, à décider. Toutes changent les entrées de l'IA :
+   - carquois limité et ramassage des flèches ;
+   - écrasement d'un adversaire par le dessus ;
+   - esquive.
+3. **Plusieurs humains en local**.
+4. **Fitness en PvP** : elle ignore encore les vraies stats (esquive, précision).
+5. **Pièges et entrées** : les projectiles de pièges ne font pas partie des entrées du cerveau.
 
 ### Technique
 
 - Remplacer les `onclick="..."` inline par `addEventListener`, ce qui permettrait une CSP sans `unsafe-inline`.
-- Accessibilité : `user-scalable=no` combiné à des polices de 4–6 px rend le Labo et les Stats illisibles sur mobile.
 - Héberger la police localement : l'`@import` Google Fonts bloque le rendu.
 
 ### Issue #1 (ouverte) — état
 
 - Entraîneurs trop collés au contact : **fait** (zone d'esquive).
 - Fond de l'arène : **fait** (4 arènes à thème).
-- Entraînement infini en arrière-plan : **fait** (mode sans fin, sauvegarde à la mise en veille, pastille). Limite : le navigateur ralentit un onglet caché.
+- Entraînement infini en arrière-plan : **fait** (mode sans fin, Web Worker, sauvegarde à la mise en veille, pastille). Limite : un écran de téléphone verrouillé suspend la page.
 - Sauvegarde sur Google Drive : à faire.
 - Radar de fitness par expert : à faire.

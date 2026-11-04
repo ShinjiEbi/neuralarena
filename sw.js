@@ -1,8 +1,10 @@
 // Incrémenter à chaque déploiement qui change la liste ASSETS
-const CACHE_NAME = 'neuralarena-v26';
+const CACHE_NAME = 'neuralarena-v28';
 const ASSETS = [
   './',
   './index.html',
+  './sim-core.js',
+  './train-worker.js',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
